@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F3F4F6;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary: #3B82F6;
+  --primary-foreground: #ffffff;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  --accent: #F3F4F6;
+  --accent-foreground: #111827;
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #3B82F6;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --radius: 8px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --font-sans: 'Inter', Arial, Helvetica, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+}
+
+/* ── FullCalendar Dental Theme ─────────────────────── */
+.fc-dental .fc-timegrid-slot {
+  height: 48px !important;
+}
+.fc-dental .fc-timegrid-slot-label {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 500;
+  vertical-align: top;
+  padding-top: 4px;
+}
+.fc-dental .fc-col-header-cell-cushion {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  padding: 8px 0;
+  text-decoration: none;
+}
+.fc-dental .fc-col-header-cell {
+  background: #F9FAFB;
+  border-bottom: 2px solid #E5E7EB !important;
+}
+.fc-dental .fc-timegrid-event {
+  border-radius: 6px !important;
+  border: none !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+}
+.fc-dental .fc-timegrid-event:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.fc-dental .fc-timegrid-event-harness {
+  padding-inline-end: 2px;
+  box-sizing: border-box;
+}
+.fc-dental .fc-scrollgrid {
+  border-color: #E5E7EB;
+}
+.fc-dental .fc-timegrid-divider {
+  display: none;
+}
+.fc-dental .fc-now-indicator-line {
+  border-color: #EF4444;
+  border-width: 2px;
+}
+.fc-dental .fc-now-indicator-arrow {
+  border-top-color: #EF4444;
+}
+.fc-dental .fc-event-past {
+  opacity: 1 !important;
 }
