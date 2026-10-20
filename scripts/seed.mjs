@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const CLINIC_ID = '76fdeef2-2347-4ac2-9d3f-fc4456ef57a9'
+// Clínica que recebe os dados: CLINIC_ID do ambiente ou, se não houver, a primeira clínica do banco
+let CLINIC_ID = process.env.CLINIC_ID
 
 // Rodar com: node --env-file=.env.local scripts/seed.mjs
 const { NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
@@ -31,6 +32,12 @@ const PR = (n) => `a1000001-0000-4000-8000-${String(n).padStart(12, '0')}`
 const IV = (n) => `a2000001-0000-4000-8000-${String(n).padStart(12, '0')}`
 
 async function seed() {
+  if (!CLINIC_ID) {
+    const { data: clinic } = await supabase.from('clinics').select('id').order('created_at').limit(1).maybeSingle()
+    if (!clinic) { console.error('Nenhuma clínica no banco. Crie uma conta em /register antes de rodar o seed.'); return }
+    CLINIC_ID = clinic.id
+  }
+
   console.log('🚀 Iniciando seed de dados para clinic:', CLINIC_ID)
 
   // ── Convênios ──────────────────────────────────────────────────────────────
