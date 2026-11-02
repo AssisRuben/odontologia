@@ -175,7 +175,7 @@ describe('processQueue', () => {
     let t = NOW.getTime()
     const clocked: SendDeps = {
       ...deps,
-      deadline: new Date(NOW.getTime() + 10_000),
+      deadline: new Date(NOW.getTime() + 25_000),
       now: () => new Date(t),
       sleep: async (ms) => {
         t += ms + 3000
@@ -183,10 +183,23 @@ describe('processQueue', () => {
     }
     const { provider, sends } = makeProvider()
     const res = await run(provider, true, clocked)
-    expect(res.sent).toBe(2) // a em t=0, b em t=8,5 s; a espera seguinte passa do prazo
+    // a em t=0, b em t=8,5 s (16,5 s de folga); após a espera seguinte (t=17 s) restam 8 s < 15 s
+    expect(res.sent).toBe(2)
     expect(sends).toEqual(['a', 'b'])
     expect(repo.get('c').status).toBe('queued')
     expect(repo.rows.some((r) => r.status === 'sending')).toBe(false)
+  })
+
+  it('não inicia envio com menos de 15 s até o prazo (timeout do provedor)', async () => {
+    const { repo, deps, run } = setup()
+    repo.add({ id: 'a', body: 'a' })
+    const { provider, sends } = makeProvider()
+    const res = await run(provider, true, { ...deps, deadline: new Date(NOW.getTime() + 14_999) })
+    expect(res.sent).toBe(0)
+    expect(sends).toHaveLength(0)
+    expect(repo.get('a').status).toBe('queued')
+    const ok = await run(provider, true, { ...deps, deadline: new Date(NOW.getTime() + 15_000) })
+    expect(ok.sent).toBe(1)
   })
 
   it('releaseStuck é chamado com now − 10 min', async () => {

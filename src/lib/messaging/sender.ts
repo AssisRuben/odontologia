@@ -21,6 +21,8 @@ const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 5 * 60_000
 const STUCK_AFTER_MS = 10 * 60_000
 const BATCH_SIZE = 50
+/** Timeout do fetch no provedor: só inicia um envio se ele cabe inteiro antes do prazo. */
+const SEND_HEADROOM_MS = 15_000
 
 /**
  * Cota diária e intervalo entre envios valem por execução. O cron (a cada 5 min, deadline de 50 s) não
@@ -53,8 +55,10 @@ export async function processQueue(args: {
   const items = await repo.listDue(clinicId, start, BATCH_SIZE)
   let needsGap = false // houve envio tentado desde a última espera
 
+  const noTimeLeft = () => deps.deadline.getTime() - deps.now().getTime() < SEND_HEADROOM_MS
+
   for (const item of items) {
-    if (deps.now() >= deps.deadline) break
+    if (noTimeLeft()) break
     if (quota <= 0) {
       result.skippedReason = 'daily_limit'
       break
@@ -63,7 +67,7 @@ export async function processQueue(args: {
     if (needsGap) {
       await deps.sleep(3000 + deps.random() * 5000)
       needsGap = false
-      if (deps.now() >= deps.deadline) break
+      if (noTimeLeft()) break
     }
     if (!isWithinSendWindow(deps.now(), cfg)) {
       result.skippedReason = 'outside_window'
