@@ -73,7 +73,7 @@ Pode rodar mais de uma vez sem duplicar nada.
 
 ## WhatsApp automático
 
-O sistema pode enviar sozinho, pelo WhatsApp da clínica: lembrete e confirmação de consulta, aviso de pós-consulta e recall (paciente que passou 6 meses sem voltar). As respostas dos pacientes ("1 = confirmo") atualizam a agenda.
+O sistema pode enviar sozinho, pelo WhatsApp da clínica, cinco mensagens automáticas: confirmação de consulta, lembrete de consulta, retorno (paciente que passou 6 meses sem voltar), aniversário e cobrança de pagamento em atraso. As respostas dos pacientes à confirmação ("1 = confirmo", "2 = desmarcar") atualizam a agenda.
 
 Para isso o app conversa com a **Evolution API**, um serviço que mantém o WhatsApp da clínica conectado (como o "WhatsApp Web"). Você precisa dele rodando em algum lugar: no seu computador (para testar) ou num servidor (produção).
 
@@ -82,6 +82,7 @@ Para isso o app conversa com a **Evolution API**, um serviço que mantém o What
 1. No Supabase, abra **Database** → **Extensions** e ative **pg_cron** e **pg_net**.
 2. Se o seu banco é antigo, aplique antes [`supabase/2026-11-02-isolamento-por-clinica.sql`](supabase/2026-11-02-isolamento-por-clinica.sql) e depois [`supabase/2026-11-02-whatsapp-automatico.sql`](supabase/2026-11-02-whatsapp-automatico.sql) (SQL Editor → cole o arquivo → **Run**). Pode rodar de novo sem problema.
 3. Bancos novos criados com `supabase/schema.sql` já têm as tabelas, mas o `schema.sql` **não** ativa pg_cron e pg_net: faça o passo 1 de qualquer forma.
+4. Nas configurações da API do Supabase (**Project Settings** → **Data API**), deixe **Max rows** em 1000 ou mais: o envio automático lê o banco em páginas de 1000 linhas.
 
 ### 2. Variáveis de ambiente
 
