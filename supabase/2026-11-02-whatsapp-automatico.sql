@@ -13,6 +13,12 @@
 -- <APP_URL> e <CRON_SECRET> e rode só aquele bloco.
 -- ============================================================
 
+-- Extensões usadas pelo agendamento. O SQL Editor executa tudo como uma
+-- única transação: se estas linhas falharem, o script inteiro é desfeito.
+-- Nesse caso, ative pg_cron e pg_net em Database > Extensions e rode de novo.
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
 -- ── Tabelas de mensagens ────────────────────────────────────
 
 -- Conexão: somente servidor (RLS ligado, nenhuma policy para usuários)
@@ -150,10 +156,6 @@ $$;
 SELECT public.seed_message_settings(id) FROM clinics;
 
 -- ── Agendamento (pg_cron + pg_net) ──────────────────────────
--- Se der erro nas extensões, ative em Dashboard > Database > Extensions.
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
-
 -- Descomente, troque <APP_URL> (ex.: https://meuapp.com, sem barra no fim)
 -- e <CRON_SECRET> (o mesmo valor da variável CRON_SECRET do app) e rode:
 --

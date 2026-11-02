@@ -5,7 +5,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Cron e webhooks se autenticam sozinhos (segredo/token); não passam pelo login
-  if (pathname.startsWith('/api/cron') || pathname.startsWith('/api/webhooks')) {
+  if (pathname.startsWith('/api/cron/') || pathname.startsWith('/api/webhooks/')) {
     return NextResponse.next({ request })
   }
 

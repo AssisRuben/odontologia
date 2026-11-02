@@ -6,7 +6,7 @@ export async function getCurrentClinic(): Promise<{ userId: string; clinicId: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('professionals')
     .select('clinic_id')
     .eq('user_id', user.id)
@@ -14,6 +14,7 @@ export async function getCurrentClinic(): Promise<{ userId: string; clinicId: st
     .limit(1)
     .maybeSingle()
 
+  if (error) throw new Error(`Falha ao buscar a clínica do usuário: ${error.message}`)
   if (!data?.clinic_id) return null
   return { userId: user.id, clinicId: data.clinic_id as string }
 }
