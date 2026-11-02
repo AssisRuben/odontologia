@@ -274,6 +274,10 @@ export default function MensagensConfigPage() {
                 Abra o WhatsApp no celular da clínica → Aparelhos conectados → Conectar aparelho
               </p>
               <p className="text-xs text-[#6B7280]">Aguardando leitura do QR Code. Ele é renovado automaticamente.</p>
+              <button type="button" onClick={handleDisconnect} disabled={connBusy}
+                className="h-9 px-4 rounded-lg border border-[#E5E7EB] text-sm text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50">
+                {connBusy ? 'Cancelando...' : 'Cancelar'}
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
