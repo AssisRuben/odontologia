@@ -13,7 +13,7 @@ services:
       evolution-redis:
         condition: service_started
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     env_file:
       - .env.evolution
     extra_hosts:

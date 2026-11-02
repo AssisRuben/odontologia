@@ -32,7 +32,11 @@ export async function GET() {
   let everConnected = Boolean(row.ever_connected)
 
   try {
-    const live = await getProvider().getStatus(row.instance as string, row.token as string)
+    const polled = await getProvider().getStatus(row.instance as string, row.token as string)
+    // A Evolution reporta 'close' para QR não lido/expirado: não rebaixa 'connecting' só pelo polling.
+    const live = status === 'connecting' && polled.status === 'disconnected'
+      ? { ...polled, status: 'connecting' as ConnectionStatus }
+      : polled
     const newPhone = live.phone ?? phone
     if (live.status !== status || newPhone !== phone) {
       const update: Record<string, unknown> = { status: live.status, updated_at: new Date().toISOString() }

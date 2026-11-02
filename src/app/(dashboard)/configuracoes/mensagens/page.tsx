@@ -56,7 +56,16 @@ export default function MensagensConfigPage() {
   const [saved, setSaved] = useState(false)
   const [cfgError, setCfgError] = useState('')
 
+  const [cfgLoadFailed, setCfgLoadFailed] = useState(false)
+
   const mounted = useRef(true)
+  const statusRef = useRef<ConnStatus>('disconnected')
+  const qrInFlight = useRef(false)
+  const applyStatus = useCallback((s: ConnStatus) => {
+    statusRef.current = s
+    setStatus(s)
+    if (s !== 'connecting') setConnError('')
+  }, [])
   useEffect(() => {
     mounted.current = true
     return () => { mounted.current = false }
@@ -68,7 +77,7 @@ export default function MensagensConfigPage() {
       if (!res.ok) throw new Error()
       const data = await res.json() as { status: ConnStatus; phone: string | null }
       if (!mounted.current) return
-      setStatus(data.status)
+      applyStatus(data.status)
       setPhone(data.phone)
       if (data.status !== 'connecting') setQrCode(null)
     } catch {
@@ -76,26 +85,31 @@ export default function MensagensConfigPage() {
     } finally {
       if (mounted.current) setConnLoading(false)
     }
-  }, [])
+  }, [applyStatus])
 
   const requestQr = useCallback(async (): Promise<boolean> => {
+    if (qrInFlight.current) return false
+    qrInFlight.current = true
     try {
       const res = await fetch('/api/whatsapp/connect', { method: 'POST' })
       const data = await res.json().catch(() => ({})) as { status?: ConnStatus; qrCode?: string | null; error?: string }
       if (!mounted.current) return false
+      if (statusRef.current === 'connected') return false
       if (!res.ok) {
         setConnError(data.error || 'Não foi possível gerar o QR Code.')
         return false
       }
       setConnError('')
-      setStatus(data.status ?? 'connecting')
+      applyStatus(data.status ?? 'connecting')
       setQrCode(data.qrCode ?? null)
       return true
     } catch {
       if (mounted.current) setConnError('Não foi possível gerar o QR Code. Verifique sua conexão.')
       return false
+    } finally {
+      qrInFlight.current = false
     }
-  }, [])
+  }, [applyStatus])
 
   // Status inicial
   useEffect(() => {
@@ -116,7 +130,13 @@ export default function MensagensConfigPage() {
     if (!clinicId) return
     async function load() {
       const supabase = createClient()
-      const { data } = await supabase.from('clinics').select('messaging_config').eq('id', clinicId).single()
+      const { data, error } = await supabase.from('clinics').select('messaging_config').eq('id', clinicId).single()
+      if (error || !data) {
+        setCfgLoadFailed(true)
+        setCfgError('Não foi possível carregar as configurações. Recarregue a página.')
+        setCfgLoading(false)
+        return
+      }
       const cfg = data?.messaging_config as { window_start?: string; window_end?: string; daily_limit?: number } | null
       if (cfg) {
         if (cfg.window_start) setWindowStart(cfg.window_start.slice(0, 5))
@@ -145,7 +165,7 @@ export default function MensagensConfigPage() {
       if (!res.ok) {
         setConnError(data.error || 'Não foi possível desconectar.')
       } else {
-        setStatus('disconnected')
+        applyStatus('disconnected')
         setQrCode(null)
         setConfirmDisconnect(false)
       }
@@ -158,6 +178,7 @@ export default function MensagensConfigPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setCfgError('')
+    if (!clinicId || cfgLoadFailed) { setCfgError('Configurações não carregadas. Recarregue a página.'); return }
     const invalid = validateConfig(windowStart, windowEnd, dailyLimit)
     if (invalid) { setCfgError(invalid); return }
     setSaving(true)
@@ -171,9 +192,14 @@ export default function MensagensConfigPage() {
       window_end: windowEnd,
       daily_limit: Number(dailyLimit),
     }
-    const { error: err } = await supabase.from('clinics').update({ messaging_config: next }).eq('id', clinicId)
+    const { data: updated, error: err } = await supabase
+      .from('clinics').update({ messaging_config: next }).eq('id', clinicId).select('id')
     setSaving(false)
     if (err) { setCfgError(`Erro: ${err.message}`); return }
+    if (!updated || updated.length === 0) {
+      setCfgError('Não foi possível salvar: nenhuma alteração foi aplicada. Verifique suas permissões.')
+      return
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
@@ -297,7 +323,7 @@ export default function MensagensConfigPage() {
                   <CheckCircle2 className="w-4 h-4" /> Configurações salvas
                 </span>
               )}
-              <button type="submit" disabled={saving}
+              <button type="submit" disabled={saving || cfgLoadFailed}
                 className="ml-auto h-10 px-6 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50">
                 {saving ? 'Salvando...' : 'Salvar configurações'}
               </button>
