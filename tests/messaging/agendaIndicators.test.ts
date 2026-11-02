@@ -65,4 +65,7 @@ describe('formatNoticeTime', () => {
   it('dd/MM HH:mm em America/Sao_Paulo', () => {
     expect(formatNoticeTime('2026-11-03T12:30:00Z')).toBe('03/11 09:30')
   })
+  it('usa o fuso informado', () => {
+    expect(formatNoticeTime('2026-11-03T12:30:00Z', 'America/Manaus')).toBe('03/11 08:30')
+  })
 })

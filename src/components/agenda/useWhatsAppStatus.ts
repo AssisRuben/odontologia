@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import { createClient } from '@/lib/supabase/client'
+import { useClinicStore } from '@/store/clinicStore'
 import type { Appointment } from '@/types'
 
 export type ReplyAction = 'confirmed' | 'cancelled'
@@ -57,10 +59,12 @@ export function computeCancelNotices(rows: MessageRow[], appointments: Appointme
   return [...seen.values()].sort((a, b) => a.repliedAt.localeCompare(b.repliedAt))
 }
 
-/** dd/MM HH:mm em America/Sao_Paulo. */
-export function formatNoticeTime(iso: string): string {
+const DEFAULT_TZ = 'America/Sao_Paulo'
+
+/** dd/MM HH:mm no fuso da clínica (padrão America/Sao_Paulo). */
+export function formatNoticeTime(iso: string, tz: string = DEFAULT_TZ): string {
   const parts = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
+    timeZone: tz,
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -80,6 +84,25 @@ const SELECT = 'appointment_id, type, status, reply_action, created_at'
 export function useWhatsAppStatus(visible: Appointment[], all: Appointment[]) {
   const [indicatorRows, setIndicatorRows] = useState<MessageRow[]>([])
   const [cancelState, setCancelState] = useState<{ rows: MessageRow[]; now: Date }>({ rows: [], now: new Date(0) })
+  const { clinicId } = useClinicStore()
+  const [tz, setTz] = useState(DEFAULT_TZ)
+
+  // Fuso da clínica para o horário exibido no aviso de desmarcação.
+  useEffect(() => {
+    if (!clinicId) return
+    let active = true
+    createClient()
+      .from('clinics')
+      .select('messaging_config')
+      .eq('id', clinicId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (active && !error) setTz(normalizeMessagingConfig(data?.messaging_config).timezone)
+      })
+    return () => {
+      active = false
+    }
+  }, [clinicId])
 
   const idsKey = useMemo(() => visible.map((a) => a.id).sort().join(','), [visible])
 
@@ -129,5 +152,5 @@ export function useWhatsAppStatus(visible: Appointment[], all: Appointment[]) {
     () => computeCancelNotices(cancelState.rows, all, cancelState.now),
     [cancelState, all],
   )
-  return { indicators, cancelNotices }
+  return { indicators, cancelNotices, tz }
 }

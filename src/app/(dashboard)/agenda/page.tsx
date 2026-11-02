@@ -105,7 +105,7 @@ export default function AgendaPage() {
       return t >= from && t < to
     })
   }, [filteredAppointments, view, currentDate])
-  const { indicators, cancelNotices } = useWhatsAppStatus(visibleAppointments, appointments)
+  const { indicators, cancelNotices, tz: clinicTz } = useWhatsAppStatus(visibleAppointments, appointments)
 
   const noticeKey = cancelNotices.map((n) => n.appointment.id).join(',')
 
@@ -302,7 +302,7 @@ export default function AgendaPage() {
                       onClick={(e) => openNoticeAppointment(appointment, e.currentTarget)}
                       className="underline underline-offset-2 hover:text-[#78350F] text-left"
                     >
-                      {appointment.patient?.name || 'Paciente'} — {formatNoticeTime(appointment.start_time)}
+                      {appointment.patient?.name || 'Paciente'} — {formatNoticeTime(appointment.start_time, clinicTz)}
                     </button>
                   </li>
                 ))}
