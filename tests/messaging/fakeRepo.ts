@@ -1,0 +1,112 @@
+import type { QueueRepo, QueuedMessage } from '@/lib/messaging/repo'
+import type { MessageStatus } from '@/lib/messaging/types'
+
+export interface FakeMessage {
+  id: string
+  clinic_id: string
+  direction: 'out' | 'in'
+  phone: string
+  body: string
+  status: MessageStatus
+  scheduled_for: Date
+  expires_at: Date | null
+  attempts: number
+  sent_at: Date | null
+  error: string | null
+  provider_message_id: string | null
+}
+
+export class FakeRepo implements QueueRepo {
+  rows: FakeMessage[] = []
+  releaseStuckCalls: Date[] = []
+  clock: () => Date = () => new Date()
+
+  add(p: Partial<FakeMessage> & { id: string }): FakeMessage {
+    const row: FakeMessage = {
+      clinic_id: 'c1',
+      direction: 'out',
+      phone: '5511987654321',
+      body: 'oi',
+      status: 'queued',
+      scheduled_for: new Date('2026-11-02T12:00:00Z'),
+      expires_at: null,
+      attempts: 0,
+      sent_at: null,
+      error: null,
+      provider_message_id: null,
+      ...p,
+    }
+    this.rows.push(row)
+    return row
+  }
+
+  get(id: string): FakeMessage {
+    const r = this.rows.find((x) => x.id === id)
+    if (!r) throw new Error('missing ' + id)
+    return r
+  }
+
+  async releaseStuck(clinicId: string, olderThan: Date) {
+    this.releaseStuckCalls.push(olderThan)
+    for (const r of this.rows) {
+      if (r.clinic_id === clinicId && r.status === 'sending' && r.scheduled_for < olderThan) r.status = 'queued'
+    }
+  }
+
+  async listDue(clinicId: string, now: Date, limit: number): Promise<QueuedMessage[]> {
+    return this.rows
+      .filter(
+        (r) =>
+          r.clinic_id === clinicId &&
+          r.direction === 'out' &&
+          r.status === 'queued' &&
+          r.scheduled_for <= now &&
+          (r.expires_at === null || r.expires_at > now),
+      )
+      .sort((a, b) => a.scheduled_for.getTime() - b.scheduled_for.getTime())
+      .slice(0, limit)
+      .map((r) => ({ id: r.id, phone: r.phone, body: r.body, attempts: r.attempts }))
+  }
+
+  /** Atômico: check-and-set síncrono, como o UPDATE ... WHERE status = 'queued'. */
+  async lock(id: string) {
+    const r = this.rows.find((x) => x.id === id)
+    if (!r || r.status !== 'queued') return false
+    r.status = 'sending'
+    r.scheduled_for = this.clock()
+    return true
+  }
+
+  async markSent(id: string, providerMessageId: string, at: Date) {
+    const r = this.get(id)
+    r.status = 'sent'
+    r.provider_message_id = providerMessageId
+    r.sent_at = at
+    r.error = null
+  }
+
+  async markFailed(id: string, error: string) {
+    const r = this.get(id)
+    r.status = 'failed'
+    r.error = error
+  }
+
+  async requeue(id: string, attempts: number, at: Date, error: string) {
+    const r = this.get(id)
+    r.status = 'queued'
+    r.attempts = attempts
+    r.scheduled_for = at
+    r.error = error
+  }
+
+  async countSentSince(clinicId: string, since: Date) {
+    return this.rows.filter(
+      (r) =>
+        r.clinic_id === clinicId &&
+        r.direction === 'out' &&
+        r.status === 'sent' &&
+        r.sent_at !== null &&
+        r.sent_at >= since,
+    ).length
+  }
+}
