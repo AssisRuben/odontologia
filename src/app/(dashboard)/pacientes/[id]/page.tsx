@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, Phone, Edit2, Tag, Plus, ClipboardList,
-  Calendar, CheckCircle2, AlertCircle, Clock, User2,
+  Calendar, CheckCircle2, AlertCircle, Clock, User2, MessageCircle,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -22,6 +22,8 @@ import { TabOrcamentos } from '@/components/paciente/TabOrcamentos'
 import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
 import { useClinicStore } from '@/store/clinicStore'
+import { ModalEnviarWhatsApp } from '@/components/mensagens/ModalEnviarWhatsApp'
+import { normalizePhone } from '@/lib/messaging/phone'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -72,6 +74,8 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [modalCatOpen, setModalCatOpen] = useState(false)
   const [modalEditOpen, setModalEditOpen] = useState(false)
+  const [modalWaOpen, setModalWaOpen] = useState(false)
+  const [waNotice, setWaNotice]       = useState(false)
   const [treatRefresh, setTreatRefresh] = useState(0)
   const { clinicId } = useClinicStore()
 
@@ -125,6 +129,9 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     : null
 
   const lastEvolutions = appointments.filter((a) => a.status === 'completed').slice(0, 5)
+  const waDisabledHint = patient.whatsapp_opt_out
+    ? 'Paciente optou por não receber WhatsApp'
+    : (normalizePhone(patient.whatsapp ?? null) ?? normalizePhone(patient.phone ?? null)) ? null : 'Sem WhatsApp válido'
   const patientCode = patient.id.replace(/-/g, '').slice(0, 6).toUpperCase()
 
   return (
@@ -189,13 +196,23 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                 </div>
               </div>
 
-              {/* Editar */}
-              <button
-                onClick={() => setModalEditOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors shrink-0">
-                <Edit2 className="w-4 h-4" />
-                Editar
-              </button>
+              {/* Ações */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setModalWaOpen(true)}
+                  disabled={!!waDisabledHint}
+                  title={waDisabledHint ?? undefined}
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                  <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                  <span className="hidden sm:inline">Enviar WhatsApp</span>
+                </button>
+                <button
+                  onClick={() => setModalEditOpen(true)}
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                  <Edit2 className="w-4 h-4" />
+                  Editar
+                </button>
+              </div>
             </div>
           </div>
 
@@ -454,6 +471,21 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
         onClose={() => setModalCatOpen(false)}
         onSave={handleSaveTags}
       />
+
+      {waNotice && (
+        <div role="status" className="fixed bottom-4 right-4 z-50 bg-[#111827] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          Mensagem enviada
+        </div>
+      )}
+
+      {modalWaOpen && (
+        <ModalEnviarWhatsApp
+          patient={patient}
+          appointments={appointments}
+          onClose={() => setModalWaOpen(false)}
+          onSent={() => { setWaNotice(true); setTimeout(() => setWaNotice(false), 4000) }}
+        />
+      )}
 
       {/* Modal Editar Paciente */}
       {modalEditOpen && (

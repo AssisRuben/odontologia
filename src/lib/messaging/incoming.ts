@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getProvider, type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
+import { type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
 import { fetchAll } from './cycleData'
 import { normalizePhone } from './phone'
 import { parseReply, pickConfirmationTarget, type SentConfirmation } from './replies'
 import { createSupabaseQueueRepo } from './repo'
+import { sendNow } from './sendNow'
 import { renderTemplate } from './templates'
 import { formatDataCurta, formatHora } from './time'
 import type { MessagingConfig } from './types'
@@ -273,29 +274,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         return
       }
 
-      const { data: row, error: insErr } = await admin
-        .from('messages')
-        .insert({ ...base, status: 'sending', attempts: 1 })
-        .select('id')
-        .single()
-      check(insErr)
-      let providerMessageId: string
-      try {
-        ;({ providerMessageId } = await getProvider().sendText(conn.instance, conn.token, phone, body))
-      } catch (err) {
-        const { error } = await admin
-          .from('messages')
-          .update({ status: 'failed', error: err instanceof Error ? err.message : 'erro' })
-          .eq('id', row!.id)
-        check(error)
-        return
-      }
-      // Já entregue: se gravar 'sent' falhar, propaga (não marcar como failed uma mensagem enviada).
-      const { error } = await admin
-        .from('messages')
-        .update({ status: 'sent', sent_at: new Date().toISOString(), provider_message_id: providerMessageId })
-        .eq('id', row!.id)
-      check(error)
+      await sendNow(admin, conn, { ...base })
     },
 
     async updateConnection(instance, status, phone) {
