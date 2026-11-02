@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { DEFAULT_TEMPLATES, TEMPLATE_VARIABLES, findUnknownVariables, renderTemplate } from '@/lib/messaging/templates'
@@ -196,6 +197,18 @@ export default function TabAutomaticas() {
   const [clinicName, setClinicName] = useState('')
   const [tz, setTz] = useState(DEFAULT_TZ)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [notConnected, setNotConnected] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/whatsapp/status', { cache: 'no-store' })
+      .then((res) => (res.ok ? (res.json() as Promise<{ status?: string }>) : null))
+      .then((data) => {
+        if (active && data) setNotConnected(data.status !== 'connected')
+      })
+      .catch(() => {}) // falha de rede: sem aviso
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     if (!clinicId) return
@@ -249,6 +262,15 @@ export default function TabAutomaticas() {
 
   return (
     <div className="space-y-4 max-w-5xl">
+      {notConnected && (
+        <div className="text-sm bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3" role="status">
+          WhatsApp não conectado — as mensagens só serão enviadas depois de conectar em{' '}
+          <Link href="/configuracoes/mensagens" className="font-semibold underline underline-offset-2 hover:opacity-90">
+            Configurações de mensagens
+          </Link>
+          .
+        </div>
+      )}
       {settings.map((s) => (
         <SettingCard
           key={s.type}
