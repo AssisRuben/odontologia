@@ -6,7 +6,7 @@ const HOUR_MS = 3_600_000
 const PAGE = 1000
 
 /** Lê todas as linhas de uma consulta, página a página (o Supabase limita 1000 por requisição). */
-async function fetchAll<T>(
+export async function fetchAll<T>(
   build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const out: T[] = []
