@@ -245,9 +245,21 @@ CREATE INDEX ON evolutions (patient_id);
 
 
 -- ── Permissões (RLS) ────────────────────────────────────────
--- Mesmo modelo do banco original: qualquer usuário logado lê e
--- escreve em tudo. Suficiente para desenvolvimento; antes de ir
--- para produção, restringir por clinic_id.
+-- Cada usuário só acessa a(s) clínica(s) em que tem um profissional
+-- vinculado (professionals.user_id = auth.uid()).
+
+-- SECURITY DEFINER para não depender da RLS de professionals (evita recursão).
+CREATE OR REPLACE FUNCTION public.user_clinic_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT clinic_id FROM professionals WHERE user_id = auth.uid()
+$$;
+
+REVOKE ALL ON FUNCTION public.user_clinic_ids() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.user_clinic_ids() TO authenticated;
 
 DO $$
 DECLARE t TEXT;
@@ -259,9 +271,51 @@ BEGIN
     'budgets','budget_items','documents','evolutions'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY "auth_all" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
   END LOOP;
 END $$;
+
+-- Clínica: lê e edita só a sua. Criação pelo trigger de cadastro.
+CREATE POLICY "clinic_member_select" ON clinics FOR SELECT TO authenticated
+  USING (id IN (SELECT public.user_clinic_ids()));
+CREATE POLICY "clinic_member_update" ON clinics FOR UPDATE TO authenticated
+  USING (id IN (SELECT public.user_clinic_ids()))
+  WITH CHECK (id IN (SELECT public.user_clinic_ids()));
+
+-- Tabelas com clinic_id
+DO $$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'professionals','insurance_plans','patients','appointments',
+    'payments','expenses','prosthetics','inventory_items',
+    'anamnesis_templates','anamneses','treatments','budgets',
+    'documents','evolutions'
+  ] LOOP
+    EXECUTE format(
+      'CREATE POLICY "clinic_member" ON %I FOR ALL TO authenticated
+         USING (clinic_id IN (SELECT public.user_clinic_ids()))
+         WITH CHECK (clinic_id IN (SELECT public.user_clinic_ids()))', t);
+  END LOOP;
+END $$;
+
+-- Tabelas filhas (sem clinic_id): acesso pelo registro pai
+CREATE POLICY "clinic_member" ON inventory_movements FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM inventory_items i WHERE i.id = item_id
+                 AND i.clinic_id IN (SELECT public.user_clinic_ids())))
+  WITH CHECK (EXISTS (SELECT 1 FROM inventory_items i WHERE i.id = item_id
+                 AND i.clinic_id IN (SELECT public.user_clinic_ids())));
+
+CREATE POLICY "clinic_member" ON treatment_teeth FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM treatments tr WHERE tr.id = treatment_id
+                 AND tr.clinic_id IN (SELECT public.user_clinic_ids())))
+  WITH CHECK (EXISTS (SELECT 1 FROM treatments tr WHERE tr.id = treatment_id
+                 AND tr.clinic_id IN (SELECT public.user_clinic_ids())));
+
+CREATE POLICY "clinic_member" ON budget_items FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM budgets b WHERE b.id = budget_id
+                 AND b.clinic_id IN (SELECT public.user_clinic_ids())))
+  WITH CHECK (EXISTS (SELECT 1 FROM budgets b WHERE b.id = budget_id
+                 AND b.clinic_id IN (SELECT public.user_clinic_ids())));
 
 
 -- ── Cadastro: cria clínica + profissional para cada novo usuário ──
@@ -297,6 +351,14 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('anneOdonto', 'anneOdonto', true)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "anneOdonto_select" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'anneOdonto');
-CREATE POLICY "anneOdonto_insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'anneOdonto');
-CREATE POLICY "anneOdonto_delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'anneOdonto');
+-- Cada clínica só lista, envia e apaga na própria pasta.
+-- Atenção: o bucket é público — quem tiver o link direto abre o arquivo.
+CREATE POLICY "anneOdonto_select" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'anneOdonto'
+         AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
+CREATE POLICY "anneOdonto_insert" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'anneOdonto'
+         AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
+CREATE POLICY "anneOdonto_delete" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'anneOdonto'
+         AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
