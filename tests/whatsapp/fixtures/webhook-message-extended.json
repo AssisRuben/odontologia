@@ -1,0 +1,1 @@
+{"event":"messages.upsert","instance":"clinic-abc","data":{"key":{"remoteJid":"5511987654321@s.whatsapp.net","fromMe":false,"id":"MSG2"},"message":{"extendedTextMessage":{"text":"Sim"}},"messageTimestamp":1762080000}}
