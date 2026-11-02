@@ -253,7 +253,7 @@ export function planMessages(input: PlanInput): QueueItem[] {
 export type StaleReason = 'appointment_changed' | 'not_confirmed' | 'paid' | 'opt_out' | 'expired' | null
 
 /** start_time embutido em `type:<appointment_id>:<ISO>` (o ISO contém ':'). */
-function keyStartTime(key: string | null): string | null {
+export function keyStartTime(key: string | null): string | null {
   const parts = (key ?? '').split(':')
   return parts.length > 2 ? parts.slice(2).join(':') : null
 }
