@@ -49,6 +49,11 @@ describe('EvolutionProvider.sendText', () => {
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
 
+  it('2xx sem key.id: não lança; devolve providerMessageId vazio (R15)', async () => {
+    const { provider } = make(() => res(201, { status: 'PENDING' }))
+    await expect(provider.sendText('i', 't', '5511987654321', 'x')).resolves.toEqual({ providerMessageId: '' })
+  })
+
   it('400 exists:false -> PermanentSendError', async () => {
     const { provider } = make(() => res(400, sendNotExists))
     await expect(provider.sendText('i', 't', '5511900000000', 'x')).rejects.toBeInstanceOf(PermanentSendError)

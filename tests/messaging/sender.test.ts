@@ -202,6 +202,14 @@ describe('processQueue', () => {
     expect(ok.sent).toBe(1)
   })
 
+  it('provedor aceitou sem id (R15): marca sent, sem reenvio', async () => {
+    const { repo, run } = setup()
+    repo.add({ id: 'a' })
+    const provider = { sendText: async () => ({ providerMessageId: '' }) } as unknown as WhatsAppProvider
+    expect(await run(provider)).toEqual({ sent: 1, failed: 0, requeued: 0 })
+    expect(repo.get('a').status).toBe('sent')
+  })
+
   it('releaseStuck é chamado com now − 10 min', async () => {
     const { repo, run } = setup()
     const { provider } = makeProvider()

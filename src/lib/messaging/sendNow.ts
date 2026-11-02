@@ -35,7 +35,7 @@ export async function sendNow(
   // Já entregue: se gravar 'sent' falhar, propaga (não marcar como failed uma mensagem enviada).
   const { error } = await admin
     .from('messages')
-    .update({ status: 'sent', sent_at: new Date().toISOString(), provider_message_id: providerMessageId })
+    .update({ status: 'sent', sent_at: new Date().toISOString(), provider_message_id: providerMessageId || null })
     .eq('id', id)
   check(error)
   return { ok: true, id }

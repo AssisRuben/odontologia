@@ -172,8 +172,8 @@ export class EvolutionProvider implements WhatsAppProvider {
 
     if (res.ok) {
       const id = dig(json, 'key', 'id')
-      if (typeof id !== 'string' || !id) throw new TransientSendError('Evolution API: resposta de envio sem key.id')
-      return { providerMessageId: id }
+      // R15: 2xx sem key.id ainda é envio aceito — não reenviar (duplicaria a mensagem ao paciente).
+      return { providerMessageId: typeof id === 'string' ? id : '' }
     }
 
     if (res.status >= 500 || res.status === 408 || res.status === 429) {

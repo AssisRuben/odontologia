@@ -75,7 +75,7 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
     async markSent(id, providerMessageId, at) {
       const { error } = await admin
         .from('messages')
-        .update({ status: 'sent', provider_message_id: providerMessageId, sent_at: at.toISOString(), error: null })
+        .update({ status: 'sent', provider_message_id: providerMessageId || null, sent_at: at.toISOString(), error: null })
         .eq('id', id)
         .eq('status', 'sending')
       check(error)
