@@ -19,9 +19,10 @@ export interface IncomingDeps {
   findPatientByPhone(clinicId: string, phone: string): Promise<string | null>
   /** Evolution pode entregar a mesma mensagem duas vezes: já existe uma com este provider_message_id? */
   incomingExists(clinicId: string, providerMessageId: string): Promise<boolean>
-  saveIncoming(row: { clinic_id: string; patient_id: string | null; phone: string; body: string; provider_message_id: string }): Promise<string>
+  saveIncoming(row: { clinic_id: string; patient_id: string | null; phone: string; body: string; provider_message_id: string }): Promise<string | null>
   recentConfirmations(clinicId: string, phone: string, since: Date): Promise<SentConfirmation[]>
-  setAppointmentStatus(appointmentId: string, status: 'confirmed' | 'cancelled'): Promise<void>
+  /** false se a consulta não é mais agendada/confirmada (ou não é da clínica): nada foi alterado. */
+  setAppointmentStatus(clinicId: string, appointmentId: string, status: 'confirmed' | 'cancelled'): Promise<boolean>
   setReplyAction(messageId: string, action: 'confirmed' | 'cancelled'): Promise<void>
   sendAutoReply(args: { clinicId: string; phone: string; body: string; appointmentId: string }): Promise<void>
   updateConnection(instance: string, status: ConnectionStatus, phone: string | null): Promise<void>
@@ -45,6 +46,7 @@ export async function handleIncoming(
 
   const phone = normalizePhone(event.from) ?? event.from
   const patientId = await deps.findPatientByPhone(clinicId, phone)
+  // null = duplicata concorrente (índice único)
   const messageId = await deps.saveIncoming({
     clinic_id: clinicId,
     patient_id: patientId,
@@ -52,6 +54,8 @@ export async function handleIncoming(
     body: event.text,
     provider_message_id: event.providerMessageId,
   })
+
+  if (messageId === null) return 'ignored'
 
   const reply = parseReply(event.text)
   if (!reply) return 'stored'
@@ -61,7 +65,7 @@ export async function handleIncoming(
   if (!target) return 'stored'
 
   const action = reply === 'confirm' ? 'confirmed' : 'cancelled'
-  await deps.setAppointmentStatus(target.appointment_id, action)
+  if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return 'stored'
   await deps.setReplyAction(messageId, action)
 
   let body = CANCEL_TEXT
@@ -186,6 +190,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .insert({ ...row, type: 'incoming', direction: 'in', status: 'received' })
         .select('id')
         .single()
+      if (error?.code === '23505') return null
       check(error)
       return data!.id as string
     },
@@ -226,9 +231,16 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       return out
     },
 
-    async setAppointmentStatus(appointmentId, status) {
-      const { error } = await admin.from('appointments').update({ status }).eq('id', appointmentId)
+    async setAppointmentStatus(clinicId, appointmentId, status) {
+      const { data, error } = await admin
+        .from('appointments')
+        .update({ status })
+        .eq('id', appointmentId)
+        .eq('clinic_id', clinicId)
+        .in('status', ['scheduled', 'confirmed'])
+        .select('id')
       check(error)
+      return (data?.length ?? 0) === 1
     },
 
     async setReplyAction(messageId, action) {
@@ -267,19 +279,23 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .select('id')
         .single()
       check(insErr)
+      let providerMessageId: string
       try {
-        const { providerMessageId } = await getProvider().sendText(conn.instance, conn.token, phone, body)
-        const { error } = await admin
-          .from('messages')
-          .update({ status: 'sent', sent_at: new Date().toISOString(), provider_message_id: providerMessageId })
-          .eq('id', row!.id)
-        check(error)
+        ;({ providerMessageId } = await getProvider().sendText(conn.instance, conn.token, phone, body))
       } catch (err) {
-        await admin
+        const { error } = await admin
           .from('messages')
           .update({ status: 'failed', error: err instanceof Error ? err.message : 'erro' })
           .eq('id', row!.id)
+        check(error)
+        return
       }
+      // Já entregue: se gravar 'sent' falhar, propaga (não marcar como failed uma mensagem enviada).
+      const { error } = await admin
+        .from('messages')
+        .update({ status: 'sent', sent_at: new Date().toISOString(), provider_message_id: providerMessageId })
+        .eq('id', row!.id)
+      check(error)
     },
 
     async updateConnection(instance, status, phone) {

@@ -20,9 +20,9 @@ function makeDeps(over: Partial<IncomingDeps> = {}) {
     findClinicByInstance: vi.fn(async (i: string) => (i === 'inst' ? { clinicId: 'c1', token: 't', cfg } : null)),
     findPatientByPhone: vi.fn(async () => 'p1' as string | null),
     incomingExists: vi.fn(async () => false),
-    saveIncoming: vi.fn<IncomingDeps['saveIncoming']>(async () => 'in1'),
+    saveIncoming: vi.fn<IncomingDeps['saveIncoming']>(async () => 'in1' as string | null),
     recentConfirmations: vi.fn(async () => [conf]),
-    setAppointmentStatus: vi.fn(async () => {}),
+    setAppointmentStatus: vi.fn<IncomingDeps['setAppointmentStatus']>(async () => true),
     setReplyAction: vi.fn(async () => {}),
     sendAutoReply: vi.fn<IncomingDeps['sendAutoReply']>(async () => {}),
     updateConnection: vi.fn(async () => {}),
@@ -39,7 +39,7 @@ describe('handleIncoming', () => {
   it('1 com confirmação válida confirma a consulta', async () => {
     const d = makeDeps()
     expect(await handleIncoming(incoming('1'), d, now)).toBe('confirmed')
-    expect(d.setAppointmentStatus).toHaveBeenCalledWith('a1', 'confirmed')
+    expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'confirmed')
     expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'confirmed')
     const arg = d.sendAutoReply.mock.calls[0][0]
     expect(arg.body).toBe('Consulta confirmada! Até quarta, 04/11 às 11:00.')
@@ -49,7 +49,7 @@ describe('handleIncoming', () => {
   it('2 cancela a consulta', async () => {
     const d = makeDeps()
     expect(await handleIncoming(incoming('2'), d, now)).toBe('cancelled')
-    expect(d.setAppointmentStatus).toHaveBeenCalledWith('a1', 'cancelled')
+    expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'cancelled')
     expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'cancelled')
     expect(d.sendAutoReply.mock.calls[0][0].body).toBe('Consulta desmarcada. Em breve entraremos em contato para remarcar.')
   })
@@ -109,6 +109,37 @@ describe('handleIncoming', () => {
     expect(findPatientByPhoneIn(patients, '5511987654321', new Map())).toBe('a')
     expect(findPatientByPhoneIn(patients, '5511987654321', new Map([['b', '2026-11-03T10:00:00Z']]))).toBe('b')
     expect(findPatientByPhoneIn(patients, '5511000000000', new Map())).toBeNull()
+  })
+
+  it('consulta que mudou de estado (update não afetou linha): stored, sem resposta', async () => {
+    const d = makeDeps({ setAppointmentStatus: vi.fn(async () => false) })
+    expect(await handleIncoming(incoming('1'), d, now)).toBe('stored')
+    expect(d.setReplyAction).not.toHaveBeenCalled()
+    expect(d.sendAutoReply).not.toHaveBeenCalled()
+  })
+
+  it('duplicata concorrente (saveIncoming devolve null): ignored', async () => {
+    const d = makeDeps({ saveIncoming: vi.fn(async () => null) })
+    expect(await handleIncoming(incoming('1'), d, now)).toBe('ignored')
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+  })
+
+  it('falha na resposta automática não desfaz a consulta nem o resultado', async () => {
+    const d = makeDeps({ sendAutoReply: vi.fn(async () => { throw new Error('boom') }) })
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await handleIncoming(incoming('1'), d, now)).toBe('confirmed')
+    expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'confirmed')
+    spy.mockRestore()
+  })
+
+  it('grava a mensagem recebida antes de alterar a consulta', async () => {
+    const order: string[] = []
+    const d = makeDeps({
+      saveIncoming: vi.fn(async () => { order.push('save'); return 'in1' }),
+      setAppointmentStatus: vi.fn(async () => { order.push('status'); return true }),
+    })
+    await handleIncoming(incoming('1'), d, now)
+    expect(order).toEqual(['save', 'status'])
   })
 
   it('evento incoming de telefone não normalizável usa o bruto', async () => {
