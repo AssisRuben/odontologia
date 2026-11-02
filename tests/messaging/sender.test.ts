@@ -120,7 +120,7 @@ describe('processQueue', () => {
     expect(res).toEqual({ sent: 0, failed: 0, requeued: 1 })
     const r = repo.get('a')
     expect(r.status).toBe('queued')
-    expect(r.attempts).toBe(1)
+    expect(r.attempts).toBe(1) // incrementado no lock
     expect(r.scheduled_for).toEqual(new Date(NOW.getTime() + 5 * 60_000))
     expect(r.error).toBe('timeout')
   })
@@ -183,10 +183,9 @@ describe('processQueue', () => {
     }
     const { provider, sends } = makeProvider()
     const res = await run(provider, true, clocked)
-    expect(res.sent).toBeLessThan(3)
-    expect(res.sent).toBe(sends.length)
-    expect(res.sent).toBeGreaterThanOrEqual(1)
-    expect(repo.rows.filter((r) => r.status === 'queued').length).toBe(3 - res.sent)
+    expect(res.sent).toBe(2) // a em t=0, b em t=8,5 s; a espera seguinte passa do prazo
+    expect(sends).toEqual(['a', 'b'])
+    expect(repo.get('c').status).toBe('queued')
     expect(repo.rows.some((r) => r.status === 'sending')).toBe(false)
   })
 
@@ -197,11 +196,66 @@ describe('processQueue', () => {
     expect(repo.releaseStuckCalls).toEqual([new Date(NOW.getTime() - 10 * 60_000)])
   })
 
-  it('item preso em sending há mais de 10 min volta à fila e é enviado', async () => {
+  it('item preso em sending há mais de 10 min é marcado failed e não é reenviado', async () => {
     const { repo, run } = setup()
     repo.add({ id: 'stuck', status: 'sending', scheduled_for: new Date(NOW.getTime() - 11 * 60_000) })
     const { provider, sends } = makeProvider()
-    expect((await run(provider)).sent).toBe(1)
+    expect((await run(provider)).sent).toBe(0)
+    expect(sends).toHaveLength(0)
+    expect(repo.get('stuck').status).toBe('failed')
+    expect(repo.get('stuck').error).toContain('confira no WhatsApp')
+  })
+
+  it('markSent falha uma vez após envio ok: tenta de novo, envia uma só vez e fica sent', async () => {
+    const { repo, run } = setup()
+    repo.add({ id: 'a' })
+    repo.markSentFailures = 1
+    const { provider, sends } = makeProvider()
+    const res = await run(provider)
     expect(sends).toHaveLength(1)
+    expect(res.sent).toBe(1)
+    expect(repo.get('a').status).toBe('sent')
+  })
+
+  it('markSent falha duas vezes: processQueue rejeita, sem reenfileirar', async () => {
+    const { repo, run } = setup()
+    repo.add({ id: 'a' })
+    repo.markSentFailures = 2
+    const { provider, sends } = makeProvider()
+    await expect(run(provider)).rejects.toThrow('db down')
+    expect(sends).toHaveLength(1)
+    expect(repo.get('a').status).toBe('sending')
+  })
+
+  it('não dorme após lock perdido', async () => {
+    const { repo, sleeps, run } = setup()
+    repo.add({ id: 'a', body: 'a' })
+    repo.add({ id: 'b', body: 'b' })
+    const origLock = repo.lock.bind(repo)
+    repo.lock = async (id) => (id === 'a' ? false : origLock(id))
+    const { provider, sends } = makeProvider()
+    await run(provider)
+    expect(sends).toEqual(['b'])
+    expect(sleeps).toHaveLength(0)
+  })
+
+  it('janela fecha no meio do ciclo: para com outside_window', async () => {
+    const { repo, deps, run } = setup()
+    repo.add({ id: 'a', body: 'a' })
+    repo.add({ id: 'b', body: 'b' })
+    let t = new Date('2026-11-02T22:59:58Z').getTime() // 19:59:58 em SP
+    const clocked: SendDeps = {
+      ...deps,
+      deadline: new Date('2026-11-03T05:00:00Z'),
+      now: () => new Date(t),
+      sleep: async (ms) => {
+        t += ms
+      },
+    }
+    const { provider, sends } = makeProvider()
+    const res = await run(provider, true, clocked)
+    expect(sends).toEqual(['a'])
+    expect(res.skippedReason).toBe('outside_window')
+    expect(repo.get('b').status).toBe('queued')
   })
 })

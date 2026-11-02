@@ -22,6 +22,10 @@ const RETRY_DELAY_MS = 5 * 60_000
 const STUCK_AFTER_MS = 10 * 60_000
 const BATCH_SIZE = 50
 
+/**
+ * Cota diária e intervalo entre envios valem por execução. O cron (a cada 5 min, deadline de 50 s) não
+ * se sobrepõe; disparos manuais podem sobrepor, e o lock() evita apenas envio duplicado da mesma mensagem.
+ */
 export async function processQueue(args: {
   clinicId: string
   cfg: MessagingConfig
@@ -47,7 +51,7 @@ export async function processQueue(args: {
   if (quota <= 0) return { ...result, skippedReason: 'daily_limit' }
 
   const items = await repo.listDue(clinicId, start, BATCH_SIZE)
-  let attempted = false
+  let needsGap = false // houve envio tentado desde a última espera
 
   for (const item of items) {
     if (deps.now() >= deps.deadline) break
@@ -56,22 +60,25 @@ export async function processQueue(args: {
       break
     }
 
-    if (attempted) {
+    if (needsGap) {
       await deps.sleep(3000 + deps.random() * 5000)
+      needsGap = false
       if (deps.now() >= deps.deadline) break
+    }
+    if (!isWithinSendWindow(deps.now(), cfg)) {
+      result.skippedReason = 'outside_window'
+      break
     }
 
     if (!(await repo.lock(item.id))) continue
-    attempted = true
+    needsGap = true
 
+    let providerMessageId: string
     try {
-      const { providerMessageId } = await provider.sendText(instance, token, item.phone, item.body)
-      await repo.markSent(item.id, providerMessageId, deps.now())
-      result.sent++
-      quota--
+      ;({ providerMessageId } = await provider.sendText(instance, token, item.phone, item.body))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido no envio'
-      const attempts = item.attempts + 1
+      const attempts = item.attempts + 1 // lock() já incrementou no banco
       if (err instanceof PermanentSendError || attempts >= MAX_ATTEMPTS) {
         await repo.markFailed(item.id, message)
         result.failed++
@@ -79,7 +86,17 @@ export async function processQueue(args: {
         await repo.requeue(item.id, attempts, new Date(deps.now().getTime() + RETRY_DELAY_MS), message)
         result.requeued++
       }
+      continue
     }
+
+    // O provedor aceitou: nunca reenfileirar nem marcar falha. Tenta gravar duas vezes; se falhar, aborta.
+    try {
+      await repo.markSent(item.id, providerMessageId, deps.now())
+    } catch {
+      await repo.markSent(item.id, providerMessageId, deps.now())
+    }
+    result.sent++
+    quota--
   }
 
   return result

@@ -8,15 +8,18 @@ export interface QueuedMessage {
 }
 
 export interface QueueRepo {
+  /** Entrega no máximo uma vez: 'sending' antigo vira 'failed' (não reenfileira) para conferência manual. */
   releaseStuck(clinicId: string, olderThan: Date): Promise<void>
   listDue(clinicId: string, now: Date, limit: number): Promise<QueuedMessage[]>
-  /** queued → sending; false se outro processo pegou. */
+  /** queued → sending e attempts + 1; false se outro processo pegou. */
   lock(id: string): Promise<boolean>
   markSent(id: string, providerMessageId: string, at: Date): Promise<void>
   markFailed(id: string, error: string): Promise<void>
   requeue(id: string, attempts: number, at: Date, error: string): Promise<void>
   countSentSince(clinicId: string, since: Date): Promise<number>
 }
+
+const STUCK_ERROR = 'Envio interrompido — confira no WhatsApp antes de reenviar'
 
 function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
@@ -27,7 +30,7 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
     async releaseStuck(clinicId, olderThan) {
       const { error } = await admin
         .from('messages')
-        .update({ status: 'queued' })
+        .update({ status: 'failed', error: STUCK_ERROR })
         .eq('clinic_id', clinicId)
         .eq('status', 'sending')
         .lt('scheduled_for', olderThan.toISOString())
@@ -51,9 +54,17 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
     },
 
     async lock(id) {
+      const { data: cur, error: readError } = await admin
+        .from('messages')
+        .select('attempts')
+        .eq('id', id)
+        .eq('status', 'queued')
+        .maybeSingle()
+      check(readError)
+      if (!cur) return false
       const { data, error } = await admin
         .from('messages')
-        .update({ status: 'sending', scheduled_for: new Date().toISOString() })
+        .update({ status: 'sending', attempts: (cur.attempts ?? 0) + 1, scheduled_for: new Date().toISOString() })
         .eq('id', id)
         .eq('status', 'queued')
         .select('id')
@@ -66,11 +77,12 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
         .from('messages')
         .update({ status: 'sent', provider_message_id: providerMessageId, sent_at: at.toISOString(), error: null })
         .eq('id', id)
+        .eq('status', 'sending')
       check(error)
     },
 
     async markFailed(id, errorText) {
-      const { error } = await admin.from('messages').update({ status: 'failed', error: errorText }).eq('id', id)
+      const { error } = await admin.from('messages').update({ status: 'failed', error: errorText }).eq('id', id).eq('status', 'sending')
       check(error)
     },
 
@@ -79,6 +91,7 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
         .from('messages')
         .update({ status: 'queued', attempts, scheduled_for: at.toISOString(), error: errorText })
         .eq('id', id)
+        .eq('status', 'sending')
       check(error)
     },
 

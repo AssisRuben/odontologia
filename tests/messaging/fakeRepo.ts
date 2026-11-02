@@ -49,7 +49,10 @@ export class FakeRepo implements QueueRepo {
   async releaseStuck(clinicId: string, olderThan: Date) {
     this.releaseStuckCalls.push(olderThan)
     for (const r of this.rows) {
-      if (r.clinic_id === clinicId && r.status === 'sending' && r.scheduled_for < olderThan) r.status = 'queued'
+      if (r.clinic_id === clinicId && r.status === 'sending' && r.scheduled_for < olderThan) {
+        r.status = 'failed'
+        r.error = 'Envio interrompido — confira no WhatsApp antes de reenviar'
+      }
     }
   }
 
@@ -73,12 +76,20 @@ export class FakeRepo implements QueueRepo {
     const r = this.rows.find((x) => x.id === id)
     if (!r || r.status !== 'queued') return false
     r.status = 'sending'
+    r.attempts += 1
     r.scheduled_for = this.clock()
     return true
   }
 
+  markSentFailures = 0
+
   async markSent(id: string, providerMessageId: string, at: Date) {
+    if (this.markSentFailures > 0) {
+      this.markSentFailures--
+      throw new Error('db down')
+    }
     const r = this.get(id)
+    if (r.status !== 'sending') return
     r.status = 'sent'
     r.provider_message_id = providerMessageId
     r.sent_at = at
@@ -87,12 +98,14 @@ export class FakeRepo implements QueueRepo {
 
   async markFailed(id: string, error: string) {
     const r = this.get(id)
+    if (r.status !== 'sending') return
     r.status = 'failed'
     r.error = error
   }
 
   async requeue(id: string, attempts: number, at: Date, error: string) {
     const r = this.get(id)
+    if (r.status !== 'sending') return
     r.status = 'queued'
     r.attempts = attempts
     r.scheduled_for = at
