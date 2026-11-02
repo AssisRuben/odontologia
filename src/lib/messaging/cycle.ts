@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WhatsAppProvider } from '@/lib/whatsapp/provider'
+import { normalizeMessagingConfig } from './config'
 import { fetchAll, loadPlanInput } from './cycleData'
 import { createSupabaseQueueRepo } from './repo'
 import { planMessages, staleReason } from './schedule'
-import { processQueue } from './sender'
+import { processQueue, type ProcessResult } from './sender'
 import type { MessageKind, MessageSetting, MessagingConfig } from './types'
 
 export interface ClinicCycleResult {
@@ -104,13 +105,20 @@ async function cancelStale(
   return cancelled
 }
 
-async function runClinic(
-  admin: SupabaseClient,
-  provider: WhatsAppProvider,
-  conn: { clinic_id: string; instance: string; token: string },
-  now: Date,
-  deadline: Date,
-): Promise<ClinicCycleResult> {
+interface Conn {
+  clinic_id: string
+  instance: string
+  token: string
+}
+
+interface Prepared {
+  cfg: MessagingConfig
+  planned: number
+  cancelled: number
+}
+
+/** Fase 1 (barata): planeja a fila da clínica e cancela itens que deixaram de fazer sentido. */
+async function prepareClinic(admin: SupabaseClient, conn: Conn, now: Date): Promise<Prepared> {
   const clinicId = conn.clinic_id
   const [clinicRes, settingsRes] = await Promise.all([
     admin.from('clinics').select('name, messaging_config').eq('id', clinicId).single(),
@@ -118,13 +126,14 @@ async function runClinic(
   ])
   check(clinicRes.error)
   check(settingsRes.error)
-  const clinic = clinicRes.data as { name: string; messaging_config: MessagingConfig }
+  const clinic = clinicRes.data as { name: string; messaging_config: unknown }
+  const cfg = normalizeMessagingConfig(clinic.messaging_config)
   const settings = (settingsRes.data ?? []) as MessageSetting[]
 
   const input = await loadPlanInput(admin, {
     clinicId,
     clinicName: clinic.name,
-    cfg: clinic.messaging_config,
+    cfg,
     settings,
     now,
   })
@@ -145,12 +154,20 @@ async function runClinic(
   }
 
   const cancelled = await cancelStale(admin, clinicId, now, input.patients)
-  if (Date.now() >= deadline.getTime()) {
-    return { planned: items.length, cancelled, sent: 0, failed: 0, skippedReason: 'deadline' }
-  }
-  const res = await processQueue({
-    clinicId,
-    cfg: clinic.messaging_config,
+  return { cfg, planned: items.length, cancelled }
+}
+
+/** Fase 2: envia a fila da clínica até o prazo compartilhado. */
+function sendClinic(
+  admin: SupabaseClient,
+  provider: WhatsAppProvider,
+  conn: Conn,
+  cfg: MessagingConfig,
+  deadline: Date,
+): Promise<ProcessResult> {
+  return processQueue({
+    clinicId: conn.clinic_id,
+    cfg,
     instance: conn.instance,
     token: conn.token,
     connected: true,
@@ -163,13 +180,66 @@ async function runClinic(
       deadline,
     },
   })
-  return {
-    planned: items.length,
-    cancelled,
-    sent: res.sent,
-    failed: res.failed,
-    ...(res.skippedReason ? { skippedReason: res.skippedReason } : {}),
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Erro desconhecido'
+}
+
+export interface CycleSteps<C extends { clinic_id: string }, P extends { planned: number; cancelled: number }> {
+  prepare(conn: C): Promise<P>
+  send(conn: C, prepared: P): Promise<Pick<ProcessResult, 'sent' | 'failed' | 'skippedReason'>>
+}
+
+/**
+ * Justiça entre clínicas: primeiro prepara todas (em sequência, barato), depois envia todas em paralelo
+ * sob o mesmo prazo — uma clínica com fila grande não consome o ciclo das outras. Erro de uma clínica
+ * não afeta as demais.
+ */
+export async function runClinicsFairly<C extends { clinic_id: string }, P extends { planned: number; cancelled: number }>(
+  conns: C[],
+  steps: CycleSteps<C, P>,
+  deadline: Date,
+  clock: () => number = Date.now,
+): Promise<Record<string, ClinicCycleResult>> {
+  const results: Record<string, ClinicCycleResult> = {}
+  const ready: { conn: C; prepared: P }[] = []
+
+  for (const conn of conns) {
+    if (clock() >= deadline.getTime()) break
+    try {
+      ready.push({ conn, prepared: await steps.prepare(conn) })
+    } catch (err) {
+      const message = errorMessage(err)
+      console.error('[cron] clinic', conn.clinic_id, message)
+      results[conn.clinic_id] = { planned: 0, cancelled: 0, sent: 0, failed: 0, error: message }
+    }
   }
+
+  const settled = await Promise.allSettled(
+    ready.map(({ conn, prepared }) =>
+      clock() >= deadline.getTime() ? Promise.resolve(null) : steps.send(conn, prepared),
+    ),
+  )
+  settled.forEach((s, i) => {
+    const { conn, prepared } = ready[i]
+    const base = { planned: prepared.planned, cancelled: prepared.cancelled, sent: 0, failed: 0 }
+    if (s.status === 'rejected') {
+      const message = errorMessage(s.reason)
+      console.error('[cron] clinic', conn.clinic_id, message)
+      results[conn.clinic_id] = { ...base, error: message }
+    } else if (s.value === null) {
+      results[conn.clinic_id] = { ...base, skippedReason: 'deadline' }
+    } else {
+      results[conn.clinic_id] = {
+        ...base,
+        sent: s.value.sent,
+        failed: s.value.failed,
+        ...(s.value.skippedReason ? { skippedReason: s.value.skippedReason } : {}),
+      }
+    }
+  })
+  return results
 }
 
 export async function runCycle(
@@ -184,22 +254,8 @@ export async function runCycle(
     .eq('status', 'connected')
   check(error)
 
-  const results: Record<string, ClinicCycleResult> = {}
-  for (const conn of (data ?? []) as { clinic_id: string; instance: string; token: string }[]) {
-    if (Date.now() >= deadline.getTime()) break
-    try {
-      results[conn.clinic_id] = await runClinic(admin, provider, conn, now, deadline)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido'
-      console.error('[cron] clinic', conn.clinic_id, message)
-      results[conn.clinic_id] = {
-        planned: 0,
-        cancelled: 0,
-        sent: 0,
-        failed: 0,
-        error: message,
-      }
-    }
-  }
-  return results
+  return runClinicsFairly((data ?? []) as Conn[], {
+    prepare: (conn) => prepareClinic(admin, conn, now),
+    send: (conn, prepared) => sendClinic(admin, provider, conn, prepared.cfg, deadline),
+  }, deadline)
 }
