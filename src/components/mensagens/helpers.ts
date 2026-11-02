@@ -20,7 +20,7 @@ export const SETTING_ORDER: MessageType[] = ['confirmation', 'reminder', 'recall
 
 export const SETTING_META: Record<MessageType, { title: string; description: string }> = {
   confirmation: { title: 'Confirmação de consulta', description: 'Pede ao paciente que confirme ou desmarque a consulta antes do horário.' },
-  reminder: { title: 'Lembrete de consulta', description: 'Avisa o paciente pouco antes da consulta.' },
+  reminder: { title: 'Lembrete de consulta', description: 'Avisa o paciente pouco antes da consulta. Enviado só para consultas confirmadas (pelo paciente ou pela recepção).' },
   recall: { title: 'Retorno semestral', description: 'Lembre seus pacientes de marcar o retorno após a última consulta.' },
   birthday: { title: 'Aniversariantes', description: 'Envie felicitações automáticas no dia do aniversário dos seus pacientes.' },
   charge: { title: 'Inadimplentes', description: 'Notifique pacientes com pagamentos em atraso.' },
