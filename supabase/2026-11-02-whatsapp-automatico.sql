@@ -153,6 +153,12 @@ BEGIN
 END;
 $$;
 
+-- Bancos antigos podem não ter o gatilho (ou tê-lo apontando para outra função): recria.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- Clínicas já existentes
 SELECT public.seed_message_settings(id) FROM clinics;
 

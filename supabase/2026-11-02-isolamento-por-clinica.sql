@@ -8,7 +8,21 @@
 -- Como aplicar: Supabase Dashboard > SQL Editor > New query >
 -- cole este arquivo inteiro > Run. Pode rodar mais de uma vez.
 -- (Bancos novos criados com supabase/schema.sql já vêm assim.)
+--
+-- ATENÇÃO: depois deste script, usuário SEM linha em professionals
+-- não vê dado nenhum (telas vazias). Antes de aplicar, rode a
+-- consulta abaixo; para cada usuário listado, vincule-o a uma
+-- clínica com o INSERT de exemplo.
 -- ============================================================
+
+-- Pré-verificação: usuários sem profissional vinculado.
+-- SELECT u.id, u.email
+--   FROM auth.users u
+--  WHERE NOT EXISTS (SELECT 1 FROM professionals p WHERE p.user_id = u.id);
+--
+-- Vincular um usuário a uma clínica existente (troque os valores):
+-- INSERT INTO professionals (clinic_id, user_id, name)
+-- VALUES ('<id da clínica em clinics>', '<id do usuário acima>', 'Nome do profissional');
 
 -- Clínicas do usuário logado. SECURITY DEFINER para não depender da
 -- própria RLS de professionals (evita recursão).

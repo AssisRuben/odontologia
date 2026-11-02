@@ -12,3 +12,16 @@ describe.each(['2026-11-02-whatsapp-automatico.sql', 'schema.sql'])('%s', (file)
     expect(sql).toContain(template.replace(/'/g, "''"))
   })
 })
+
+describe('2026-11-02-whatsapp-automatico.sql', () => {
+  it('recria o gatilho on_auth_user_created depois de handle_new_user (bancos antigos)', () => {
+    const sql = read('2026-11-02-whatsapp-automatico.sql')
+    const fn = sql.indexOf('CREATE OR REPLACE FUNCTION public.handle_new_user()')
+    const drop = sql.indexOf('DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;')
+    const create = sql.indexOf('CREATE TRIGGER on_auth_user_created')
+    expect(fn).toBeGreaterThan(-1)
+    expect(drop).toBeGreaterThan(fn)
+    expect(create).toBeGreaterThan(drop)
+    expect(sql.slice(create)).toMatch(/AFTER INSERT ON auth\.users\s+FOR EACH ROW EXECUTE FUNCTION public\.handle_new_user\(\);/)
+  })
+})
