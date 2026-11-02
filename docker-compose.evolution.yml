@@ -2,7 +2,7 @@
 # Uso: copie .env.evolution.example para .env.evolution, ajuste os valores e rode
 #   docker compose -f docker-compose.evolution.yml --env-file .env.evolution up -d
 # No .env.local do app: EVOLUTION_API_URL=http://localhost:8080 e EVOLUTION_API_KEY igual a AUTHENTICATION_API_KEY.
-# O webhook aponta para o app via http://host.docker.internal:3001 (APP_URL do app deve ser acessível pelo container).
+# O webhook aponta para o app via http://host.docker.internal:<porta> (a porta que o npm run dev mostrar, normalmente 3000; APP_URL do app deve ser acessível pelo container).
 services:
   evolution-api:
     image: evoapicloud/evolution-api:v2.3.7

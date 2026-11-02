@@ -108,6 +108,7 @@ Precisa do [Docker Desktop](https://www.docker.com/products/docker-desktop/) ins
 ```bash
 cp .env.evolution.example .env.evolution
 # edite .env.evolution: defina AUTHENTICATION_API_KEY e a senha do Postgres
+# (a senha também vai dentro de DATABASE_CONNECTION_URI; as duas precisam ser iguais)
 docker compose -f docker-compose.evolution.yml --env-file .env.evolution up -d
 ```
 
@@ -120,6 +121,8 @@ No teste local o banco (Supabase na nuvem) não consegue chamar o seu computador
 curl -X POST http://localhost:3000/api/cron/messages -H "Authorization: Bearer SEU_CRON_SECRET"
 ```
 
+No PowerShell do Windows use `curl.exe` no lugar de `curl` (ou rode no Git Bash).
+
 ### 4. Produção
 
 - **App:** na Vercel, cadastre as 5 variáveis acima (com `APP_URL` = endereço público do app, sem barra no final).
@@ -128,7 +131,7 @@ curl -X POST http://localhost:3000/api/cron/messages -H "Authorization: Bearer S
 
 ### 5. Conectar o WhatsApp da clínica
 
-1. No app: **Configurações** → **Mensagens** → **Conectar WhatsApp**. Aparece um QR code.
+1. No app: **Configurações** → **Configurações de mensagens** → **Conectar WhatsApp**. Aparece um QR code.
 2. No celular da clínica: WhatsApp → **Aparelhos conectados** → **Conectar aparelho** e escaneie o QR code.
 3. Em **Mensagens** → **Automáticas**, ligue os tipos de mensagem que quiser.
 
