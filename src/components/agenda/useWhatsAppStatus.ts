@@ -107,6 +107,7 @@ export function useWhatsAppStatus(visible: Appointment[], all: Appointment[]) {
   }, [idsKey])
 
   useEffect(() => {
+    if (all.length === 0) return
     let active = true
     const now = new Date()
     createClient()

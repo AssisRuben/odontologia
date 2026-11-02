@@ -47,7 +47,7 @@ export default function AgendaPage() {
   const [evolutionApt, setEvolutionApt] = useState<Appointment | null>(null)
 
   const [reloadKey, setReloadKey] = useState(0)
-  const [cancelNoticeDismissed, setCancelNoticeDismissed] = useState(false)
+  const [dismissedNoticeKey, setDismissedNoticeKey] = useState('')
 
   const openPopover = useCallback((apt: Appointment, rect: DOMRect) => {
     setPopover({ apt, rect })
@@ -106,6 +106,8 @@ export default function AgendaPage() {
     })
   }, [filteredAppointments, view, currentDate])
   const { indicators, cancelNotices } = useWhatsAppStatus(visibleAppointments, appointments)
+
+  const noticeKey = cancelNotices.map((n) => n.appointment.id).join(',')
 
   function openNoticeAppointment(apt: Appointment, el: HTMLElement) {
     setCurrentDate(new Date(apt.start_time))
@@ -286,7 +288,7 @@ export default function AgendaPage() {
           </button>
         </div>
 
-        {cancelNotices.length > 0 && !cancelNoticeDismissed && (
+        {cancelNotices.length > 0 && noticeKey !== dismissedNoticeKey && (
           <div role="status" className="bg-[#FEF3C7] border-b border-[#FDE68A] px-3 py-2 flex items-start gap-2 text-sm text-[#92400E]">
             <MessageCircleOff className="w-4 h-4 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
@@ -307,7 +309,7 @@ export default function AgendaPage() {
               </ul>
             </div>
             <button
-              onClick={() => setCancelNoticeDismissed(true)}
+              onClick={() => setDismissedNoticeKey(noticeKey)}
               title="Dispensar aviso"
               className="p-1 rounded-md hover:bg-[#FDE68A] shrink-0"
             >
