@@ -91,6 +91,14 @@ describe('planMessages - recall', () => {
   })
 })
 
+describe('planMessages - recall (limite de atraso)', () => {
+  const last = (start_time: string) => [{ patient_id: 'p1', appointment_id: 'a9', start_time }]
+  it('33 dias de atraso ou mais → nada', () => {
+    expect(planMessages(input({ lastCompleted: last('2026-04-01T12:00:00Z') }))).toEqual([])
+    expect(planMessages(input({ lastCompleted: last('2024-01-10T12:00:00Z') }))).toEqual([])
+  })
+})
+
 describe('planMessages - birthday', () => {
   it('aniversário hoje', () => {
     const [i] = planMessages(input({ patients: withPatient({ birthdate: '1990-11-03' }) }))
@@ -118,6 +126,10 @@ describe('planMessages - charge', () => {
     expect(a[0].scheduled_for).toEqual(new Date('2026-11-03T11:00:00Z'))
     const b = planMessages(input({ payments: [pay({ due_date: '2026-10-27' })] }))
     expect(b[0].dedupe_key).toBe('charge:pay1:7')
+  })
+  it('usa o dia da clínica (22h SP do dia 03 ainda é dia 03)', () => {
+    const now = new Date('2026-11-04T01:00:00Z')
+    expect(planMessages(input({ now, payments: [pay({ due_date: '2026-11-03' })] }))).toEqual([])
   })
   it('outros dias, pago ou sem vencimento → nada', () => {
     expect(planMessages(input({ payments: [pay({ due_date: '2026-10-30' })] }))).toEqual([])

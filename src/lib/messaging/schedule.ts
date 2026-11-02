@@ -1,4 +1,3 @@
-import { addMonths } from 'date-fns'
 import { normalizePhone } from './phone'
 import { buildContext, renderTemplate } from './templates'
 import { todayYmd, zonedDateTime } from './time'
@@ -61,6 +60,20 @@ function normalizeIso(s: string): string {
 }
 
 const HOUR_MS = 3_600_000
+const DAY_MS = 24 * HOUR_MS
+
+/** Recall só vale para quem completou o intervalo há no máximo N dias (evita disparo em massa). */
+export const RECALL_MAX_LATE_DAYS = 30
+
+/** Soma meses em componentes UTC (independe do fuso do servidor), limitando o dia ao fim do mês. */
+function addMonthsUtc(d: Date, months: number): Date {
+  const total = d.getUTCFullYear() * 12 + d.getUTCMonth() + months
+  const y = Math.floor(total / 12)
+  const m = total % 12
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m, Math.min(d.getUTCDate(), lastDay),
+    d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()))
+}
 
 type Ctx = {
   input: PlanInput
@@ -128,7 +141,8 @@ function planRecall(c: Ctx): QueueItem[] {
   const out: QueueItem[] = []
   for (const l of input.lastCompleted) {
     if (input.patientsWithFuture.has(l.patient_id)) continue
-    if (addMonths(new Date(l.start_time), months) > input.now) continue
+    const due = addMonthsUtc(new Date(l.start_time), months)
+    if (due > input.now || due.getTime() <= input.now.getTime() - RECALL_MAX_LATE_DAYS * DAY_MS) continue
     const t = c.target(l.patient_id)
     if (!t) continue
     out.push(
