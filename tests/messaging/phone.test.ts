@@ -13,6 +13,6 @@ describe('normalizePhone', () => {
   ])('%s → %s', (raw, out) => expect(normalizePhone(raw)).toBe(out))
   it.each([['1133334444'], ['551133334444'], ['123'], [''], [null], [undefined], ['abc']])(
     'rejeita %s',
-    (raw) => expect(normalizePhone(raw as any)).toBeNull(),
+    (raw) => expect(normalizePhone(raw as string)).toBeNull(),
   )
 })

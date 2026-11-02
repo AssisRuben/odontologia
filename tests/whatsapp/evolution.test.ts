@@ -16,7 +16,7 @@ const res = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
 function make(handler: (url: string, init: RequestInit) => Response | Promise<Response>) {
-  const fetchImpl = vi.fn(async (url: any, init: any) => handler(String(url), init ?? {}))
+  const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => handler(String(url), init ?? {}))
   const provider = new EvolutionProvider({
     baseUrl: 'http://evo.test/',
     apiKey: 'GLOBAL',
@@ -27,7 +27,12 @@ function make(handler: (url: string, init: RequestInit) => Response | Promise<Re
 }
 
 const hdr = (init: RequestInit, k: string) => (init.headers as Record<string, string>)[k]
-const clone = (o: any) => JSON.parse(JSON.stringify(o))
+// Cópia mutável de um fixture; o tipo solto permite alterar/remover campos aninhados nos testes.
+interface Loose {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [k: string]: any
+}
+const clone = (o: unknown) => JSON.parse(JSON.stringify(o)) as Loose
 
 describe('EvolutionProvider.sendText', () => {
   it('envia apikey da instância e corpo {number,text}; devolve providerMessageId', async () => {

@@ -16,7 +16,17 @@ export interface EvolutionOptions {
   fetchImpl?: typeof fetch
 }
 
-type Json = Record<string, any>
+type Json = Record<string, unknown>
+
+/** Lê um caminho aninhado de um JSON não confiável; devolve undefined se algo no caminho não for objeto. */
+function dig(v: unknown, ...path: string[]): unknown {
+  let cur: unknown = v
+  for (const k of path) {
+    if (!cur || typeof cur !== 'object') return undefined
+    cur = (cur as Json)[k]
+  }
+  return cur
+}
 
 function asObject(v: unknown): Json | null {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : null
@@ -61,7 +71,7 @@ export class EvolutionProvider implements WhatsAppProvider {
     }
   }
 
-  private async readJson(res: Response): Promise<{ json: any; text: string }> {
+  private async readJson(res: Response): Promise<{ json: unknown; text: string }> {
     const text = await res.text().catch(() => '')
     try {
       return { json: JSON.parse(text), text }
@@ -96,9 +106,9 @@ export class EvolutionProvider implements WhatsAppProvider {
 
     if (res.ok) {
       const { json } = await this.readJson(res)
-      const token = json?.hash
+      const token = dig(json, 'hash')
       if (typeof token !== 'string' || !token) throw new Error('Evolution API: resposta de criação sem "hash"')
-      const qr = json?.qrcode?.base64
+      const qr = dig(json, 'qrcode', 'base64')
       return { instance, token, qrCode: typeof qr === 'string' && qr ? qr : null, status: 'connecting' as const }
     }
 
@@ -111,7 +121,7 @@ export class EvolutionProvider implements WhatsAppProvider {
       const cres = await this.request('GET', `/instance/connect/${encodeURIComponent(instance)}`, this.apiKey)
       if (!cres.ok) throw new Error(`Evolution API: falha ao gerar QR (HTTP ${cres.status})`)
       const { json } = await this.readJson(cres)
-      const qr = json?.base64
+      const qr = dig(json, 'base64')
       return {
         instance,
         token,
@@ -129,7 +139,7 @@ export class EvolutionProvider implements WhatsAppProvider {
       throw new Error(`Evolution API: falha ao consultar estado (HTTP ${res.status})`)
     }
     const { json } = await this.readJson(res)
-    const status = mapState(json?.instance?.state ?? json?.state)
+    const status = mapState(dig(json, 'instance', 'state') ?? dig(json, 'state'))
     let phone: string | null = null
     if (status === 'connected') {
       const info = await this.fetchInstance(instance, token).catch(() => null)
@@ -161,7 +171,7 @@ export class EvolutionProvider implements WhatsAppProvider {
     const { json, text: raw } = await this.readJson(res)
 
     if (res.ok) {
-      const id = json?.key?.id
+      const id = dig(json, 'key', 'id')
       if (typeof id !== 'string' || !id) throw new TransientSendError('Evolution API: resposta de envio sem key.id')
       return { providerMessageId: id }
     }
@@ -169,9 +179,9 @@ export class EvolutionProvider implements WhatsAppProvider {
     if (res.status >= 500 || res.status === 408 || res.status === 429) {
       throw new TransientSendError(`Evolution API: HTTP ${res.status}`)
     }
-    const messages = json?.response?.message
+    const messages = dig(json, 'response', 'message')
     const notOnWhatsApp =
-      Array.isArray(messages) && messages.some((m: any) => m && typeof m === 'object' && m.exists === false)
+      Array.isArray(messages) && messages.some((m: unknown) => dig(m, 'exists') === false)
     if (notOnWhatsApp) throw new PermanentSendError('Número não possui WhatsApp')
     if (/connection closed|not connected|disconnected/i.test(raw)) {
       throw new TransientSendError('Instância do WhatsApp desconectada')
