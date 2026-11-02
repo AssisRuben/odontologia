@@ -16,8 +16,8 @@ interface Props {
   onSent: () => void
 }
 
+// Sem "Confirmação": a resposta 1/2 só vale para confirmações automáticas (R14).
 const TEMPLATE_OPTIONS: { value: MessageType; label: string }[] = [
-  { value: 'confirmation', label: 'Confirmação' },
   { value: 'reminder', label: 'Lembrete' },
   { value: 'recall', label: 'Retorno' },
   { value: 'birthday', label: 'Aniversário' },
@@ -84,7 +84,7 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
       },
       clinicName,
       tz,
-      appointment: value === 'confirmation' || value === 'reminder' ? nextAppointment : undefined,
+      appointment: value === 'reminder' ? nextAppointment : undefined,
     })
     setText(renderTemplate(templates[value], ctx))
   }
