@@ -8,6 +8,7 @@ import { createSupabaseQueueRepo } from './repo'
 import { sendNow } from './sendNow'
 import { renderTemplate } from './templates'
 import { formatDataCurta, formatHora } from './time'
+import { normalizeMessagingConfig } from './config'
 import type { MessagingConfig } from './types'
 import { startOfClinicDay } from './window'
 
@@ -138,7 +139,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .eq('id', conn.clinic_id)
         .single()
       check(cErr)
-      return { clinicId: conn.clinic_id, token: conn.token, cfg: clinic!.messaging_config as MessagingConfig }
+      return { clinicId: conn.clinic_id, token: conn.token, cfg: normalizeMessagingConfig(clinic!.messaging_config) }
     },
 
     async findPatientByPhone(clinicId, phone) {
@@ -265,7 +266,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .eq('id', clinicId)
         .single()
       check(cErr)
-      const cfg = clinic!.messaging_config as MessagingConfig
+      const cfg = normalizeMessagingConfig(clinic!.messaging_config)
       const base = { clinic_id: clinicId, appointment_id: appointmentId, type: 'auto_reply', direction: 'out', phone, body }
 
       const sentToday = await repo.countSentSince(clinicId, startOfClinicDay(new Date(), cfg.timezone))

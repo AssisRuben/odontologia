@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendManual, type ManualDeps } from '@/lib/messaging/manual'
 import { createSupabaseQueueRepo } from '@/lib/messaging/repo'
 import { sendNow } from '@/lib/messaging/sendNow'
-import type { MessagingConfig } from '@/lib/messaging/types'
+import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import { startOfClinicDay } from '@/lib/messaging/window'
 
 export const dynamic = 'force-dynamic'
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     async getConfig(clinicId) {
       const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
       check(error)
-      return data!.messaging_config as MessagingConfig
+      return normalizeMessagingConfig(data!.messaging_config)
     },
     countSentToday: (clinicId, cfg) => repo.countSentSince(clinicId, startOfClinicDay(new Date(), cfg.timezone)),
     deliver: (conn, row) => sendNow(admin, conn, row),
