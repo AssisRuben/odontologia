@@ -6,7 +6,7 @@ import { useClinicStore } from '@/store/clinicStore'
 import { DEFAULT_TEMPLATES, TEMPLATE_VARIABLES, findUnknownVariables, renderTemplate } from '@/lib/messaging/templates'
 import type { MessageSetting, MessageType } from '@/lib/messaging/types'
 import {
-  DEFAULT_TZ, SETTING_META, SETTING_ORDER, buildPreviewContext, configToForm, insertAtCursor, validateConfig,
+  DEFAULT_TZ, resolveTz, SETTING_META, SETTING_ORDER, buildPreviewContext, configToForm, insertAtCursor, validateConfig,
   type ConfigForm,
 } from './helpers'
 
@@ -18,7 +18,7 @@ interface CardProps {
   tz: string
   onSaved: (s: MessageSetting) => void
   onToggle: (type: MessageType, enabled: boolean) => Promise<string | null>
-  saveSetting: (s: MessageSetting) => Promise<string | null>
+  saveSetting: (type: MessageType, patch: { template: string; config: MessageSetting['config'] }) => Promise<string | null>
 }
 
 function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }: CardProps) {
@@ -28,6 +28,7 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
   const [form, setForm] = useState<ConfigForm>(() => configToForm(type, setting.config))
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<Notice>(null)
+  const [toggling, setToggling] = useState(false)
   const areaRef = useRef<HTMLTextAreaElement>(null)
 
   const unknown = useMemo(() => findUnknownVariables(template), [template])
@@ -39,8 +40,9 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
 
   function insertVariable(v: string) {
     const el = areaRef.current
-    const start = el?.selectionStart ?? template.length
-    const end = el?.selectionEnd ?? template.length
+    const focused = el !== null && document.activeElement === el
+    const start = focused ? el.selectionStart : template.length
+    const end = focused ? el.selectionEnd : template.length
     const r = insertAtCursor(template, start, end, `{${v}}`)
     setTemplate(r.value)
     requestAnimationFrame(() => {
@@ -50,8 +52,11 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
   }
 
   async function handleToggle() {
+    if (toggling) return
     setNotice(null)
+    setToggling(true)
     const err = await onToggle(type, !setting.enabled)
+    setToggling(false)
     if (err) setNotice({ kind: 'error', text: err })
   }
 
@@ -65,13 +70,15 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
     }
     setSaving(true)
     const next: MessageSetting = { ...setting, template, config: res.config }
-    const err = await saveSetting(next)
+    const err = await saveSetting(type, { template, config: res.config })
     setSaving(false)
     if (err) {
       setNotice({ kind: 'error', text: err })
       return
     }
     onSaved(next)
+    setTemplate(next.template)
+    setForm(configToForm(type, res.config))
     setNotice({ kind: 'ok', text: 'Alterações salvas.' })
   }
 
@@ -89,6 +96,7 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
           role="switch"
           aria-checked={setting.enabled}
           aria-label={`${setting.enabled ? 'Desligar' : 'Ligar'} ${meta.title}`}
+          disabled={toggling}
           onClick={handleToggle}
           className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${setting.enabled ? 'bg-[#10B981]' : 'bg-[#D1D5DB]'}`}
         >
@@ -206,18 +214,18 @@ export default function TabAutomaticas() {
       setSettings(SETTING_ORDER.flatMap((t) => (byType.has(t) ? [byType.get(t)!] : [])))
       setClinicName((c.data?.name as string | undefined) ?? '')
       const cfgTz = (c.data?.messaging_config as { timezone?: string } | null)?.timezone
-      if (cfgTz) setTz(cfgTz)
+      setTz(resolveTz(cfgTz))
     }
     load()
     return () => { cancelled = true }
   }, [clinicId, supabase])
 
-  async function persist(s: MessageSetting): Promise<string | null> {
+  async function persist(type: MessageType, patch: Partial<Pick<MessageSetting, 'enabled' | 'template' | 'config'>>): Promise<string | null> {
     const { data, error } = await supabase
       .from('message_settings')
-      .update({ enabled: s.enabled, template: s.template, config: s.config })
+      .update(patch)
       .eq('clinic_id', clinicId)
-      .eq('type', s.type)
+      .eq('type', type)
       .select('type')
     if (error) return 'Não foi possível salvar. Tente novamente.'
     if (!data || data.length === 0) return 'Não foi possível salvar: configuração não encontrada.'
@@ -230,8 +238,7 @@ export default function TabAutomaticas() {
     const replace = (v: boolean) =>
       setSettings((prev) => prev?.map((s) => (s.type === type ? { ...s, enabled: v } : s)) ?? prev)
     replace(enabled) // otimista
-    // Salva o último estado persistido (rascunhos não validados ficam de fora).
-    const err = await persist({ ...current, enabled })
+    const err = await persist(type, { enabled })
     if (err) replace(current.enabled)
     return err
   }
@@ -250,7 +257,7 @@ export default function TabAutomaticas() {
           tz={tz}
           saveSetting={persist}
           onToggle={handleToggle}
-          onSaved={(next) => setSettings((prev) => prev?.map((x) => (x.type === next.type ? { ...next, enabled: x.enabled } : x)) ?? prev)}
+          onSaved={(next) => setSettings((prev) => prev?.map((x) => (x.type === next.type ? { ...x, template: next.template, config: next.config } : x)) ?? prev)}
         />
       ))}
     </div>

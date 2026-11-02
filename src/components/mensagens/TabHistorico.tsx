@@ -6,7 +6,7 @@ import { TZDate } from '@date-fns/tz'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import type { MessageKind, MessageStatus } from '@/lib/messaging/types'
-import { DEFAULT_TZ, KIND_LABELS, PAGE_SIZE, REPLY_LABELS, STATUS_LABELS, STATUS_STYLES } from './helpers'
+import { DEFAULT_TZ, resolveTz, KIND_LABELS, PAGE_SIZE, REPLY_LABELS, STATUS_LABELS, STATUS_STYLES } from './helpers'
 
 interface HistoryRow {
   id: string
@@ -49,9 +49,9 @@ export default function TabHistorico() {
 
   useEffect(() => {
     if (!clinicId) return
-    supabase.from('clinics').select('messaging_config').eq('id', clinicId).maybeSingle().then(({ data }) => {
-      const t = (data?.messaging_config as { timezone?: string } | null)?.timezone
-      if (t) setTz(t)
+    supabase.from('clinics').select('messaging_config').eq('id', clinicId).maybeSingle().then(({ data, error: err }) => {
+      if (err) { setTz(DEFAULT_TZ); return }
+      setTz(resolveTz((data?.messaging_config as { timezone?: string } | null)?.timezone))
     })
   }, [clinicId, supabase])
 
@@ -68,11 +68,25 @@ export default function TabHistorico() {
       // supabase-js não ordena por coalesce(sent_at, created_at); usa created_at.
       const { data, error: err, count } = await q
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
       if (cancelled) return
+      if (err && err.code === 'PGRST103' && page > 0) {
+        // página além do fim (a contagem diminuiu): volta para a última página existente
+        let cq = supabase.from('messages').select('id', { count: 'exact', head: true }).eq('clinic_id', clinicId)
+        if (typeFilter) cq = cq.eq('type', typeFilter)
+        if (statusFilter) cq = cq.eq('status', statusFilter)
+        const { count: c2, error: e2 } = await cq
+        if (cancelled) return
+        if (!e2) {
+          setPage(Math.min(page - 1, Math.max(0, Math.ceil((c2 ?? 0) / PAGE_SIZE) - 1)))
+          return
+        }
+      }
       if (err) {
         setError('Não foi possível carregar o histórico.')
         setRows([])
+        setTotal(0)
       } else {
         setError(null)
         setRows((data ?? []) as unknown as HistoryRow[])

@@ -87,3 +87,12 @@ describe('insertAtCursor', () => {
     expect(insertAtCursor('abcdef', 1, 3, 'X')).toEqual({ value: 'aXdef', cursor: 2 })
   })
 })
+
+describe('resolveTz', () => {
+  it('mantém fuso válido e cai no padrão para inválido', async () => {
+    const { resolveTz } = await import('@/components/mensagens/helpers')
+    expect(resolveTz('America/Manaus')).toBe('America/Manaus')
+    expect(resolveTz('Nao/Existe')).toBe('America/Sao_Paulo')
+    expect(resolveTz(undefined)).toBe('America/Sao_Paulo')
+  })
+})

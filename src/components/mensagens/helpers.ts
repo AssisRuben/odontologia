@@ -5,6 +5,17 @@ import type { MessageKind, MessageSetting, MessageStatus, MessageType, TemplateC
 export const DEFAULT_TZ = 'America/Sao_Paulo'
 export const PAGE_SIZE = 50
 
+/** Devolve o fuso informado se for válido; senão o padrão. */
+export function resolveTz(tz: unknown): string {
+  if (typeof tz !== 'string' || !tz) return DEFAULT_TZ
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    return tz
+  } catch {
+    return DEFAULT_TZ
+  }
+}
+
 export const SETTING_ORDER: MessageType[] = ['confirmation', 'reminder', 'recall', 'birthday', 'charge']
 
 export const SETTING_META: Record<MessageType, { title: string; description: string }> = {
