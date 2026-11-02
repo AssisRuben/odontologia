@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateConfig, configToForm, KIND_LABELS, STATUS_LABELS, REPLY_LABELS, buildPreviewContext, insertAtCursor,
+  errorLabel, formatWhatsAppPhone,
 } from '@/components/mensagens/helpers'
 
 describe('validateConfig', () => {
@@ -94,5 +95,31 @@ describe('resolveTz', () => {
     expect(resolveTz('America/Manaus')).toBe('America/Manaus')
     expect(resolveTz('Nao/Existe')).toBe('America/Sao_Paulo')
     expect(resolveTz(undefined)).toBe('America/Sao_Paulo')
+  })
+})
+
+describe('errorLabel', () => {
+  it('traduz os códigos do servidor', () => {
+    expect(errorLabel('sem_conexao')).toBe('WhatsApp desconectado')
+    expect(errorLabel('daily_limit')).toBe('Limite diário atingido')
+    expect(errorLabel('appointment_changed')).toBe('Consulta alterada')
+    expect(errorLabel('not_confirmed')).toBe('Consulta não confirmada')
+    expect(errorLabel('paid')).toBe('Pagamento quitado')
+    expect(errorLabel('opt_out')).toBe('Paciente optou por não receber')
+    expect(errorLabel('expired')).toBe('Expirada')
+  })
+  it('outro texto aparece como está', () => {
+    expect(errorLabel('Número não possui WhatsApp')).toBe('Número não possui WhatsApp')
+  })
+})
+
+describe('formatWhatsAppPhone', () => {
+  it('formata o telefone canônico', () => {
+    expect(formatWhatsAppPhone('5511987654321')).toBe('(11) 98765-4321')
+    expect(formatWhatsAppPhone('551133334444')).toBe('(11) 3333-4444')
+  })
+  it('vazio e formatos desconhecidos', () => {
+    expect(formatWhatsAppPhone(null)).toBe('')
+    expect(formatWhatsAppPhone('123')).toBe('123')
   })
 })

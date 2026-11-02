@@ -6,7 +6,9 @@ import { TZDate } from '@date-fns/tz'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import type { MessageKind, MessageStatus } from '@/lib/messaging/types'
-import { DEFAULT_TZ, resolveTz, KIND_LABELS, PAGE_SIZE, REPLY_LABELS, STATUS_LABELS, STATUS_STYLES } from './helpers'
+import {
+  DEFAULT_TZ, resolveTz, KIND_LABELS, PAGE_SIZE, REPLY_LABELS, STATUS_LABELS, STATUS_STYLES, errorLabel, formatWhatsAppPhone,
+} from './helpers'
 
 interface HistoryRow {
   id: string
@@ -17,14 +19,16 @@ interface HistoryRow {
   reply_action: string | null
   sent_at: string | null
   created_at: string
+  phone: string | null
   patients: { name: string } | { name: string }[] | null
 }
 
-const COLUMNS = 'id, type, status, body, error, reply_action, sent_at, created_at, patients(name)'
+const COLUMNS = 'id, type, status, body, error, reply_action, sent_at, created_at, phone, patients(name)'
 
-function patientName(p: HistoryRow['patients']): string {
-  if (!p) return '—'
-  return (Array.isArray(p) ? p[0]?.name : p.name) ?? '—'
+/** Nome do paciente; sem paciente vinculado, o telefone formatado. */
+function patientName(p: HistoryRow['patients'], phone: string | null): string {
+  const name = p ? (Array.isArray(p) ? p[0]?.name : p.name) : undefined
+  return name ?? (formatWhatsAppPhone(phone) || '—')
 }
 
 function formatWhen(iso: string, tz: string): string {
@@ -155,7 +159,7 @@ export default function TabHistorico() {
               return (
                 <tr key={m.id} className="border-t border-[#E5E7EB] align-top">
                   <td className="px-4 py-2 whitespace-nowrap text-[#111827]">{formatWhen(m.sent_at ?? m.created_at, tz)}</td>
-                  <td className="px-4 py-2 text-[#111827]">{patientName(m.patients)}</td>
+                  <td className="px-4 py-2 text-[#111827]">{patientName(m.patients, m.phone)}</td>
                   <td className="px-4 py-2 text-[#111827]">
                     {KIND_LABELS[m.type] ?? m.type}
                     {m.reply_action && REPLY_LABELS[m.reply_action] && (
@@ -164,7 +168,8 @@ export default function TabHistorico() {
                   </td>
                   <td className="px-4 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[m.status]}`}>{STATUS_LABELS[m.status]}</span>
-                    {m.status === 'failed' && m.error && <div className="mt-1 text-xs text-red-600 max-w-[14rem] break-words">{m.error}</div>}
+                    {m.status === 'failed' && m.error && <div className="mt-1 text-xs text-red-600 max-w-[14rem] break-words">{errorLabel(m.error)}</div>}
+                    {m.status === 'cancelled' && m.error && <div className="mt-1 text-xs text-[#6B7280] max-w-[14rem] break-words">{errorLabel(m.error)}</div>}
                     {rowError[m.id] && <div className="mt-1 text-xs text-red-600 max-w-[14rem]">{rowError[m.id]}</div>}
                   </td>
                   <td className="px-4 py-2 text-[#6B7280] max-w-xs">

@@ -60,6 +60,32 @@ export const REPLY_LABELS: Record<string, string> = {
   cancelled: 'Desmarcou',
 }
 
+/** Códigos gravados em messages.error pelo servidor -> texto para a recepção. */
+export const ERROR_LABELS: Record<string, string> = {
+  sem_conexao: 'WhatsApp desconectado',
+  daily_limit: 'Limite diário atingido',
+  appointment_changed: 'Consulta alterada',
+  not_confirmed: 'Consulta não confirmada',
+  paid: 'Pagamento quitado',
+  opt_out: 'Paciente optou por não receber',
+  expired: 'Expirada',
+}
+
+/** Rótulo do erro/motivo; texto que não é código conhecido aparece como está. */
+export function errorLabel(error: string): string {
+  return ERROR_LABELS[error] ?? error
+}
+
+/** 5511987654321 -> (11) 98765-4321; outros formatos aparecem como estão. */
+export function formatWhatsAppPhone(raw: string | null | undefined): string {
+  if (!raw) return ''
+  let d = raw.replace(/\D/g, '')
+  if (d.startsWith('55') && d.length >= 12) d = d.slice(2)
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return raw
+}
+
 export interface ConfigForm {
   offset: string // horas / meses (confirmation, reminder, recall)
   days: string[] // charge: dois campos
