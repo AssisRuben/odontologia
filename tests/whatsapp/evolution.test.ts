@@ -11,6 +11,8 @@ import sendNotExists from './fixtures/send-text-not-exists.json'
 import msgText from './fixtures/webhook-message-text.json'
 import msgExtended from './fixtures/webhook-message-extended.json'
 import connOpen from './fixtures/webhook-connection-open.json'
+import msgLidAlt from './fixtures/webhook-message-lid-alt.json'
+import msgLidSenderPn from './fixtures/webhook-message-lid-senderpn.json'
 
 const res = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -159,6 +161,28 @@ describe('EvolutionProvider.parseWebhook', () => {
     const b = clone(msgText)
     b.data.key.remoteJid = '551187654321@s.whatsapp.net'
     expect(provider.parseWebhook(b)).toMatchObject({ kind: 'incoming', from: '5511987654321' })
+  })
+  it('@lid com remoteJidAlt usa o telefone do alt', () => {
+    expect(provider.parseWebhook(msgLidAlt)).toMatchObject({
+      kind: 'incoming',
+      from: '5511987654321',
+      text: '1',
+      providerMessageId: 'MSGLID1',
+    })
+  })
+  it('@lid com senderPn usa o telefone do senderPn', () => {
+    expect(provider.parseWebhook(msgLidSenderPn)).toMatchObject({ kind: 'incoming', from: '5511987654321', text: '2' })
+  })
+  it('@lid: primeiro campo que termina em @s.whatsapp.net vence', () => {
+    const b = clone(msgLidAlt)
+    b.data.key.remoteJidAlt = '999@lid'
+    b.data.key.senderPn = '5511922223333@s.whatsapp.net'
+    expect(provider.parseWebhook(b)).toMatchObject({ from: '5511922223333' })
+  })
+  it('@lid sem remoteJidAlt/senderPn -> null', () => {
+    const b = clone(msgLidAlt)
+    delete b.data.key.remoteJidAlt
+    expect(provider.parseWebhook(b)).toBeNull()
   })
   it('sem messageTimestamp usa a data atual', () => {
     const b = clone(msgText)

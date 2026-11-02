@@ -1,0 +1,1 @@
+{"event":"messages.upsert","instance":"clinic-abc","data":{"key":{"remoteJid":"123456789012345@lid","remoteJidAlt":"5511987654321@s.whatsapp.net","fromMe":false,"id":"MSGLID1","addressingMode":"lid"},"pushName":"Maria","message":{"conversation":"1"},"messageType":"conversation","messageTimestamp":1762080000},"sender":"5511911112222@s.whatsapp.net"}

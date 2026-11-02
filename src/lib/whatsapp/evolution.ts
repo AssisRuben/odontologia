@@ -206,8 +206,13 @@ export class EvolutionProvider implements WhatsAppProvider {
       if (!key || key.fromMe !== false) return null
       const id = key.id
       if (typeof id !== 'string' || !id) return null
-      const jid = key.remoteJid
-      if (typeof jid !== 'string' || !jid.endsWith('@s.whatsapp.net')) return null
+      // Endereçamento LID: remoteJid é um id opaco (`...@lid`); o telefone vem em remoteJidAlt ou senderPn.
+      const isPhoneJid = (v: unknown): v is string => typeof v === 'string' && v.endsWith('@s.whatsapp.net')
+      const jid =
+        typeof key.remoteJid === 'string' && key.remoteJid.endsWith('@lid')
+          ? [key.remoteJidAlt, key.senderPn].find(isPhoneJid)
+          : key.remoteJid
+      if (!isPhoneJid(jid)) return null
       const msg = asObject(data.message)
       const text = msg?.conversation ?? asObject(msg?.extendedTextMessage)?.text
       if (typeof text !== 'string' || !text.trim()) return null
