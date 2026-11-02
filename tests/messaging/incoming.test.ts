@@ -43,7 +43,7 @@ describe('handleIncoming', () => {
     expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'confirmed', 'a1')
     const arg = d.sendAutoReply.mock.calls[0][0]
     expect(arg.body).toBe('Consulta confirmada! Até quarta, 04/11 às 11:00.')
-    expect(arg).toMatchObject({ clinicId: 'c1', phone: '5511987654321', appointmentId: 'a1' })
+    expect(arg).toMatchObject({ clinicId: 'c1', patientId: 'p1', phone: '5511987654321', appointmentId: 'a1' })
   })
 
   it('2 cancela a consulta', async () => {
@@ -52,6 +52,23 @@ describe('handleIncoming', () => {
     expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'cancelled')
     expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'cancelled', 'a1')
     expect(d.sendAutoReply.mock.calls[0][0].body).toBe('Consulta desmarcada. Em breve entraremos em contato para remarcar.')
+  })
+
+  it('1 repetido com consulta já confirmada: só grava, sem status/ação/resposta', async () => {
+    const d = makeDeps({
+      recentConfirmations: vi.fn(async () => [{ ...conf, appointment: { start_time: start, status: 'confirmed' } }]),
+    })
+    expect(await handleIncoming(incoming('1'), d, now)).toBe('stored')
+    expect(d.saveIncoming).toHaveBeenCalledTimes(1)
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+    expect(d.setReplyAction).not.toHaveBeenCalled()
+    expect(d.sendAutoReply).not.toHaveBeenCalled()
+  })
+
+  it('auto_reply leva o paciente encontrado (ou null)', async () => {
+    const d = makeDeps({ findPatientByPhone: vi.fn(async () => null) })
+    expect(await handleIncoming(incoming('2'), d, now)).toBe('cancelled')
+    expect(d.sendAutoReply.mock.calls[0][0].patientId).toBeNull()
   })
 
   it('texto livre só grava a mensagem', async () => {

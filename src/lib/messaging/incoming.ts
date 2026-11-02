@@ -26,7 +26,7 @@ export interface IncomingDeps {
   /** false se a consulta não é mais agendada/confirmada (ou não é da clínica): nada foi alterado. */
   setAppointmentStatus(clinicId: string, appointmentId: string, status: 'confirmed' | 'cancelled'): Promise<boolean>
   setReplyAction(messageId: string, action: 'confirmed' | 'cancelled', appointmentId: string): Promise<void>
-  sendAutoReply(args: { clinicId: string; phone: string; body: string; appointmentId: string }): Promise<void>
+  sendAutoReply(args: { clinicId: string; patientId: string | null; phone: string; body: string; appointmentId: string }): Promise<void>
   updateConnection(instance: string, status: ConnectionStatus, phone: string | null): Promise<void>
 }
 
@@ -67,6 +67,8 @@ export async function handleIncoming(
   if (!target) return 'stored'
 
   const action = reply === 'confirm' ? 'confirmed' : 'cancelled'
+  // "1"/"2" repetido: a consulta já está nesse status — só guarda a mensagem, sem nova resposta automática.
+  if (target.appointment.status === action) return 'stored'
   if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return 'stored'
   await deps.setReplyAction(messageId, action, target.appointment_id)
 
@@ -83,7 +85,7 @@ export async function handleIncoming(
   }
   // A resposta automática não pode desfazer a mudança de status nem derrubar o webhook.
   try {
-    await deps.sendAutoReply({ clinicId, phone, body, appointmentId: target.appointment_id })
+    await deps.sendAutoReply({ clinicId, patientId, phone, body, appointmentId: target.appointment_id })
   } catch (err) {
     console.error('[webhook] auto_reply falhou:', err instanceof Error ? err.message : 'erro')
   }
@@ -253,7 +255,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       check(error)
     },
 
-    async sendAutoReply({ clinicId, phone, body, appointmentId }) {
+    async sendAutoReply({ clinicId, patientId, phone, body, appointmentId }) {
       const { data: conn, error: connErr } = await admin
         .from('whatsapp_connections')
         .select('instance, token')
@@ -267,7 +269,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .single()
       check(cErr)
       const cfg = normalizeMessagingConfig(clinic!.messaging_config)
-      const base = { clinic_id: clinicId, appointment_id: appointmentId, type: 'auto_reply', direction: 'out', phone, body }
+      const base = { clinic_id: clinicId, patient_id: patientId, appointment_id: appointmentId, type: 'auto_reply', direction: 'out', phone, body }
 
       const sentToday = await repo.countSentSince(clinicId, startOfClinicDay(new Date(), cfg.timezone))
       if (sentToday >= cfg.daily_limit || !conn) {
