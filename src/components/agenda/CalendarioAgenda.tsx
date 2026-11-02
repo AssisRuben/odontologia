@@ -6,13 +6,16 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import ptBRLocale from '@fullcalendar/core/locales/pt-br'
+import { Check, CheckCheck } from 'lucide-react'
 import type { Appointment } from '@/types'
 import { APPOINTMENT_STATUS_COLORS } from '@/types'
+import type { WhatsAppIndicator } from './useWhatsAppStatus'
 
 interface CalendarioAgendaProps {
   view: 'timeGridWeek' | 'timeGridDay'
   currentDate: Date
   appointments: Appointment[]
+  indicators?: Map<string, WhatsAppIndicator>
   onDateClick: (date: Date, hour: string) => void
   onEventClick: (appointment: Appointment, rect: DOMRect) => void
 }
@@ -21,6 +24,7 @@ export function CalendarioAgenda({
   view,
   currentDate,
   appointments,
+  indicators,
   onDateClick,
   onEventClick,
 }: CalendarioAgendaProps) {
@@ -124,6 +128,7 @@ export function CalendarioAgenda({
           const end = new Date(apt.end_time)
           const mins = (end.getTime() - start.getTime()) / 60000
           const compact = mins <= 30
+          const indicator = indicators?.get(apt.id)
 
           return (
             <div style={{
@@ -145,6 +150,16 @@ export function CalendarioAgenda({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}>
+                {indicator && (
+                  <span
+                    title={indicator === 'confirmed' ? 'Confirmada pelo WhatsApp' : 'Confirmação enviada'}
+                    style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }}
+                  >
+                    {indicator === 'confirmed'
+                      ? <CheckCheck size={13} color="#86EFAC" strokeWidth={3} aria-label="Confirmada pelo WhatsApp" />
+                      : <Check size={13} color="rgba(255,255,255,0.75)" strokeWidth={3} aria-label="Confirmação enviada" />}
+                  </span>
+                )}
                 {eventInfo.event.title}
               </div>
 
