@@ -1,0 +1,49 @@
+# Evolution API v2 para desenvolvimento local.
+# Uso: copie .env.evolution.example para .env.evolution, ajuste os valores e rode
+#   docker compose -f docker-compose.evolution.yml --env-file .env.evolution up -d
+# No .env.local do app: EVOLUTION_API_URL=http://localhost:8080 e EVOLUTION_API_KEY igual a AUTHENTICATION_API_KEY.
+# O webhook aponta para o app via http://host.docker.internal:3001 (APP_URL do app deve ser acessível pelo container).
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    depends_on:
+      evolution-postgres:
+        condition: service_healthy
+      evolution-redis:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.evolution
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  evolution-postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evolution}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env.evolution}
+      POSTGRES_DB: ${POSTGRES_DB:-evolution}
+    volumes:
+      - evolution_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  evolution-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - evolution_redis:/data
+
+volumes:
+  evolution_instances:
+  evolution_postgres:
+  evolution_redis:
