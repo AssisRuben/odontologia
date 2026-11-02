@@ -3,25 +3,15 @@ import {
   computeCancelNotices,
   computeIndicators,
   formatNoticeTime,
-  replyActionOf,
   type MessageRow,
 } from '@/components/agenda/useWhatsAppStatus'
 import type { Appointment } from '@/types'
 
 const apt = (id: string, status: string) => ({ id, status }) as unknown as Appointment
 const conf = (id: string, status = 'sent'): MessageRow => ({ appointment_id: id, type: 'confirmation', status, created_at: '2026-11-02T10:00:00Z' })
-const reply = (id: string, body: string, at = '2026-11-02T11:00:00Z'): MessageRow => ({ appointment_id: id, type: 'auto_reply', status: 'sent', body, created_at: at })
-const OK = 'Consulta confirmada! Até 03/11 às 09:00.'
-const NO = 'Consulta desmarcada. Em breve entraremos em contato para remarcar.'
-
-describe('replyActionOf', () => {
-  it('usa reply_action quando presente, senão o texto da resposta automática', () => {
-    expect(replyActionOf({ ...conf('a'), reply_action: 'cancelled' })).toBe('cancelled')
-    expect(replyActionOf(reply('a', OK))).toBe('confirmed')
-    expect(replyActionOf(reply('a', NO))).toBe('cancelled')
-    expect(replyActionOf(conf('a'))).toBeNull()
-  })
-})
+const reply = (id: string, reply_action: 'confirmed' | 'cancelled' | null, at = '2026-11-02T11:00:00Z'): MessageRow => ({ appointment_id: id, type: 'incoming', status: 'received', reply_action, created_at: at })
+const OK = 'confirmed' as const
+const NO = 'cancelled' as const
 
 describe('computeIndicators', () => {
   it('confirmada pelo WhatsApp exige resposta confirmando E consulta confirmed', () => {
@@ -37,6 +27,10 @@ describe('computeIndicators', () => {
     expect(m.get('a')).toBe('sent')
     expect(m.has('b')).toBe(false)
     expect(m.has('c')).toBe(false)
+  })
+  it('incoming sem reply_action não conta', () => {
+    const m = computeIndicators([reply('a', null)], [apt('a', 'confirmed')])
+    expect(m.has('a')).toBe(false)
   })
   it('confirmada vence mesmo se a linha de confirmação vier depois', () => {
     const m = computeIndicators([reply('a', OK), conf('a')], [apt('a', 'confirmed')])

@@ -12,7 +12,6 @@ export interface MessageRow {
   type: string
   status: string
   reply_action?: ReplyAction | null
-  body?: string | null
   created_at: string
 }
 
@@ -24,18 +23,6 @@ export interface CancelNotice {
 const DAY_MS = 24 * 3_600_000
 const CHUNK = 200
 
-/**
- * A linha 'incoming' (que carrega reply_action) é gravada SEM appointment_id; a ligação com a
- * consulta é a resposta automática ('auto_reply'), gravada com appointment_id e texto fixo por ação.
- */
-export function replyActionOf(row: MessageRow): ReplyAction | null {
-  if (row.reply_action) return row.reply_action
-  if (row.type !== 'auto_reply' || !row.body) return null
-  if (row.body.startsWith('Consulta confirmada')) return 'confirmed'
-  if (row.body.startsWith('Consulta desmarcada')) return 'cancelled'
-  return null
-}
-
 /** "Confirmada pelo WhatsApp" (resposta confirmou E a consulta está confirmada) > "Confirmação enviada". */
 export function computeIndicators(
   rows: MessageRow[],
@@ -45,7 +32,7 @@ export function computeIndicators(
   const out = new Map<string, WhatsAppIndicator>()
   for (const r of rows) {
     if (!r.appointment_id || !status.has(r.appointment_id)) continue
-    if (replyActionOf(r) === 'confirmed' && status.get(r.appointment_id) === 'confirmed') {
+    if (r.type === 'incoming' && r.reply_action === 'confirmed' && status.get(r.appointment_id) === 'confirmed') {
       out.set(r.appointment_id, 'confirmed')
     } else if (r.type === 'confirmation' && r.status === 'sent' && !out.has(r.appointment_id)) {
       out.set(r.appointment_id, 'sent')
@@ -60,7 +47,7 @@ export function computeCancelNotices(rows: MessageRow[], appointments: Appointme
   const since = now.getTime() - DAY_MS
   const seen = new Map<string, CancelNotice>()
   for (const r of rows) {
-    if (!r.appointment_id || replyActionOf(r) !== 'cancelled') continue
+    if (!r.appointment_id || r.type !== 'incoming' || r.reply_action !== 'cancelled') continue
     const at = new Date(r.created_at).getTime()
     if (at < since || at > now.getTime()) continue
     const apt = byId.get(r.appointment_id)
@@ -84,11 +71,11 @@ export function formatNoticeTime(iso: string): string {
   return `${get('day')}/${get('month')} ${get('hour')}:${get('minute')}`
 }
 
-const SELECT = 'appointment_id, type, status, reply_action, body, created_at'
+const SELECT = 'appointment_id, type, status, reply_action, created_at'
 
 /**
  * visible: consultas do intervalo exibido (indicadores; ids em chunks de ≤200);
- * all: consultas carregadas (aviso de desmarcações; 1 consulta por created_at ≥ 24 h).
+ * all: consultas carregadas (aviso de desmarcações; incoming com reply_action cancelled e created_at ≥ 24 h).
  */
 export function useWhatsAppStatus(visible: Appointment[], all: Appointment[]) {
   const [indicatorRows, setIndicatorRows] = useState<MessageRow[]>([])
@@ -108,7 +95,7 @@ export function useWhatsAppStatus(visible: Appointment[], all: Appointment[]) {
           .from('messages')
           .select(SELECT)
           .in('appointment_id', ids.slice(i, i + CHUNK))
-          .in('type', ['confirmation', 'auto_reply'])
+          .in('type', ['confirmation', 'incoming'])
         if (error) return // indicadores são opcionais: falha silenciosa
         rows.push(...((data ?? []) as MessageRow[]))
       }
@@ -125,7 +112,8 @@ export function useWhatsAppStatus(visible: Appointment[], all: Appointment[]) {
     createClient()
       .from('messages')
       .select(SELECT)
-      .eq('type', 'auto_reply')
+      .eq('type', 'incoming')
+      .eq('reply_action', 'cancelled')
       .gte('created_at', new Date(now.getTime() - DAY_MS).toISOString())
       .then(({ data, error }) => {
         if (active && !error) setCancelState({ rows: (data ?? []) as MessageRow[], now })

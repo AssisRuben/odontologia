@@ -24,7 +24,7 @@ export interface IncomingDeps {
   recentConfirmations(clinicId: string, phone: string, since: Date): Promise<SentConfirmation[]>
   /** false se a consulta não é mais agendada/confirmada (ou não é da clínica): nada foi alterado. */
   setAppointmentStatus(clinicId: string, appointmentId: string, status: 'confirmed' | 'cancelled'): Promise<boolean>
-  setReplyAction(messageId: string, action: 'confirmed' | 'cancelled'): Promise<void>
+  setReplyAction(messageId: string, action: 'confirmed' | 'cancelled', appointmentId: string): Promise<void>
   sendAutoReply(args: { clinicId: string; phone: string; body: string; appointmentId: string }): Promise<void>
   updateConnection(instance: string, status: ConnectionStatus, phone: string | null): Promise<void>
 }
@@ -67,7 +67,7 @@ export async function handleIncoming(
 
   const action = reply === 'confirm' ? 'confirmed' : 'cancelled'
   if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return 'stored'
-  await deps.setReplyAction(messageId, action)
+  await deps.setReplyAction(messageId, action, target.appointment_id)
 
   let body = CANCEL_TEXT
   if (action === 'confirmed') {
@@ -244,8 +244,11 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       return (data?.length ?? 0) === 1
     },
 
-    async setReplyAction(messageId, action) {
-      const { error } = await admin.from('messages').update({ reply_action: action }).eq('id', messageId)
+    async setReplyAction(messageId, action, appointmentId) {
+      const { error } = await admin
+        .from('messages')
+        .update({ reply_action: action, appointment_id: appointmentId })
+        .eq('id', messageId)
       check(error)
     },
 

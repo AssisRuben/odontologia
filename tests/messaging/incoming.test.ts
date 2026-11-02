@@ -40,7 +40,7 @@ describe('handleIncoming', () => {
     const d = makeDeps()
     expect(await handleIncoming(incoming('1'), d, now)).toBe('confirmed')
     expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'confirmed')
-    expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'confirmed')
+    expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'confirmed', 'a1')
     const arg = d.sendAutoReply.mock.calls[0][0]
     expect(arg.body).toBe('Consulta confirmada! Até quarta, 04/11 às 11:00.')
     expect(arg).toMatchObject({ clinicId: 'c1', phone: '5511987654321', appointmentId: 'a1' })
@@ -50,7 +50,7 @@ describe('handleIncoming', () => {
     const d = makeDeps()
     expect(await handleIncoming(incoming('2'), d, now)).toBe('cancelled')
     expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'cancelled')
-    expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'cancelled')
+    expect(d.setReplyAction).toHaveBeenCalledWith('in1', 'cancelled', 'a1')
     expect(d.sendAutoReply.mock.calls[0][0].body).toBe('Consulta desmarcada. Em breve entraremos em contato para remarcar.')
   })
 
