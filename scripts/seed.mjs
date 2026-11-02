@@ -162,31 +162,31 @@ async function seed() {
   // ── Pagamentos ─────────────────────────────────────────────────────────────
   const payments = [
     // Pagamentos realizados (semana passada)
-    { id: PY(1),  clinic_id: CLINIC_ID, patient_id: PA(1),  appointment_id: AP(1),  amount: 180.00, payment_method: 'credit_card', status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-19', description: 'Limpeza e profilaxia' },
-    { id: PY(2),  clinic_id: CLINIC_ID, patient_id: PA(2),  appointment_id: AP(2),  amount: 250.00, payment_method: 'health_plan', status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-19', description: 'Manutenção de aparelho' },
-    { id: PY(3),  clinic_id: CLINIC_ID, patient_id: PA(3),  appointment_id: AP(3),  amount: 900.00, payment_method: 'bank_slip',   status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-20', description: 'Tratamento de canal - 1ª sessão' },
-    { id: PY(4),  clinic_id: CLINIC_ID, patient_id: PA(4),  appointment_id: AP(4),  amount: 450.00, payment_method: 'health_plan', status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-19', description: 'Raspagem periodontal' },
+    { id: PY(1),  clinic_id: CLINIC_ID, patient_id: PA(1),  appointment_id: AP(1),  amount: 180.00, payment_method: 'cartao_credito', status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-19', description: 'Limpeza e profilaxia' },
+    { id: PY(2),  clinic_id: CLINIC_ID, patient_id: PA(2),  appointment_id: AP(2),  amount: 250.00, payment_method: 'convenio', status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-19', description: 'Manutenção de aparelho' },
+    { id: PY(3),  clinic_id: CLINIC_ID, patient_id: PA(3),  appointment_id: AP(3),  amount: 900.00, payment_method: 'boleto',   status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-20', description: 'Tratamento de canal - 1ª sessão' },
+    { id: PY(4),  clinic_id: CLINIC_ID, patient_id: PA(4),  appointment_id: AP(4),  amount: 450.00, payment_method: 'convenio', status: 'paid',    due_date: '2026-05-19', paid_at: '2026-05-19', description: 'Raspagem periodontal' },
     { id: PY(5),  clinic_id: CLINIC_ID, patient_id: PA(5),  appointment_id: AP(5),  amount: 280.00, payment_method: 'pix',         status: 'paid',    due_date: '2026-05-20', paid_at: '2026-05-20', description: 'Restauração' },
-    { id: PY(6),  clinic_id: CLINIC_ID, patient_id: PA(6),  appointment_id: AP(6),  amount: 3500.00,payment_method: 'bank_slip',   status: 'paid',    due_date: '2026-05-20', paid_at: '2026-05-22', description: 'Instalação de aparelho ortodôntico' },
-    { id: PY(7),  clinic_id: CLINIC_ID, patient_id: PA(8),  appointment_id: AP(8),  amount: 900.00, payment_method: 'credit_card', status: 'paid',    due_date: '2026-05-21', paid_at: '2026-05-21', description: 'Retratamento de canal' },
-    { id: PY(8),  clinic_id: CLINIC_ID, patient_id: PA(9),  appointment_id: AP(9),  amount: 1200.00,payment_method: 'health_plan', status: 'paid',    due_date: '2026-05-21', paid_at: '2026-05-21', description: 'Cirurgia periodontal' },
-    { id: PY(9),  clinic_id: CLINIC_ID, patient_id: PA(10), appointment_id: AP(10), amount: 650.00, payment_method: 'credit_card', status: 'paid',    due_date: '2026-05-21', paid_at: '2026-05-21', description: 'Clareamento dental' },
+    { id: PY(6),  clinic_id: CLINIC_ID, patient_id: PA(6),  appointment_id: AP(6),  amount: 3500.00,payment_method: 'boleto',   status: 'paid',    due_date: '2026-05-20', paid_at: '2026-05-22', description: 'Instalação de aparelho ortodôntico' },
+    { id: PY(7),  clinic_id: CLINIC_ID, patient_id: PA(8),  appointment_id: AP(8),  amount: 900.00, payment_method: 'cartao_credito', status: 'paid',    due_date: '2026-05-21', paid_at: '2026-05-21', description: 'Retratamento de canal' },
+    { id: PY(8),  clinic_id: CLINIC_ID, patient_id: PA(9),  appointment_id: AP(9),  amount: 1200.00,payment_method: 'convenio', status: 'paid',    due_date: '2026-05-21', paid_at: '2026-05-21', description: 'Cirurgia periodontal' },
+    { id: PY(9),  clinic_id: CLINIC_ID, patient_id: PA(10), appointment_id: AP(10), amount: 650.00, payment_method: 'cartao_credito', status: 'paid',    due_date: '2026-05-21', paid_at: '2026-05-21', description: 'Clareamento dental' },
     { id: PY(10), clinic_id: CLINIC_ID, patient_id: PA(11), appointment_id: AP(11), amount: 200.00, payment_method: 'pix',         status: 'paid',    due_date: '2026-05-22', paid_at: '2026-05-22', description: 'Consulta ortodôntica' },
-    { id: PY(11), clinic_id: CLINIC_ID, patient_id: PA(12), appointment_id: AP(12), amount: 800.00, payment_method: 'health_plan', status: 'paid',    due_date: '2026-05-22', paid_at: '2026-05-23', description: 'Gengivoplastia' },
-    { id: PY(12), clinic_id: CLINIC_ID, patient_id: PA(13), appointment_id: AP(13), amount: 320.00, payment_method: 'cash',        status: 'paid',    due_date: '2026-05-22', paid_at: '2026-05-22', description: 'Extração simples' },
-    { id: PY(13), clinic_id: CLINIC_ID, patient_id: PA(14), appointment_id: AP(14), amount: 900.00, payment_method: 'bank_slip',   status: 'paid',    due_date: '2026-05-23', paid_at: '2026-05-23', description: 'Canal dente 46' },
+    { id: PY(11), clinic_id: CLINIC_ID, patient_id: PA(12), appointment_id: AP(12), amount: 800.00, payment_method: 'convenio', status: 'paid',    due_date: '2026-05-22', paid_at: '2026-05-23', description: 'Gengivoplastia' },
+    { id: PY(12), clinic_id: CLINIC_ID, patient_id: PA(13), appointment_id: AP(13), amount: 320.00, payment_method: 'dinheiro',        status: 'paid',    due_date: '2026-05-22', paid_at: '2026-05-22', description: 'Extração simples' },
+    { id: PY(13), clinic_id: CLINIC_ID, patient_id: PA(14), appointment_id: AP(14), amount: 900.00, payment_method: 'boleto',   status: 'paid',    due_date: '2026-05-23', paid_at: '2026-05-23', description: 'Canal dente 46' },
     // Pendentes semana atual
-    { id: PY(14), clinic_id: CLINIC_ID, patient_id: PA(4),  appointment_id: AP(20), amount: 350.00, payment_method: 'credit_card', status: 'pending', due_date: '2026-05-27', paid_at: null, description: 'Restauração composta' },
-    { id: PY(15), clinic_id: CLINIC_ID, patient_id: PA(5),  appointment_id: AP(22), amount: 180.00, payment_method: 'health_plan', status: 'pending', due_date: '2026-05-27', paid_at: null, description: 'Ajuste aparelho' },
-    { id: PY(16), clinic_id: CLINIC_ID, patient_id: PA(6),  appointment_id: AP(24), amount: 900.00, payment_method: 'bank_slip',   status: 'pending', due_date: '2026-05-30', paid_at: null, description: 'Canal dente 36' },
-    { id: PY(17), clinic_id: CLINIC_ID, patient_id: PA(7),  appointment_id: AP(26), amount: 180.00, payment_method: 'health_plan', status: 'pending', due_date: '2026-05-30', paid_at: null, description: 'Manutenção ortodôntica' },
+    { id: PY(14), clinic_id: CLINIC_ID, patient_id: PA(4),  appointment_id: AP(20), amount: 350.00, payment_method: 'cartao_credito', status: 'pending', due_date: '2026-05-27', paid_at: null, description: 'Restauração composta' },
+    { id: PY(15), clinic_id: CLINIC_ID, patient_id: PA(5),  appointment_id: AP(22), amount: 180.00, payment_method: 'convenio', status: 'pending', due_date: '2026-05-27', paid_at: null, description: 'Ajuste aparelho' },
+    { id: PY(16), clinic_id: CLINIC_ID, patient_id: PA(6),  appointment_id: AP(24), amount: 900.00, payment_method: 'boleto',   status: 'pending', due_date: '2026-05-30', paid_at: null, description: 'Canal dente 36' },
+    { id: PY(17), clinic_id: CLINIC_ID, patient_id: PA(7),  appointment_id: AP(26), amount: 180.00, payment_method: 'convenio', status: 'pending', due_date: '2026-05-30', paid_at: null, description: 'Manutenção ortodôntica' },
     // Inadimplentes
-    { id: PY(18), clinic_id: CLINIC_ID, patient_id: PA(19), appointment_id: null,   amount: 450.00, payment_method: 'bank_slip',   status: 'overdue', due_date: '2026-04-30', paid_at: null, description: 'Raspagem - parcela 1' },
-    { id: PY(19), clinic_id: CLINIC_ID, patient_id: PA(21), appointment_id: null,   amount: 320.00, payment_method: 'bank_slip',   status: 'overdue', due_date: '2026-05-10', paid_at: null, description: 'Extração dente 28 - saldo' },
-    { id: PY(20), clinic_id: CLINIC_ID, patient_id: PA(22), appointment_id: null,   amount: 280.00, payment_method: 'bank_slip',   status: 'overdue', due_date: '2026-05-15', paid_at: null, description: 'Consulta avaliação - pendente' },
+    { id: PY(18), clinic_id: CLINIC_ID, patient_id: PA(19), appointment_id: null,   amount: 450.00, payment_method: 'boleto',   status: 'overdue', due_date: '2026-04-30', paid_at: null, description: 'Raspagem - parcela 1' },
+    { id: PY(19), clinic_id: CLINIC_ID, patient_id: PA(21), appointment_id: null,   amount: 320.00, payment_method: 'boleto',   status: 'overdue', due_date: '2026-05-10', paid_at: null, description: 'Extração dente 28 - saldo' },
+    { id: PY(20), clinic_id: CLINIC_ID, patient_id: PA(22), appointment_id: null,   amount: 280.00, payment_method: 'boleto',   status: 'overdue', due_date: '2026-05-15', paid_at: null, description: 'Consulta avaliação - pendente' },
     // Próximos meses
-    { id: PY(21), clinic_id: CLINIC_ID, patient_id: PA(11), appointment_id: AP(32), amount: 280.00, payment_method: 'credit_card', status: 'pending', due_date: '2026-06-02', paid_at: null, description: 'Restauração' },
-    { id: PY(22), clinic_id: CLINIC_ID, patient_id: PA(23), appointment_id: AP(33), amount: 3500.00,payment_method: 'bank_slip',   status: 'pending', due_date: '2026-06-10', paid_at: null, description: 'Instalação aparelho ortodôntico' },
+    { id: PY(21), clinic_id: CLINIC_ID, patient_id: PA(11), appointment_id: AP(32), amount: 280.00, payment_method: 'cartao_credito', status: 'pending', due_date: '2026-06-02', paid_at: null, description: 'Restauração' },
+    { id: PY(22), clinic_id: CLINIC_ID, patient_id: PA(23), appointment_id: AP(33), amount: 3500.00,payment_method: 'boleto',   status: 'pending', due_date: '2026-06-10', paid_at: null, description: 'Instalação aparelho ortodôntico' },
   ]
 
   const { error: paymentsErr } = await supabase.from('payments').upsert(payments, { onConflict: 'id' })
