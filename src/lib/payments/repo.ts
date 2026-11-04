@@ -3,7 +3,8 @@ import { defaultRandomHex, type ConnectionDeps, type StoredConnection } from './
 import { AsaasProvider } from './asaas'
 import { getProviderForClinic, webhookUrl } from './index'
 import type { ChargeDeps, ChargePatient } from './charges'
-import type { ActionDeps } from './actions'
+import type { ActionDeps, ActionPayment } from './actions'
+import { fromDbPaidAt, toDbPaidAt } from './dates'
 import type { LocalStatus } from './status'
 import { fromCents, toCents } from './money'
 import { sendPaymentLink } from './notify'
@@ -212,7 +213,7 @@ export function createActionDeps(admin: SupabaseClient): ActionDeps {
     async getPayment(clinicId, paymentId) {
       const { data, error } = await admin
         .from('payments')
-        .select('id, status, due_date, amount, paid_at, net_amount, provider_charge_id, provider_installment_id, provider_state, charge_group_id')
+        .select('id, status, due_date, amount, paid_at, net_amount, provider_charge_id, provider_installment_id, provider_state, charge_group_id, charge_kind')
         .eq('id', paymentId)
         .eq('clinic_id', clinicId)
         .maybeSingle()
@@ -223,6 +224,7 @@ export function createActionDeps(admin: SupabaseClient): ActionDeps {
         id: string; status: LocalStatus; due_date: string | null; amount: number | string; paid_at: string | null
         net_amount: number | string | null; provider_charge_id: string | null; provider_installment_id: string | null
         provider_state: 'creating' | 'active' | null; charge_group_id: string | null
+        charge_kind: ActionPayment['chargeKind']
       }
       const { count, error: invErr } = await admin
         .from('fiscal_invoices')
@@ -236,12 +238,13 @@ export function createActionDeps(admin: SupabaseClient): ActionDeps {
         status: r.status,
         dueDate: r.due_date,
         amountCents: toCents(Number(r.amount)),
-        paidAt: r.paid_at ? r.paid_at.slice(0, 10) : null,
+        paidAt: fromDbPaidAt(r.paid_at),
         netAmountCents: r.net_amount === null ? null : toCents(Number(r.net_amount)),
         providerChargeId: r.provider_charge_id,
         providerInstallmentId: r.provider_installment_id,
         providerState: r.provider_state,
         chargeGroupId: r.charge_group_id,
+        chargeKind: r.charge_kind,
         hasAuthorizedInvoice: (count ?? 0) > 0,
       }
     },
@@ -260,13 +263,19 @@ export function createActionDeps(admin: SupabaseClient): ActionDeps {
       const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
       if (patch.status !== undefined) row.status = patch.status
       if (patch.due_date !== undefined) row.due_date = patch.due_date
-      // Meio-dia UTC mantém o dia correto no fuso de São Paulo.
-      if (patch.paid_at !== undefined) row.paid_at = patch.paid_at === null ? null : `${patch.paid_at}T12:00:00Z`
+      if (patch.paid_at !== undefined) row.paid_at = patch.paid_at === null ? null : toDbPaidAt(patch.paid_at)
       if (patch.payment_method !== undefined) row.payment_method = patch.payment_method
       if (patch.net_amount_cents !== undefined) row.net_amount = patch.net_amount_cents === null ? null : fromCents(patch.net_amount_cents)
       if (patch.amount_cents !== undefined) row.amount = fromCents(patch.amount_cents)
-      const { error } = await admin.from('payments').update(row).eq('clinic_id', clinicId).in('id', ids)
+      const { data, error } = await admin
+        .from('payments')
+        .update(row)
+        .eq('clinic_id', clinicId)
+        .in('id', ids)
+        .in('status', ['pending', 'overdue'])
+        .select('id')
       check(error)
+      return (data ?? []).length
     },
     markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
     async today(clinicId, now) {

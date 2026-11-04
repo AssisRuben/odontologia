@@ -30,7 +30,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/payments/[i
   try {
     const { id } = await ctx.params
     const deps = createActionDeps(createAdminClient())
-    const result = await cancelPayment(current.clinicId, id, j.scope === 'remaining' ? 'remaining' : 'one', deps)
+    if (j.scope !== 'one' && j.scope !== 'remaining') {
+      return NextResponse.json({ error: 'Opção de cancelamento inválida' }, { status: 422 })
+    }
+    const result = await cancelPayment(current.clinicId, id, j.scope, deps)
     return NextResponse.json(result.body, { status: result.status })
   } catch (e) {
     console.error('[payments/cancel] falha:', (e as Error).message)

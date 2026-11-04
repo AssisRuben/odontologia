@@ -15,6 +15,7 @@ export interface ActionPayment {
   providerInstallmentId: string | null
   providerState: 'creating' | 'active' | null
   chargeGroupId: string | null
+  chargeKind: 'manual' | 'avulsa' | 'carne' | 'cartao_parcelado'
   hasAuthorizedInvoice: boolean
 }
 
@@ -33,7 +34,8 @@ export interface ActionDeps {
   getConnection(clinicId: string): Promise<{ provider: PaymentProvider } | null>
   /** Linhas do grupo ainda em aberto (pending/overdue). */
   listUnpaidInGroup(clinicId: string, groupId: string): Promise<string[]>
-  updateRows(clinicId: string, ids: string[], patch: RowPatch): Promise<void>
+  /** Só altera linhas ainda pending/overdue; devolve quantas foram alteradas. */
+  updateRows(clinicId: string, ids: string[], patch: RowPatch): Promise<number>
   markInvalidKey(clinicId: string): Promise<void>
   today(clinicId: string, now: Date): Promise<string>
 }
@@ -101,7 +103,7 @@ export async function changeDueDate(
       return providerFailure(clinicId, e, deps, 'due-date')
     }
   }
-  await deps.updateRows(clinicId, [p.id], patch)
+  if ((await deps.updateRows(clinicId, [p.id], patch)) === 0) return fail(409, NOT_OPEN)
   return { status: 200, body: { ok: true, ids: [p.id] } }
 }
 
@@ -116,6 +118,9 @@ export async function markReceived(
   if (!p) return fail(404, NOT_FOUND)
   if (p.providerState === 'creating') return fail(409, CREATING)
   if (!isOpen(p)) return fail(409, NOT_OPEN)
+  if (p.chargeKind === 'cartao_parcelado') {
+    return fail(409, 'Pagamento no cartão não pode ser marcado como recebido em dinheiro')
+  }
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) return fail(422, 'Valor inválido')
   if (!isRealDate(input.paidAt) || input.paidAt > (await deps.today(clinicId, now))) {
     return fail(422, 'Data de pagamento inválida')
@@ -132,7 +137,7 @@ export async function markReceived(
   }
   const patch: RowPatch = { status: 'paid', paid_at: input.paidAt }
   if (input.method) patch.payment_method = input.method
-  await deps.updateRows(clinicId, [p.id], patch)
+  if ((await deps.updateRows(clinicId, [p.id], patch)) === 0) return fail(409, NOT_OPEN)
   return { status: 200, body: { ok: true, ids: [p.id] } }
 }
 
@@ -147,7 +152,8 @@ export async function cancelPayment(
   }
   if (!isOpen(p)) return fail(409, NOT_OPEN)
 
-  const remaining = scope === 'remaining' && !!p.chargeGroupId
+  // Com cobrança no Asaas sem parcelamento, 'restantes' vale só para este lançamento.
+  const remaining = scope === 'remaining' && !!p.chargeGroupId && (!p.providerChargeId || !!p.providerInstallmentId)
   const provider = await providerFor(clinicId, p, deps)
   if (provider === undefined) return fail(409, NO_CONNECTION)
   if (provider) {
@@ -160,6 +166,6 @@ export async function cancelPayment(
   }
   const ids = remaining ? await deps.listUnpaidInGroup(clinicId, p.chargeGroupId!) : [p.id]
   if (!ids.includes(p.id)) ids.push(p.id)
-  await deps.updateRows(clinicId, ids, { status: 'cancelled' })
+  if ((await deps.updateRows(clinicId, ids, { status: 'cancelled' })) === 0) return fail(409, NOT_OPEN)
   return { status: 200, body: { ok: true, ids } }
 }

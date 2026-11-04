@@ -6,7 +6,7 @@ const NOW = new Date('2027-01-10T15:00:00Z')
 
 const base: ActionPayment = {
   id: 'p1', status: 'pending', dueDate: '2027-01-20', amountCents: 10000, paidAt: null, netAmountCents: null,
-  providerChargeId: 'pay_1', providerInstallmentId: null, providerState: 'active', chargeGroupId: 'g1',
+  providerChargeId: 'pay_1', providerInstallmentId: null, providerState: 'active', chargeGroupId: 'g1', chargeKind: 'avulsa',
   hasAuthorizedInvoice: false,
 }
 
@@ -28,7 +28,7 @@ function makeDeps(payment: Partial<ActionPayment> | null = {}) {
     getPayment: vi.fn<ActionDeps['getPayment']>(async () => (payment ? { ...base, ...payment } : null)),
     getConnection: vi.fn<ActionDeps['getConnection']>(async () => ({ provider: provider as never })),
     listUnpaidInGroup: vi.fn<ActionDeps['listUnpaidInGroup']>(async () => ['p1', 'p2', 'p3']),
-    updateRows: vi.fn<ActionDeps['updateRows']>(async () => {}),
+    updateRows: vi.fn<ActionDeps['updateRows']>(async (_c, ids) => ids.length),
     markInvalidKey: vi.fn<ActionDeps['markInvalidKey']>(async () => {}),
     today: vi.fn<ActionDeps['today']>(async () => '2027-01-10'),
   }
@@ -122,6 +122,27 @@ describe('cancelPayment', () => {
     await cancelPayment('c1', 'p1', 'remaining', deps)
     expect(provider.cancelCharge).not.toHaveBeenCalled()
     expect(deps.updateRows).toHaveBeenCalledWith('c1', ['p1', 'p2', 'p3'], { status: 'cancelled' })
+  })
+})
+
+describe('review fixes', () => {
+  it('remaining without installment id cancels only this row', async () => {
+    const { deps, provider } = makeDeps()
+    await cancelPayment('c1', 'p1', 'remaining', deps)
+    expect(provider.cancelCharge).toHaveBeenCalledWith('pay_1')
+    expect(deps.listUnpaidInGroup).not.toHaveBeenCalled()
+    expect(deps.updateRows).toHaveBeenCalledWith('c1', ['p1'], { status: 'cancelled' })
+  })
+  it('card installment cannot be received in cash', async () => {
+    const { deps, provider } = makeDeps({ chargeKind: 'cartao_parcelado' })
+    const r = await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 100 }, deps, NOW)
+    expect(r).toEqual({ status: 409, body: { error: 'Pagamento no cartão não pode ser marcado como recebido em dinheiro' } })
+    expect(provider.receiveInCash).not.toHaveBeenCalled()
+  })
+  it('zero rows updated → 409', async () => {
+    const { deps } = makeDeps()
+    deps.updateRows.mockResolvedValue(0)
+    expect((await cancelPayment('c1', 'p1', 'one', deps)).status).toBe(409)
   })
 })
 

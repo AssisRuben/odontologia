@@ -32,7 +32,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/payments/[i
     const { id } = await ctx.params
     const deps = createActionDeps(createAdminClient())
     const methods = ['dinheiro', 'cartao_credito', 'cartao_debito', 'pix', 'boleto', 'convenio']
-    const method = typeof j.method === 'string' && methods.includes(j.method) ? (j.method as PaymentMethod) : undefined
+    if (j.method !== undefined && j.method !== null && !(typeof j.method === 'string' && methods.includes(j.method))) {
+      return NextResponse.json({ error: 'Forma de pagamento inválida' }, { status: 422 })
+    }
+    const method = typeof j.method === 'string' ? (j.method as PaymentMethod) : undefined
     const result = await markReceived(
       current.clinicId,
       id,
