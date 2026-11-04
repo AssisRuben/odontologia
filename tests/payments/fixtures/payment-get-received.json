@@ -1,0 +1,52 @@
+{
+  "_status": 200,
+  "object": "payment",
+  "id": "pay_f7m5z8mnf6p4h3lz",
+  "dateCreated": "2026-11-04",
+  "customer": "cus_000009834094",
+  "checkoutSession": null,
+  "paymentLink": null,
+  "value": 50,
+  "netValue": 50,
+  "originalValue": null,
+  "interestValue": null,
+  "description": "Teste avulsa",
+  "billingType": "UNDEFINED",
+  "pixTransaction": null,
+  "status": "RECEIVED_IN_CASH",
+  "dueDate": "2026-11-20",
+  "originalDueDate": "2026-11-20",
+  "paymentDate": "2026-11-04",
+  "clientPaymentDate": "2026-11-04",
+  "installmentNumber": null,
+  "invoiceUrl": "https://sandbox.asaas.com/i/f7m5z8mnf6p4h3lz",
+  "invoiceNumber": "20273187",
+  "externalReference": "teste-avulsa-1",
+  "deleted": false,
+  "anticipated": false,
+  "anticipable": false,
+  "creditDate": null,
+  "estimatedCreditDate": null,
+  "transactionReceiptUrl": null,
+  "nossoNumero": "13908494",
+  "bankSlipUrl": "https://sandbox.asaas.com/b/pdf/f7m5z8mnf6p4h3lz",
+  "lastInvoiceViewedDate": null,
+  "lastBankSlipViewedDate": null,
+  "discount": {
+    "value": 0,
+    "limitDate": null,
+    "dueDateLimitDays": 0,
+    "type": "FIXED"
+  },
+  "fine": {
+    "value": 2,
+    "type": "PERCENTAGE"
+  },
+  "interest": {
+    "value": 1,
+    "type": "PERCENTAGE"
+  },
+  "postalService": false,
+  "escrow": null,
+  "refunds": null
+}

@@ -1,0 +1,9 @@
+{
+  "_status": 400,
+  "errors": [
+    {
+      "code": "invalid_dueDate",
+      "description": "Não é possível alterar individualmente o vencimento de cobranças de parcelamentos com a forma de pagamento Pergunte ao Cliente."
+    }
+  ]
+}

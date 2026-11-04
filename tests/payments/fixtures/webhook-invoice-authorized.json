@@ -1,0 +1,45 @@
+{
+  "_source": "estrutura da documentação oficial do Asaas (id/event/dateCreated/account/payment); objeto payment montado com resposta real do sandbox. Não capturado de entrega real.",
+  "id": "evt_00000000000000000000000000000003",
+  "event": "INVOICE_AUTHORIZED",
+  "dateCreated": "2026-11-20 10:00:00",
+  "account": {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "ownerId": null
+  },
+  "invoice": {
+    "object": "invoice",
+    "id": "inv_000000000001",
+    "status": "AUTHORIZED",
+    "customer": "cus_000009834094",
+    "payment": "pay_f7m5z8mnf6p4h3lz",
+    "installment": null,
+    "type": "MUNICIPAL",
+    "statusDescription": null,
+    "serviceDescription": "Servico odontologico",
+    "pdfUrl": "https://sandbox.asaas.com/exemplo.pdf",
+    "xmlUrl": "https://sandbox.asaas.com/exemplo.xml",
+    "rpsSerie": "1",
+    "rpsNumber": "1",
+    "number": "1",
+    "validationCode": "ABC123",
+    "value": 50,
+    "deductions": 0,
+    "effectiveDate": "2026-11-20",
+    "observations": "teste",
+    "externalReference": "teste-nfse-1",
+    "estimatedTaxesDescription": null,
+    "taxes": {
+      "retainIss": false,
+      "iss": 2,
+      "cofins": 0,
+      "csll": 0,
+      "inss": 0,
+      "ir": 0,
+      "pis": 0
+    },
+    "municipalServiceId": null,
+    "municipalServiceCode": "8.02",
+    "municipalServiceName": "Servicos odontologicos"
+  }
+}

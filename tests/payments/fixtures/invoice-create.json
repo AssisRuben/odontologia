@@ -1,0 +1,9 @@
+{
+  "_status": 400,
+  "errors": [
+    {
+      "code": "invalid_fiscal_info",
+      "description": "Você precisa informar suas informações fiscais antes de emitir notas fiscais de serviço"
+    }
+  ]
+}

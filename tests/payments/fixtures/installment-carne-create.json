@@ -1,0 +1,53 @@
+{
+  "_status": 200,
+  "object": "payment",
+  "id": "pay_uklsn3azzzhgq0a7",
+  "dateCreated": "2026-11-04",
+  "customer": "cus_000009834094",
+  "installment": "40a790e7-38b3-4861-8e0e-d0a2d60a6fd2",
+  "checkoutSession": null,
+  "paymentLink": null,
+  "value": 33.33,
+  "netValue": 32.18,
+  "originalValue": null,
+  "interestValue": null,
+  "description": "Parcela 1 de 3. Teste carne",
+  "billingType": "UNDEFINED",
+  "pixTransaction": null,
+  "status": "PENDING",
+  "dueDate": "2026-11-20",
+  "originalDueDate": "2026-11-20",
+  "paymentDate": null,
+  "clientPaymentDate": null,
+  "installmentNumber": 1,
+  "invoiceUrl": "https://sandbox.asaas.com/i/uklsn3azzzhgq0a7",
+  "invoiceNumber": "20273193",
+  "externalReference": "teste-carne-1",
+  "deleted": false,
+  "anticipated": false,
+  "anticipable": false,
+  "creditDate": null,
+  "estimatedCreditDate": null,
+  "transactionReceiptUrl": null,
+  "nossoNumero": "13908496",
+  "bankSlipUrl": "https://sandbox.asaas.com/b/pdf/uklsn3azzzhgq0a7",
+  "lastInvoiceViewedDate": null,
+  "lastBankSlipViewedDate": null,
+  "discount": {
+    "value": 0,
+    "limitDate": null,
+    "dueDateLimitDays": 0,
+    "type": "FIXED"
+  },
+  "fine": {
+    "value": 2,
+    "type": "PERCENTAGE"
+  },
+  "interest": {
+    "value": 1,
+    "type": "PERCENTAGE"
+  },
+  "postalService": false,
+  "escrow": null,
+  "refunds": null
+}
