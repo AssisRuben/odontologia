@@ -67,11 +67,11 @@ describe('applyPaymentEvent', () => {
   })
   it('RECEIVED twice is idempotent (second returns null)', () => {
     const first = applyPaymentEvent(st(), 'PAYMENT_RECEIVED', charge(), TODAY)!
-    const after = st({ status: 'paid', net_amount_cents: first.net_amount_cents })
+    const after = st({ status: 'paid', net_amount_cents: first.net_amount_cents, paid_at: first.paid_at })
     expect(applyPaymentEvent(after, 'PAYMENT_RECEIVED', charge(), TODAY)).toBeNull()
   })
   it('CONFIRMED then RECEIVED updates net_amount without becamePaid', () => {
-    const p = applyPaymentEvent(st({ status: 'paid', net_amount_cents: null }), 'PAYMENT_RECEIVED', charge({ netValueCents: 9400 }), TODAY)
+    const p = applyPaymentEvent(st({ status: 'paid', net_amount_cents: null, paid_at: '2027-01-14' }), 'PAYMENT_RECEIVED', charge({ netValueCents: 9400 }), TODAY)
     expect(p).toEqual({ net_amount_cents: 9400 })
     expect(p?.becamePaid).toBeUndefined()
   })
@@ -97,5 +97,33 @@ describe('applyProviderStatus', () => {
   })
   it('unchanged PENDING returns null', () => {
     expect(applyProviderStatus(st({ amount_cents: 10000 }), charge(), TODAY)).toBeNull()
+  })
+  it('CONFIRMED -> paid', () => {
+    expect(applyProviderStatus(st(), charge({ status: 'CONFIRMED' }), TODAY)?.status).toBe('paid')
+  })
+  it('PENDING with local paid returns null (never reopens paid)', () => {
+    expect(applyProviderStatus(st({ status: 'paid' }), charge({ status: 'PENDING' }), TODAY)).toBeNull()
+  })
+  it('OVERDUE with local paid returns null', () => {
+    expect(applyProviderStatus(st({ status: 'paid' }), charge({ status: 'OVERDUE' }), TODAY)).toBeNull()
+  })
+  it('PENDING/OVERDUE with local cancelled is restored using charge due date and amount', () => {
+    const c = { dueDate: '2027-03-01', valueCents: 12000 }
+    expect(applyProviderStatus(st({ status: 'cancelled' }), charge({ status: 'PENDING', ...c }), TODAY))
+      .toEqual({ status: 'pending', due_date: '2027-03-01', amount_cents: 12000 })
+    expect(applyProviderStatus(st({ status: 'cancelled' }), charge({ status: 'OVERDUE', ...c }), TODAY))
+      .toEqual({ status: 'overdue', due_date: '2027-03-01', amount_cents: 12000 })
+  })
+})
+
+describe('extra branches', () => {
+  it('RECEIVED_IN_CASH event -> paid', () => {
+    expect(applyPaymentEvent(st(), 'PAYMENT_RECEIVED_IN_CASH', charge(), TODAY)?.becamePaid).toBe(true)
+  })
+  it('paid row receiving RECEIVED with different paidAt patches paid_at without becamePaid', () => {
+    const p = applyPaymentEvent(
+      st({ status: 'paid', net_amount_cents: 9500, paid_at: '2027-01-13' }),
+      'PAYMENT_RECEIVED', charge(), TODAY)
+    expect(p).toEqual({ paid_at: '2027-01-14' })
   })
 })

@@ -8,6 +8,7 @@ export interface LocalPaymentState {
   hasAuthorizedInvoice: boolean
   /** Valor líquido já gravado; permite detectar reentrega idempotente. */
   net_amount_cents?: number | null
+  paid_at?: string | null
   /** Valor local; permite detectar mudança em PAYMENT_UPDATED. */
   amount_cents?: number
 }
@@ -39,8 +40,12 @@ export function applyPaymentEvent(
     case 'PAYMENT_RECEIVED_IN_CASH': {
       if (status === 'refunded') return null
       if (status === 'paid') {
-        if (charge.netValueCents === null || charge.netValueCents === state.net_amount_cents) return null
-        return { net_amount_cents: charge.netValueCents }
+        const patch: PaymentPatch = {}
+        if (charge.netValueCents !== null && charge.netValueCents !== state.net_amount_cents) {
+          patch.net_amount_cents = charge.netValueCents
+        }
+        if (charge.paidAt !== null && charge.paidAt !== state.paid_at) patch.paid_at = charge.paidAt
+        return Object.keys(patch).length ? patch : null
       }
       return {
         status: 'paid',
@@ -106,9 +111,7 @@ export function applyProviderStatus(
       }
       return applyPaymentEvent(state, 'PAYMENT_OVERDUE', charge, today)
     case 'PENDING': {
-      if (state.status === 'paid') {
-        return applyPaymentEvent(state, 'PAYMENT_RECEIVED_IN_CASH_UNDONE', charge, today)
-      }
+      if (state.status === 'paid' || state.status === 'refunded') return null
       if (state.status === 'cancelled') {
         const patch = applyPaymentEvent(state, 'PAYMENT_RESTORED', charge, today) ?? {}
         return { ...patch, due_date: charge.dueDate, amount_cents: charge.valueCents,
