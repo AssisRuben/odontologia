@@ -3,6 +3,8 @@ import { defaultRandomHex, type ConnectionDeps, type StoredConnection } from './
 import { AsaasProvider } from './asaas'
 import { getProviderForClinic, webhookUrl } from './index'
 import type { ChargeDeps, ChargePatient } from './charges'
+import type { ActionDeps } from './actions'
+import type { LocalStatus } from './status'
 import { fromCents, toCents } from './money'
 import { sendPaymentLink } from './notify'
 import { normalizeMessagingConfig } from '@/lib/messaging/config'
@@ -197,6 +199,76 @@ export function createChargeDeps(admin: SupabaseClient): ChargeDeps {
     },
     markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
     sendLink: (clinicId, paymentId) => sendPaymentLink(admin, clinicId, paymentId),
+    async today(clinicId, now) {
+      const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
+      check(error)
+      return todayYmd(now, normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone)
+    },
+  }
+}
+
+export function createActionDeps(admin: SupabaseClient): ActionDeps {
+  return {
+    async getPayment(clinicId, paymentId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select('id, status, due_date, amount, paid_at, net_amount, provider_charge_id, provider_installment_id, provider_state, charge_group_id')
+        .eq('id', paymentId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (error?.code === '22P02') return null
+      check(error)
+      if (!data) return null
+      const r = data as {
+        id: string; status: LocalStatus; due_date: string | null; amount: number | string; paid_at: string | null
+        net_amount: number | string | null; provider_charge_id: string | null; provider_installment_id: string | null
+        provider_state: 'creating' | 'active' | null; charge_group_id: string | null
+      }
+      const { count, error: invErr } = await admin
+        .from('fiscal_invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .eq('payment_id', paymentId)
+        .eq('status', 'authorized')
+      check(invErr)
+      return {
+        id: r.id,
+        status: r.status,
+        dueDate: r.due_date,
+        amountCents: toCents(Number(r.amount)),
+        paidAt: r.paid_at ? r.paid_at.slice(0, 10) : null,
+        netAmountCents: r.net_amount === null ? null : toCents(Number(r.net_amount)),
+        providerChargeId: r.provider_charge_id,
+        providerInstallmentId: r.provider_installment_id,
+        providerState: r.provider_state,
+        chargeGroupId: r.charge_group_id,
+        hasAuthorizedInvoice: (count ?? 0) > 0,
+      }
+    },
+    getConnection: (clinicId) => getProviderForClinic(admin, clinicId),
+    async listUnpaidInGroup(clinicId, groupId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('charge_group_id', groupId)
+        .in('status', ['pending', 'overdue'])
+      check(error)
+      return ((data ?? []) as { id: string }[]).map((r) => r.id)
+    },
+    async updateRows(clinicId, ids, patch) {
+      const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (patch.status !== undefined) row.status = patch.status
+      if (patch.due_date !== undefined) row.due_date = patch.due_date
+      // Meio-dia UTC mantém o dia correto no fuso de São Paulo.
+      if (patch.paid_at !== undefined) row.paid_at = patch.paid_at === null ? null : `${patch.paid_at}T12:00:00Z`
+      if (patch.payment_method !== undefined) row.payment_method = patch.payment_method
+      if (patch.net_amount_cents !== undefined) row.net_amount = patch.net_amount_cents === null ? null : fromCents(patch.net_amount_cents)
+      if (patch.amount_cents !== undefined) row.amount = fromCents(patch.amount_cents)
+      const { error } = await admin.from('payments').update(row).eq('clinic_id', clinicId).in('id', ids)
+      check(error)
+    },
+    markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
     async today(clinicId, now) {
       const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
       check(error)
