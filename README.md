@@ -140,6 +140,8 @@ No PowerShell do Windows use `curl.exe` no lugar de `curl` (ou rode no Git Bash)
 
 Esta integração usa a conexão **não oficial** do WhatsApp (Evolution/Baileys). Se o número enviar demais, ele **pode ser banido**. Por isso o app só envia entre 08:00 e 20:00, respeita um limite diário (padrão: 300 mensagens) e espaça os envios com intervalos aleatórios. O recall só vale para pacientes que completaram 6 meses nos últimos 30 dias. Prefira um número da clínica dedicado a isso.
 
+Privacidade: o app só guarda mensagens recebidas de pacientes cadastrados (ou de quem recebeu uma confirmação nas últimas 48 horas). Conversas de outras pessoas com o número da clínica não vão para o banco.
+
 ---
 
 ## Trabalhando em equipe

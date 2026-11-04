@@ -48,6 +48,17 @@ export async function handleIncoming(
 
   const phone = normalizePhone(event.from) ?? event.from
   const patientId = await deps.findPatientByPhone(clinicId, phone)
+
+  // Privacidade (LGPD): o número da clínica também recebe conversas que não são de pacientes.
+  // Só guarda mensagens de pacientes cadastrados ou de quem recebeu uma confirmação recente
+  // (cobre o telefone editado depois do envio). As demais nem chegam ao banco.
+  const since = new Date(now.getTime() - CONFIRMATION_WINDOW_MS)
+  let confirmations: SentConfirmation[] | null = null
+  if (!patientId) {
+    confirmations = await deps.recentConfirmations(clinicId, phone, since)
+    if (confirmations.length === 0) return 'ignored'
+  }
+
   // null = duplicata concorrente (índice único)
   const messageId = await deps.saveIncoming({
     clinic_id: clinicId,
@@ -62,8 +73,8 @@ export async function handleIncoming(
   const reply = parseReply(event.text)
   if (!reply) return 'stored'
 
-  const since = new Date(now.getTime() - CONFIRMATION_WINDOW_MS)
-  const target = pickConfirmationTarget(await deps.recentConfirmations(clinicId, phone, since), now)
+  confirmations ??= await deps.recentConfirmations(clinicId, phone, since)
+  const target = pickConfirmationTarget(confirmations, now)
   if (!target) return 'stored'
 
   const action = reply === 'confirm' ? 'confirmed' : 'cancelled'

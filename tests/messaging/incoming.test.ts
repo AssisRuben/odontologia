@@ -71,6 +71,26 @@ describe('handleIncoming', () => {
     expect(d.sendAutoReply.mock.calls[0][0].patientId).toBeNull()
   })
 
+  it('número desconhecido (sem paciente e sem confirmação recente) não é gravado', async () => {
+    const d = makeDeps({ findPatientByPhone: vi.fn(async () => null), recentConfirmations: vi.fn(async () => []) })
+    expect(await handleIncoming(incoming('oi, tudo bem?'), d, now)).toBe('ignored')
+    expect(d.saveIncoming).not.toHaveBeenCalled()
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+    expect(d.sendAutoReply).not.toHaveBeenCalled()
+  })
+
+  it('número sem paciente mas com confirmação recente é gravado (telefone editado após o envio)', async () => {
+    const d = makeDeps({ findPatientByPhone: vi.fn(async () => null) })
+    expect(await handleIncoming(incoming('obrigado'), d, now)).toBe('stored')
+    expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: null }))
+  })
+
+  it('consulta confirmações uma vez só', async () => {
+    const d = makeDeps({ findPatientByPhone: vi.fn(async () => null) })
+    await handleIncoming(incoming('1'), d, now)
+    expect(d.recentConfirmations).toHaveBeenCalledTimes(1)
+  })
+
   it('texto livre só grava a mensagem', async () => {
     const d = makeDeps()
     expect(await handleIncoming(incoming('obrigado'), d, now)).toBe('stored')
