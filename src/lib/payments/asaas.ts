@@ -96,9 +96,27 @@ function mapInvoice(raw: unknown): ProviderInvoice | null {
     number: i.number == null || i.number === '' ? null : String(i.number),
     pdfUrl: str(i.pdfUrl),
     xmlUrl: str(i.xmlUrl),
-    error: status === 'ERROR' ? str(i.statusDescription) : null,
+    error: status === 'ERROR' || status === 'CANCELLATION_DENIED' ? str(i.statusDescription) : null,
     externalReference: str(i.externalReference),
   }
+}
+
+/** Interpreta o corpo de um webhook do Asaas; não precisa de chave de API. */
+export function parseAsaasWebhook(body: unknown): ParsedWebhook | null {
+  const b = asObject(body)
+  if (!b) return null
+  const eventId = str(b.id)
+  const event = str(b.event)
+  if (!eventId || !event) return null
+  if (event.startsWith('PAYMENT_')) {
+    const charge = mapCharge(b.payment)
+    return charge ? { eventId, event, charge } : null
+  }
+  if (event.startsWith('INVOICE_')) {
+    const invoice = mapInvoice(b.invoice)
+    return invoice ? { eventId, event, invoice } : null
+  }
+  return null
 }
 
 function bad(what: string): PaymentProviderError {
@@ -326,19 +344,6 @@ export class AsaasProvider implements PaymentProvider {
   }
 
   parseWebhook(body: unknown): ParsedWebhook | null {
-    const b = asObject(body)
-    if (!b) return null
-    const eventId = str(b.id)
-    const event = str(b.event)
-    if (!eventId || !event) return null
-    if (event.startsWith('PAYMENT_')) {
-      const charge = mapCharge(b.payment)
-      return charge ? { eventId, event, charge } : null
-    }
-    if (event.startsWith('INVOICE_')) {
-      const invoice = mapInvoice(b.invoice)
-      return invoice ? { eventId, event, invoice } : null
-    }
-    return null
+    return parseAsaasWebhook(body)
   }
 }

@@ -8,6 +8,7 @@ import { fromDbPaidAt, toDbPaidAt } from './dates'
 import type { LocalStatus } from './status'
 import { fromCents, toCents } from './money'
 import { sendPaymentLink } from './notify'
+import type { EventDeps, EventPayment, InvoiceStatus } from './events'
 import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import { todayYmd } from '@/lib/messaging/time'
 
@@ -278,6 +279,150 @@ export function createActionDeps(admin: SupabaseClient): ActionDeps {
       return (data ?? []).length
     },
     markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
+    async today(clinicId, now) {
+      const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
+      check(error)
+      return todayYmd(now, normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone)
+    },
+  }
+}
+
+/** Dependências do webhook sobre o Supabase (service role). scheduleInvoice vem da Task 10. */
+export function createEventDeps(admin: SupabaseClient, scheduleInvoice: EventDeps['scheduleInvoice']): EventDeps {
+  return {
+    async findClinicByToken(token) {
+      const { data, error } = await admin
+        .from('payment_connections')
+        .select('clinic_id, nfse_auto')
+        .eq('webhook_token', token)
+        .maybeSingle()
+      check(error)
+      const r = data as { clinic_id: string; nfse_auto: boolean } | null
+      return r ? { clinicId: r.clinic_id, nfseAuto: r.nfse_auto } : null
+    },
+    async getNfseAuto(clinicId) {
+      const { data, error } = await admin.from('payment_connections').select('nfse_auto').eq('clinic_id', clinicId).maybeSingle()
+      check(error)
+      return (data as { nfse_auto: boolean } | null)?.nfse_auto === true
+    },
+    async insertEvent(e) {
+      const { data, error } = await admin
+        .from('payment_events')
+        .insert({
+          clinic_id: e.clinicId,
+          provider_event_id: e.providerEventId,
+          event: e.event,
+          payload: e.payload,
+          status: e.status,
+          error: e.error,
+          received_at: e.receivedAt.toISOString(),
+        })
+        .select('id')
+        .single()
+      if (error?.code === '23505') return null
+      check(error)
+      return { id: (data as { id: string }).id }
+    },
+    async finishEvent(clinicId, id, status, error) {
+      const { error: err } = await admin
+        .from('payment_events')
+        .update({ status, error, processed_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('clinic_id', clinicId)
+      check(err)
+    },
+    async findPayment(clinicId, providerChargeId): Promise<EventPayment | null> {
+      const { data, error } = await admin
+        .from('payments')
+        .select('id, provider_charge_id, status, due_date, amount, paid_at, net_amount, charge_kind, charge_group_id, installment_number')
+        .eq('clinic_id', clinicId)
+        .eq('provider_charge_id', providerChargeId)
+        .maybeSingle()
+      check(error)
+      if (!data) return null
+      const r = data as {
+        id: string; provider_charge_id: string; status: LocalStatus; due_date: string | null; amount: number | string
+        paid_at: string | null; net_amount: number | string | null; charge_kind: EventPayment['chargeKind']
+        charge_group_id: string | null; installment_number: number | null
+      }
+      let ids = [r.id]
+      if (r.charge_kind === 'cartao_parcelado' && r.charge_group_id) {
+        const { data: g, error: gErr } = await admin
+          .from('payments')
+          .select('id')
+          .eq('clinic_id', clinicId)
+          .eq('charge_group_id', r.charge_group_id)
+        check(gErr)
+        ids = ((g ?? []) as { id: string }[]).map((x) => x.id)
+      }
+      const { count, error: invErr } = await admin
+        .from('fiscal_invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .in('payment_id', ids)
+        .eq('status', 'authorized')
+      check(invErr)
+      return {
+        id: r.id,
+        providerChargeId: r.provider_charge_id,
+        status: r.status,
+        dueDate: r.due_date,
+        amountCents: toCents(Number(r.amount)),
+        paidAt: fromDbPaidAt(r.paid_at),
+        netAmountCents: r.net_amount === null ? null : toCents(Number(r.net_amount)),
+        hasAuthorizedInvoice: (count ?? 0) > 0,
+        chargeKind: r.charge_kind,
+        chargeGroupId: r.charge_group_id,
+        installmentNumber: r.installment_number,
+      }
+    },
+    async updatePayment(clinicId, paymentId, patch) {
+      const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (patch.status !== undefined) row.status = patch.status
+      if (patch.paid_at !== undefined) row.paid_at = patch.paid_at === null ? null : toDbPaidAt(patch.paid_at)
+      if (patch.net_amount_cents !== undefined) row.net_amount = patch.net_amount_cents === null ? null : fromCents(patch.net_amount_cents)
+      if (patch.due_date !== undefined) row.due_date = patch.due_date
+      if (patch.amount_cents !== undefined) row.amount = fromCents(patch.amount_cents)
+      if (patch.alert !== undefined) row.alert = patch.alert
+      const { error } = await admin.from('payments').update(row).eq('id', paymentId).eq('clinic_id', clinicId)
+      check(error)
+    },
+    async listGroup(clinicId, groupId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select('id, installment_number, amount')
+        .eq('clinic_id', clinicId)
+        .eq('charge_group_id', groupId)
+      check(error)
+      return ((data ?? []) as { id: string; installment_number: number | null; amount: number | string }[]).map((r) => ({
+        id: r.id,
+        installmentNumber: r.installment_number,
+        amountCents: toCents(Number(r.amount)),
+      }))
+    },
+    async hasInvoice(clinicId, paymentIds, statuses: InvoiceStatus[] | 'any') {
+      if (paymentIds.length === 0) return false
+      let q = admin
+        .from('fiscal_invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .in('payment_id', paymentIds)
+      if (statuses !== 'any') q = q.in('status', statuses)
+      const { count, error } = await q
+      check(error)
+      return (count ?? 0) > 0
+    },
+    scheduleInvoice,
+    async updateInvoice(clinicId, providerInvoiceId, patch) {
+      const { data, error } = await admin
+        .from('fiscal_invoices')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('clinic_id', clinicId)
+        .eq('provider_invoice_id', providerInvoiceId)
+        .select('id')
+      check(error)
+      return (data?.length ?? 0) > 0
+    },
     async today(clinicId, now) {
       const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
       check(error)
