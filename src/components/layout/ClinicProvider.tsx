@@ -1,76 +1,82 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 
-const FALLBACK_CLINIC_ID = '76fdeef2-2347-4ac2-9d3f-fc4456ef57a9'
-
+// Descobre a clínica do usuário logado pelo profissional vinculado ao login.
+// Nunca cai para outra clínica: sem vínculo, mostra um aviso.
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
-  const { setClinic, setLoading } = useClinicStore()
+  const { setClinic } = useClinicStore()
+  const [problem, setProblem] = useState<'no-clinic' | 'error' | null>(null)
 
   useEffect(() => {
     async function loadClinic() {
       try {
         const supabase = createClient()
-
         const { data: { user } } = await supabase.auth.getUser()
-
         if (!user) {
-          setClinic({ clinicId: FALLBACK_CLINIC_ID, clinicName: '', professionalId: '', professionalName: '' })
+          window.location.href = '/login'
           return
         }
 
-        // Try to find a professional linked to this user
-        const { data: professional } = await supabase
+        const { data: professional, error } = await supabase
           .from('professionals')
           .select('id, name, clinic_id')
           .eq('user_id', user.id)
-          .maybeSingle()
-
-        if (professional) {
-          setClinic({
-            clinicId: professional.clinic_id,
-            clinicName: '',
-            professionalId: professional.id,
-            professionalName: professional.name,
-          })
-          return
-        }
-
-        // Fallback: use first professional's clinic_id or the known default
-        const { data: anyProfessional } = await supabase
-          .from('professionals')
-          .select('id, name, clinic_id')
           .order('created_at')
           .limit(1)
           .maybeSingle()
 
-        if (anyProfessional) {
-          setClinic({
-            clinicId: anyProfessional.clinic_id,
-            clinicName: '',
-            professionalId: anyProfessional.id,
-            professionalName: user.email ?? '',
-          })
-          return
-        }
+        if (error) { setProblem('error'); return }
+        if (!professional) { setProblem('no-clinic'); return }
 
-        // Last resort: use the hardcoded clinic
         setClinic({
-          clinicId: FALLBACK_CLINIC_ID,
+          clinicId: professional.clinic_id,
           clinicName: '',
-          professionalId: '',
-          professionalName: user.email ?? '',
+          professionalId: professional.id,
+          professionalName: professional.name,
         })
       } catch {
-        // Always unblock the UI even on error
-        setClinic({ clinicId: FALLBACK_CLINIC_ID, clinicName: '', professionalId: '', professionalName: '' })
+        setProblem('error')
       }
     }
 
     loadClinic()
-  }, [setClinic, setLoading])
+  }, [setClinic])
+
+  if (problem) {
+    async function logout() {
+      await createClient().auth.signOut()
+      window.location.href = '/login'
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F3F4F6] p-6">
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-6 max-w-md text-center space-y-4">
+          <p className="text-[#111827] font-semibold">
+            {problem === 'no-clinic' ? 'Sua conta não está vinculada a nenhuma clínica' : 'Não foi possível carregar sua clínica'}
+          </p>
+          <p className="text-sm text-[#6B7280]">
+            {problem === 'no-clinic'
+              ? 'Peça ao responsável pela clínica para vincular seu login a um profissional.'
+              : 'Verifique sua conexão e tente novamente.'}
+          </p>
+          <div className="flex gap-2 justify-center">
+            {problem === 'error' && (
+              <button onClick={() => window.location.reload()}
+                className="px-4 py-2 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB]">
+                Tentar de novo
+              </button>
+            )}
+            <button onClick={logout}
+              className="px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]">
+              Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return <>{children}</>
 }

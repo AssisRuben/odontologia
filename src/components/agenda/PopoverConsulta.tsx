@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2 } from 'lucide-react'
+import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2, Check, CheckCheck } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatPhone } from '@/lib/utils'
 import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from '@/types'
 import type { Appointment } from '@/types'
 import { createClient } from '@/lib/supabase/client'
+import type { WhatsAppIndicator } from './useWhatsAppStatus'
 
 interface PopoverConsultaProps {
   appointment: Appointment
@@ -17,9 +18,10 @@ interface PopoverConsultaProps {
   onEdit: () => void
   onAddEvolucao: () => void
   onConfirmed?: () => void
+  whatsapp?: WhatsAppIndicator
 }
 
-export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit, onAddEvolucao, onConfirmed }: PopoverConsultaProps) {
+export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit, onAddEvolucao, onConfirmed, whatsapp }: PopoverConsultaProps) {
   const popRef = useRef<HTMLDivElement>(null)
   const [confirming, setConfirming] = useState(false)
   const [confirmed, setConfirmed]   = useState(apt.status === 'confirmed')
@@ -132,6 +134,19 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
             <InfoLine icon={<Phone className="w-3.5 h-3.5" />}>
               {formatPhone(apt.patient.phone)}
             </InfoLine>
+          )}
+
+          {whatsapp === 'confirmed' && (
+            <div className="flex items-center gap-2 text-xs font-medium text-[#16A34A]">
+              <CheckCheck className="w-3.5 h-3.5 shrink-0" />
+              Confirmada pelo WhatsApp
+            </div>
+          )}
+          {whatsapp === 'sent' && (
+            <div className="flex items-center gap-2 text-xs text-[#6B7280]">
+              <Check className="w-3.5 h-3.5 shrink-0" />
+              Confirmação enviada
+            </div>
           )}
 
           {apt.notes && (

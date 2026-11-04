@@ -34,6 +34,7 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
   const [city, setCity]           = useState('')
   const [state, setState]         = useState('')
   const [zip, setZip]             = useState('')
+  const [optOut, setOptOut]   = useState(false)
   const [plans, setPlans]         = useState<InsurancePlan[]>([])
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
@@ -55,6 +56,7 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
     setCity(patient.address?.city || '')
     setState(patient.address?.state || '')
     setZip(patient.address?.zip || '')
+    setOptOut(!!patient.whatsapp_opt_out)
     setSaved(false)
     setError('')
 
@@ -82,6 +84,7 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
         birthdate: birthdate || null,
         gender: gender || null,
         insurance_plan_id: planId || null,
+        whatsapp_opt_out: optOut,
         address: { street, number, neighborhood, city, state, zip },
       })
       .eq('id', patient.id)
@@ -178,6 +181,14 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
                   placeholder="paciente@email.com"
                   className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
               </div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={optOut} onChange={e => setOptOut(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-[#D1D5DB]" />
+                <span>
+                  <span className="block text-sm font-medium text-[#111827]">Não enviar WhatsApp</span>
+                  <span className="block text-xs text-[#6B7280]">O paciente não receberá mensagens automáticas nem manuais.</span>
+                </span>
+              </label>
             </div>
           </section>
 

@@ -66,6 +66,7 @@ export interface Patient {
   insurance_plan_id?: string
   insurance_plan?: InsurancePlan
   notes?: string
+  whatsapp_opt_out?: boolean
   created_at: string
 }
 

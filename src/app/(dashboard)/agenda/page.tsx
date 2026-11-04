@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Users, SlidersHorizontal, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { format, addWeeks, subWeeks, addDays, subDays } from 'date-fns'
+import { ChevronLeft, ChevronRight, Plus, Users, SlidersHorizontal, X, PanelLeftClose, PanelLeftOpen, MessageCircleOff } from 'lucide-react'
+import { format, addWeeks, subWeeks, addDays, subDays, startOfWeek, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
@@ -12,6 +12,7 @@ import { ModalNovaConsulta } from '@/components/agenda/ModalNovaConsulta'
 import { PopoverConsulta } from '@/components/agenda/PopoverConsulta'
 import { ModalEditarConsulta } from '@/components/agenda/ModalEditarConsulta'
 import { ModalEvolucao } from '@/components/agenda/ModalEvolucao'
+import { useWhatsAppStatus, formatNoticeTime } from '@/components/agenda/useWhatsAppStatus'
 import type { Appointment, Professional, Patient, InsurancePlan } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +47,7 @@ export default function AgendaPage() {
   const [evolutionApt, setEvolutionApt] = useState<Appointment | null>(null)
 
   const [reloadKey, setReloadKey] = useState(0)
+  const [dismissedNoticeKey, setDismissedNoticeKey] = useState('')
 
   const openPopover = useCallback((apt: Appointment, rect: DOMRect) => {
     setPopover({ apt, rect })
@@ -93,6 +95,24 @@ export default function AgendaPage() {
       : appointments,
     [appointments, selectedProfessional]
   )
+
+  // Consultas do intervalo exibido (semana ou dia) — base dos indicadores do WhatsApp
+  const visibleAppointments = useMemo(() => {
+    const from = view === 'timeGridWeek' ? startOfWeek(currentDate) : startOfDay(currentDate)
+    const to = addDays(from, view === 'timeGridWeek' ? 7 : 1)
+    return filteredAppointments.filter((a) => {
+      const t = new Date(a.start_time)
+      return t >= from && t < to
+    })
+  }, [filteredAppointments, view, currentDate])
+  const { indicators, cancelNotices, tz: clinicTz } = useWhatsAppStatus(visibleAppointments, appointments)
+
+  const noticeKey = cancelNotices.map((n) => n.appointment.id).join(',')
+
+  function openNoticeAppointment(apt: Appointment, el: HTMLElement) {
+    setCurrentDate(new Date(apt.start_time))
+    openPopover(apt, el.getBoundingClientRect())
+  }
 
   if (clinicLoading) {
     return (
@@ -268,12 +288,43 @@ export default function AgendaPage() {
           </button>
         </div>
 
+        {cancelNotices.length > 0 && noticeKey !== dismissedNoticeKey && (
+          <div role="status" className="bg-[#FEF3C7] border-b border-[#FDE68A] px-3 py-2 flex items-start gap-2 text-sm text-[#92400E]">
+            <MessageCircleOff className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">
+                {cancelNotices.length} paciente(s) desmarcaram pelo WhatsApp
+              </p>
+              <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                {cancelNotices.map(({ appointment }) => (
+                  <li key={appointment.id}>
+                    <button
+                      onClick={(e) => openNoticeAppointment(appointment, e.currentTarget)}
+                      className="underline underline-offset-2 hover:text-[#78350F] text-left"
+                    >
+                      {appointment.patient?.name || 'Paciente'} — {formatNoticeTime(appointment.start_time, clinicTz)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => setDismissedNoticeKey(noticeKey)}
+              title="Dispensar aviso"
+              className="p-1 rounded-md hover:bg-[#FDE68A] shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex-1 overflow-hidden bg-white">
           <CalendarioAgenda
             key={agendaState.version}
             view={view}
             currentDate={currentDate}
             appointments={filteredAppointments}
+            indicators={indicators}
             onDateClick={(date, hour) => { setModalDate(date); setModalHour(hour); setModalOpen(true) }}
             onEventClick={openPopover}
           />
@@ -303,6 +354,7 @@ export default function AgendaPage() {
           onEdit={() => { setPopover(null); setEditingApt(popover.apt) }}
           onAddEvolucao={() => { setPopover(null); setEvolutionApt(popover.apt) }}
           onConfirmed={() => setReloadKey(k => k + 1)}
+          whatsapp={indicators.get(popover.apt.id)}
         />
       )}
 

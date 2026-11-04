@@ -71,6 +71,79 @@ Pode rodar mais de uma vez sem duplicar nada.
 
 ---
 
+## WhatsApp automático
+
+O sistema pode enviar sozinho, pelo WhatsApp da clínica, cinco mensagens automáticas: confirmação de consulta, lembrete de consulta, retorno (paciente que passou 6 meses sem voltar), aniversário e cobrança de pagamento em atraso. As respostas dos pacientes à confirmação ("1 = confirmo", "2 = desmarcar") atualizam a agenda.
+
+Para isso o app conversa com a **Evolution API**, um serviço que mantém o WhatsApp da clínica conectado (como o "WhatsApp Web"). Você precisa dele rodando em algum lugar: no seu computador (para testar) ou num servidor (produção).
+
+### 1. Preparar o banco
+
+1. No Supabase, abra **Database** → **Extensions** e ative **pg_cron** e **pg_net**.
+2. Se o seu banco é antigo, aplique antes [`supabase/2026-11-02-isolamento-por-clinica.sql`](supabase/2026-11-02-isolamento-por-clinica.sql) e depois [`supabase/2026-11-02-whatsapp-automatico.sql`](supabase/2026-11-02-whatsapp-automatico.sql) (SQL Editor → cole o arquivo → **Run**). Pode rodar de novo sem problema.
+3. Bancos novos criados com `supabase/schema.sql` já têm as tabelas, mas o `schema.sql` **não** ativa pg_cron e pg_net: faça o passo 1 de qualquer forma.
+4. Nas configurações da API do Supabase (**Project Settings** → **Data API**), deixe **Max rows** em 1000 ou mais: o envio automático lê o banco em páginas de 1000 linhas.
+
+### 2. Variáveis de ambiente
+
+Acrescente no `.env.local` (veja o `.env.example`):
+
+| Variável | O que é |
+|---|---|
+| `EVOLUTION_API_URL` | endereço da Evolution API (local: `http://localhost:8080`) |
+| `EVOLUTION_API_KEY` | chave de administrador da Evolution API (a mesma `AUTHENTICATION_API_KEY` do `.env.evolution`) |
+| `CRON_SECRET` | senha que o agendador do banco usa para chamar `/api/cron/messages` |
+| `EVOLUTION_WEBHOOK_TOKEN` | senha que a Evolution API usa ao avisar o app de respostas e desconexões |
+| `APP_URL` | endereço do app que a Evolution API consegue acessar (veja abaixo) |
+
+Para gerar uma senha aleatória (use uma diferente para cada segredo):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### 3. Evolution API no seu computador (teste)
+
+Precisa do [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e aberto (no Windows também).
+
+```bash
+cp .env.evolution.example .env.evolution
+# edite .env.evolution: defina AUTHENTICATION_API_KEY e a senha do Postgres
+# (a senha também vai dentro de DATABASE_CONNECTION_URI; as duas precisam ser iguais)
+docker compose -f docker-compose.evolution.yml --env-file .env.evolution up -d
+```
+
+No `.env.local`: `EVOLUTION_API_URL=http://localhost:8080`, `EVOLUTION_API_KEY` igual à `AUTHENTICATION_API_KEY`, e
+`APP_URL=http://host.docker.internal:3000`. Como a Evolution roda dentro do Docker, ela chama o app por `host.docker.internal`; use a **porta que o `npm run dev` mostrar** (3000, ou 3001 se a 3000 estiver ocupada). Reinicie o `npm run dev` depois de mudar o `.env.local`.
+
+No teste local o banco (Supabase na nuvem) não consegue chamar o seu computador, então o disparo a cada 5 minutos não acontece sozinho. Para testar, chame o endpoint à mão:
+
+```bash
+curl -X POST http://localhost:3000/api/cron/messages -H "Authorization: Bearer SEU_CRON_SECRET"
+```
+
+No PowerShell do Windows use `curl.exe` no lugar de `curl` (ou rode no Git Bash).
+
+### 4. Produção
+
+- **App:** na Vercel, cadastre as 5 variáveis acima (com `APP_URL` = endereço público do app, sem barra no final).
+- **Evolution API:** num servidor (VPS) com Docker, usando o mesmo `docker-compose.evolution.yml`. Coloque `EVOLUTION_API_URL` apontando para ele, de preferência com HTTPS.
+- **Agendador:** no fim de `supabase/2026-11-02-whatsapp-automatico.sql` há um bloco `cron.schedule` comentado. Descomente, troque `<APP_URL>` e `<CRON_SECRET>` e rode só esse bloco no SQL Editor. Ele faz o banco chamar `POST /api/cron/messages` **a cada 5 minutos**, e é essa chamada que envia as mensagens.
+
+### 5. Conectar o WhatsApp da clínica
+
+1. No app: **Configurações** → **Configurações de mensagens** → **Conectar WhatsApp**. Aparece um QR code.
+2. No celular da clínica: WhatsApp → **Aparelhos conectados** → **Conectar aparelho** e escaneie o QR code.
+3. Em **Mensagens** → **Automáticas**, ligue os tipos de mensagem que quiser.
+
+### Cuidados
+
+Esta integração usa a conexão **não oficial** do WhatsApp (Evolution/Baileys). Se o número enviar demais, ele **pode ser banido**. Por isso o app só envia entre 08:00 e 20:00, respeita um limite diário (padrão: 300 mensagens) e espaça os envios com intervalos aleatórios. O recall só vale para pacientes que completaram 6 meses nos últimos 30 dias. Prefira um número da clínica dedicado a isso.
+
+Privacidade: o app só guarda mensagens recebidas de pacientes cadastrados (ou de quem recebeu uma confirmação nas últimas 48 horas). Conversas de outras pessoas com o número da clínica não vão para o banco.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`
@@ -103,3 +176,4 @@ Os arquivos `seed.sql` e `scripts/*.sql` são histórico do banco original e **n
 | `npm run build` | gera a versão de produção |
 | `npm run start` | roda a versão de produção |
 | `npm run lint` | verifica o código |
+| `npm test` | roda os testes automáticos |
