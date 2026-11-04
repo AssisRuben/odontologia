@@ -21,9 +21,11 @@ export async function POST(request: Request) {
     })
     const r = await handleWebhook(token, body, deps, new Date())
     if (r.status === 401) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    if (r.status === 500) return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
     return NextResponse.json({ result: r.result })
   } catch (e) {
     console.error('[webhooks/asaas] falha:', (e as Error).message)
-    return NextResponse.json({ result: 'failed' })
+    // Antes de o evento ser gravado, 500 faz o Asaas tentar de novo.
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

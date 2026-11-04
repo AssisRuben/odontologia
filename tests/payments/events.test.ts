@@ -25,6 +25,9 @@ function makeDeps(opts: {
   invoices?: { paymentId: string; status: string }[]
   scheduleError?: Error
   updateError?: Error
+  casFail?: boolean
+  insertError?: Error
+  invoiceStatus?: string
 } = {}) {
   const rows: EventPayment[] = (opts.rows ?? [{}]).map((r, i) => ({
     id: `p${i + 1}`, providerChargeId: `pay_${i + 1}`, status: 'pending', dueDate: '2027-01-20',
@@ -33,13 +36,16 @@ function makeDeps(opts: {
   }))
   const events = new Map<string, { id: string; status: string; error: string | null }>()
   const invoices = [...(opts.invoices ?? [])]
+  const payloads: unknown[] = []
   const updates: { id: string; patch: Record<string, unknown> }[] = []
   const invoiceUpdates: { id: string; patch: Record<string, unknown> }[] = []
   const deps = {
     findClinicByToken: vi.fn<EventDeps['findClinicByToken']>(async (t) =>
-      t === 'tok' ? { clinicId: 'c1', nfseAuto: opts.nfseAuto ?? false } : null),
+      t === 'tok' ? { clinicId: 'c1' } : null),
     getNfseAuto: vi.fn<EventDeps['getNfseAuto']>(async () => opts.nfseAuto ?? false),
     insertEvent: vi.fn<EventDeps['insertEvent']>(async (e) => {
+      if (opts.insertError) throw opts.insertError
+      payloads.push(e.payload)
       if (events.has(e.providerEventId)) return null
       const rec = { id: `ev_${events.size + 1}`, status: e.status, error: e.error }
       events.set(e.providerEventId, rec)
@@ -50,11 +56,17 @@ function makeDeps(opts: {
     }),
     findPayment: vi.fn<EventDeps['findPayment']>(async (_c, chargeId) =>
       rows.find((r) => r.providerChargeId === chargeId) ?? null),
+    getCharge: vi.fn<EventDeps['getCharge']>(async (_c, id) => ({
+      id, installmentId: null, installmentNumber: null, status: 'RECEIVED', deleted: false, valueCents: 10000,
+      netValueCents: 9650, dueDate: '2027-01-20', paidAt: '2027-01-09', invoiceUrl: null, externalReference: null,
+    })),
     updatePayment: vi.fn<EventDeps['updatePayment']>(async (_c, id, patch) => {
       if (opts.updateError) throw opts.updateError
+      if (opts.casFail) return false
       updates.push({ id, patch: patch as Record<string, unknown> })
       const row = rows.find((r) => r.id === id)!
       if (patch.status) row.status = patch.status
+      return true
     }),
     listGroup: vi.fn<EventDeps['listGroup']>(async (_c, g) =>
       rows.filter((r) => r.chargeGroupId === g).map((r) => ({ id: r.id, installmentNumber: r.installmentNumber, amountCents: r.amountCents }))),
@@ -64,14 +76,15 @@ function makeDeps(opts: {
       if (opts.scheduleError) throw opts.scheduleError
       invoices.push({ paymentId, status: 'scheduled' })
     }),
-    updateInvoice: vi.fn<EventDeps['updateInvoice']>(async (_c, id, patch) => {
+    updateInvoice: vi.fn<EventDeps['updateInvoice']>(async (_c, id, patch, from) => {
       if (id !== 'inv_1') return false
+      if (!from.includes((opts.invoiceStatus ?? 'scheduled') as never)) return false
       invoiceUpdates.push({ id, patch: { ...patch } })
       return true
     }),
     today: vi.fn<EventDeps['today']>(async () => '2027-01-10'),
   }
-  return { deps: deps as EventDeps & typeof deps, events, updates, invoiceUpdates }
+  return { deps: deps as EventDeps & typeof deps, events, updates, invoiceUpdates, payloads }
 }
 
 describe('handleWebhook', () => {
@@ -169,7 +182,7 @@ describe('handleWebhook', () => {
   })
 
   it('INVOICE_CANCELLATION_DENIED returns to authorized', async () => {
-    const { deps, invoiceUpdates } = makeDeps()
+    const { deps, invoiceUpdates } = makeDeps({ invoiceStatus: 'cancelling' })
     await handleWebhook('tok', invoiceBody('INVOICE_CANCELLATION_DENIED', { status: 'CANCELLATION_DENIED', statusDescription: 'Prazo expirado' }), deps, NOW)
     expect(invoiceUpdates[0].patch).toEqual({ status: 'authorized', error: 'Prazo expirado' })
   })
@@ -178,6 +191,42 @@ describe('handleWebhook', () => {
     const { deps } = makeDeps()
     expect(await handleWebhook('tok', invoiceBody('INVOICE_AUTHORIZED', { id: 'zzz' }, 'a'), deps, NOW)).toMatchObject({ result: 'ignored' })
     expect(await handleWebhook('tok', invoiceBody('INVOICE_CREATED', {}, 'b'), deps, NOW)).toMatchObject({ result: 'ignored' })
+  })
+
+  it('late INVOICE_AUTHORIZED does not revive cancelled invoice', async () => {
+    const { deps, invoiceUpdates } = makeDeps({ invoiceStatus: 'cancelled' })
+    const r = await handleWebhook('tok', invoiceBody('INVOICE_AUTHORIZED'), deps, NOW)
+    expect(r.result).toBe('ignored')
+    expect(invoiceUpdates).toHaveLength(0)
+  })
+
+  it('concurrent change (0 rows updated) marks failed and does not schedule invoice', async () => {
+    const { deps, events } = makeDeps({ nfseAuto: true, casFail: true })
+    const r = await handleWebhook('tok', chargeBody('PAYMENT_RECEIVED'), deps, NOW)
+    expect(r.result).toBe('failed')
+    expect(events.get('evt_1')).toMatchObject({ status: 'failed', error: 'Lançamento alterado durante o processamento' })
+    expect(deps.scheduleInvoice).not.toHaveBeenCalled()
+  })
+
+  it('insertEvent failure returns 500', async () => {
+    const { deps } = makeDeps({ insertError: new Error('db') })
+    expect(await handleWebhook('tok', chargeBody('PAYMENT_RECEIVED'), deps, NOW)).toMatchObject({ status: 500 })
+  })
+
+  it('clinic lookup failure returns 500', async () => {
+    const { deps } = makeDeps()
+    deps.findClinicByToken.mockRejectedValueOnce(new Error('db'))
+    expect(await handleWebhook('tok', chargeBody('PAYMENT_RECEIVED'), deps, NOW)).toMatchObject({ status: 500 })
+  })
+
+  it('strips card data before storing the payload', async () => {
+    const { deps, payloads } = makeDeps()
+    const body = { ...chargeBody('PAYMENT_RECEIVED', { creditCard: { number: '1' }, creditCardToken: 't', creditCardBrand: 'VISA' }), creditCard: { x: 1 } }
+    await handleWebhook('tok', body, deps, NOW)
+    const stored = payloads[0] as Record<string, Record<string, unknown>>
+    expect(stored.creditCard).toBeUndefined()
+    expect(Object.keys(stored.payment).some((k) => k.startsWith('creditCard'))).toBe(false)
+    expect(stored.payment.id).toBe('pay_1')
   })
 
   it('REFUNDED with authorized invoice sets alert', async () => {
@@ -194,6 +243,18 @@ describe('reprocessEvent', () => {
     expect(r).toBe('processed')
     expect(deps.scheduleInvoice).toHaveBeenCalledWith('c1', 'p1', {})
     expect(deps.finishEvent).toHaveBeenCalledWith('c1', 'ev_9', 'processed', null)
+  })
+
+  it('reprocess uses current provider state', async () => {
+    const { deps, updates } = makeDeps({ rows: [{ status: 'pending' }] })
+    deps.getCharge.mockResolvedValueOnce({
+      id: 'pay_1', installmentId: null, installmentNumber: null, status: 'REFUNDED', deleted: false, valueCents: 10000,
+      netValueCents: null, dueDate: '2027-01-20', paidAt: null, invoiceUrl: null, externalReference: null,
+    })
+    // payload antigo diz RECEIVED, mas o provedor já estornou
+    await reprocessEvent({ id: 'ev_9', clinic_id: 'c1', payload: chargeBody('PAYMENT_RECEIVED') }, deps, NOW)
+    expect(deps.getCharge).toHaveBeenCalledWith('c1', 'pay_1')
+    expect(updates[0].patch).toMatchObject({ status: 'refunded' })
   })
 })
 

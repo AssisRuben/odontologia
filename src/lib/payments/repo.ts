@@ -293,12 +293,12 @@ export function createEventDeps(admin: SupabaseClient, scheduleInvoice: EventDep
     async findClinicByToken(token) {
       const { data, error } = await admin
         .from('payment_connections')
-        .select('clinic_id, nfse_auto')
+        .select('clinic_id')
         .eq('webhook_token', token)
         .maybeSingle()
       check(error)
-      const r = data as { clinic_id: string; nfse_auto: boolean } | null
-      return r ? { clinicId: r.clinic_id, nfseAuto: r.nfse_auto } : null
+      const r = data as { clinic_id: string } | null
+      return r ? { clinicId: r.clinic_id } : null
     },
     async getNfseAuto(clinicId) {
       const { data, error } = await admin.from('payment_connections').select('nfse_auto').eq('clinic_id', clinicId).maybeSingle()
@@ -376,7 +376,12 @@ export function createEventDeps(admin: SupabaseClient, scheduleInvoice: EventDep
         installmentNumber: r.installment_number,
       }
     },
-    async updatePayment(clinicId, paymentId, patch) {
+    async getCharge(clinicId, providerChargeId) {
+      const conn = await getProviderForClinic(admin, clinicId)
+      if (!conn) throw new Error('Conexão de pagamentos não encontrada')
+      return conn.provider.getCharge(providerChargeId)
+    },
+    async updatePayment(clinicId, paymentId, patch, expectedStatus) {
       const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
       if (patch.status !== undefined) row.status = patch.status
       if (patch.paid_at !== undefined) row.paid_at = patch.paid_at === null ? null : toDbPaidAt(patch.paid_at)
@@ -384,8 +389,15 @@ export function createEventDeps(admin: SupabaseClient, scheduleInvoice: EventDep
       if (patch.due_date !== undefined) row.due_date = patch.due_date
       if (patch.amount_cents !== undefined) row.amount = fromCents(patch.amount_cents)
       if (patch.alert !== undefined) row.alert = patch.alert
-      const { error } = await admin.from('payments').update(row).eq('id', paymentId).eq('clinic_id', clinicId)
+      const { data, error } = await admin
+        .from('payments')
+        .update(row)
+        .eq('id', paymentId)
+        .eq('clinic_id', clinicId)
+        .eq('status', expectedStatus)
+        .select('id')
       check(error)
+      return (data?.length ?? 0) > 0
     },
     async listGroup(clinicId, groupId) {
       const { data, error } = await admin
@@ -413,12 +425,13 @@ export function createEventDeps(admin: SupabaseClient, scheduleInvoice: EventDep
       return (count ?? 0) > 0
     },
     scheduleInvoice,
-    async updateInvoice(clinicId, providerInvoiceId, patch) {
+    async updateInvoice(clinicId, providerInvoiceId, patch, allowedFrom) {
       const { data, error } = await admin
         .from('fiscal_invoices')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('clinic_id', clinicId)
         .eq('provider_invoice_id', providerInvoiceId)
+        .in('status', allowedFrom)
         .select('id')
       check(error)
       return (data?.length ?? 0) > 0

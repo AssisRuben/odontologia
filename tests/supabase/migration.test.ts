@@ -13,6 +13,14 @@ describe.each(['2026-11-04-cobranca-asaas.sql', 'schema.sql'])('%s', (file) => {
   })
 })
 
+describe.each(['2026-11-04-cobranca-asaas.sql', 'schema.sql'])('%s fiscal_invoices', (file) => {
+  it('impede duas notas ativas para o mesmo lançamento', () => {
+    expect(read(file)).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS fiscal_invoices_active_payment_uidx ON fiscal_invoices (clinic_id, payment_id) WHERE status IN ('scheduled','authorized','cancelling');",
+    )
+  })
+})
+
 describe('2026-11-02-whatsapp-automatico.sql', () => {
   it('recria o gatilho on_auth_user_created depois de handle_new_user (bancos antigos)', () => {
     const sql = read('2026-11-02-whatsapp-automatico.sql')

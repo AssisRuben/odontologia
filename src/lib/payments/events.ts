@@ -1,6 +1,6 @@
 import { parseAsaasWebhook } from './asaas'
 import type { ParsedWebhook, ProviderCharge, ProviderInvoice } from './provider'
-import { applyPaymentEvent, type LocalStatus, type PaymentPatch } from './status'
+import { applyPaymentEvent, applyProviderStatus, type LocalStatus, type PaymentPatch } from './status'
 
 export type EventResult = 'processed' | 'ignored' | 'failed' | 'duplicate'
 type FinalResult = Exclude<EventResult, 'duplicate'>
@@ -32,7 +32,7 @@ export interface InvoicePatch {
 }
 
 export interface EventDeps {
-  findClinicByToken(token: string): Promise<{ clinicId: string; nfseAuto: boolean } | null>
+  findClinicByToken(token: string): Promise<{ clinicId: string } | null>
   getNfseAuto(clinicId: string): Promise<boolean>
   /** Grava o evento; null se já existia (provider_event_id repetido). */
   insertEvent(e: {
@@ -46,11 +46,15 @@ export interface EventDeps {
   }): Promise<{ id: string } | null>
   finishEvent(clinicId: string, id: string, status: FinalResult, error: string | null): Promise<void>
   findPayment(clinicId: string, providerChargeId: string): Promise<EventPayment | null>
+  /** Estado atual da cobrança no provedor (usado só no reprocesso). */
+  getCharge(clinicId: string, providerChargeId: string): Promise<ProviderCharge>
+  /** Grava só se o status ainda for expectedStatus; false se nenhuma linha mudou. */
   updatePayment(
     clinicId: string,
     paymentId: string,
     patch: Omit<PaymentPatch, 'becamePaid'>,
-  ): Promise<void>
+    expectedStatus: LocalStatus,
+  ): Promise<boolean>
   listGroup(
     clinicId: string,
     groupId: string,
@@ -58,27 +62,51 @@ export interface EventDeps {
   /** Existe nota (nos status dados, ou em qualquer status) para algum dos lançamentos. */
   hasInvoice(clinicId: string, paymentIds: string[], statuses: InvoiceStatus[] | 'any'): Promise<boolean>
   scheduleInvoice(clinicId: string, paymentId: string, opts: { valueCents?: number }): Promise<void>
-  /** Atualiza a nota pelo id do Asaas; false se não existir. */
-  updateInvoice(clinicId: string, providerInvoiceId: string, patch: InvoicePatch): Promise<boolean>
+  /** Atualiza a nota pelo id do Asaas, só se o status atual estiver em allowedFrom; false se nada mudou. */
+  updateInvoice(
+    clinicId: string,
+    providerInvoiceId: string,
+    patch: InvoicePatch,
+    allowedFrom: InvoiceStatus[],
+  ): Promise<boolean>
   today(clinicId: string, now: Date): Promise<string>
 }
 
-const PAID_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_RECEIVED_IN_CASH'])
+const PAID_PROVIDER_STATUS = new Set(['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'])
+const ACTIVE_INVOICE: InvoiceStatus[] = ['scheduled', 'authorized', 'cancelling']
 
 function errMsg(e: unknown): string {
   return e instanceof Error && e.message ? e.message : 'Erro desconhecido'
 }
 
-function invoicePatch(event: string, inv: ProviderInvoice): InvoicePatch | null {
+/** Remove dados de cartão do payload antes de guardar. */
+export function sanitizePayload(body: unknown): unknown {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body
+  const b = body as Record<string, unknown>
+  const strip = (o: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(o).filter(([k]) => !k.toLowerCase().startsWith('creditcard')))
+  const out = strip(b)
+  const p = b.payment
+  if (p && typeof p === 'object' && !Array.isArray(p)) out.payment = strip(p as Record<string, unknown>)
+  return out
+}
+
+function invoiceTransition(event: string, inv: ProviderInvoice): { patch: InvoicePatch; from: InvoiceStatus[] } | null {
   switch (event) {
     case 'INVOICE_AUTHORIZED':
-      return { status: 'authorized', number: inv.number, pdf_url: inv.pdfUrl, xml_url: inv.xmlUrl, error: null }
+      return {
+        patch: { status: 'authorized', number: inv.number, pdf_url: inv.pdfUrl, xml_url: inv.xmlUrl, error: null },
+        from: ['scheduled', 'error'],
+      }
     case 'INVOICE_ERROR':
-      return { status: 'error', error: inv.error ?? 'Erro na emissão da nota' }
+      return { patch: { status: 'error', error: inv.error ?? 'Erro na emissão da nota' }, from: ['scheduled'] }
     case 'INVOICE_CANCELED':
-      return { status: 'cancelled' }
+      return { patch: { status: 'cancelled' }, from: ['cancelling', 'authorized'] }
     case 'INVOICE_CANCELLATION_DENIED':
-      return { status: 'authorized', error: inv.error ?? 'Cancelamento negado pela prefeitura' }
+      return {
+        patch: { status: 'authorized', error: inv.error ?? 'Cancelamento negado pela prefeitura' },
+        from: ['cancelling'],
+      }
     default:
       return null
   }
@@ -91,7 +119,7 @@ async function maybeScheduleInvoice(
   reprocess: boolean,
 ): Promise<void> {
   // Reprocesso: a baixa já foi gravada, então confere se falta a nota (em qualquer status, para não reemitir a cancelada).
-  const statuses: InvoiceStatus[] | 'any' = reprocess ? 'any' : ['scheduled', 'authorized']
+  const statuses: InvoiceStatus[] | 'any' = reprocess ? 'any' : ACTIVE_INVOICE
   if (payment.chargeKind === 'cartao_parcelado' && payment.chargeGroupId) {
     const group = await deps.listGroup(clinicId, payment.chargeGroupId)
     const first = group.find((r) => r.installmentNumber === 1)
@@ -114,29 +142,30 @@ async function processCharge(
   const payment = await deps.findPayment(clinicId, parsed.charge.id)
   if (!payment) return { result: 'ignored' }
   const today = await deps.today(clinicId, now)
-  const patch = applyPaymentEvent(
-    {
-      status: payment.status,
-      due_date: payment.dueDate,
-      hasAuthorizedInvoice: payment.hasAuthorizedInvoice,
-      net_amount_cents: payment.netAmountCents,
-      paid_at: payment.paidAt,
-      amount_cents: payment.amountCents,
-    },
-    parsed.event,
-    parsed.charge,
-    today,
-  )
-  if (patch) {
-    const { becamePaid, ...fields } = patch
-    void becamePaid
-    await deps.updatePayment(clinicId, payment.id, fields)
+  // No reprocesso o payload guardado pode estar velho: vale o estado atual do provedor.
+  const charge = reprocess ? await deps.getCharge(clinicId, parsed.charge.id) : parsed.charge
+  const state = {
+    status: payment.status,
+    due_date: payment.dueDate,
+    hasAuthorizedInvoice: payment.hasAuthorizedInvoice,
+    net_amount_cents: payment.netAmountCents,
+    paid_at: payment.paidAt,
+    amount_cents: payment.amountCents,
   }
-  const paidNow = patch?.becamePaid === true
-  const paidRetry = reprocess && PAID_EVENTS.has(parsed.event) && (paidNow || payment.status === 'paid')
-  if (paidNow || paidRetry) {
-    const nfseAuto = await deps.getNfseAuto(clinicId)
-    if (nfseAuto) {
+  const patch = reprocess
+    ? applyProviderStatus(state, charge, today)
+    : applyPaymentEvent(state, parsed.event, charge, today)
+
+  let becamePaid = false
+  if (patch) {
+    const { becamePaid: bp, ...fields } = patch
+    const landed = await deps.updatePayment(clinicId, payment.id, fields, payment.status)
+    if (!landed) return { result: 'failed', error: 'Lançamento alterado durante o processamento' }
+    becamePaid = bp === true
+  }
+  const paidRetry = reprocess && PAID_PROVIDER_STATUS.has(charge.status) && !charge.deleted && payment.status === 'paid'
+  if (becamePaid || paidRetry) {
+    if (await deps.getNfseAuto(clinicId)) {
       try {
         await maybeScheduleInvoice(clinicId, payment, deps, reprocess)
       } catch (e) {
@@ -153,10 +182,10 @@ async function processInvoice(
   parsed: ParsedWebhook & { invoice: ProviderInvoice },
   deps: EventDeps,
 ): Promise<{ result: FinalResult }> {
-  const patch = invoicePatch(parsed.event, parsed.invoice)
-  if (!patch) return { result: 'ignored' }
-  const found = await deps.updateInvoice(clinicId, parsed.invoice.id, patch)
-  return { result: found ? 'processed' : 'ignored' }
+  const t = invoiceTransition(parsed.event, parsed.invoice)
+  if (!t) return { result: 'ignored' }
+  const changed = await deps.updateInvoice(clinicId, parsed.invoice.id, t.patch, t.from)
+  return { result: changed ? 'processed' : 'ignored' }
 }
 
 async function process(
@@ -180,37 +209,51 @@ export async function handleWebhook(
   body: unknown,
   deps: EventDeps,
   now: Date,
-): Promise<{ status: 200 | 401; result: EventResult }> {
+): Promise<{ status: 200 | 401 | 500; result: EventResult }> {
   if (!token) return { status: 401, result: 'ignored' }
-  const clinic = await deps.findClinicByToken(token)
-  if (!clinic) return { status: 401, result: 'ignored' }
+  let clinicId: string
+  try {
+    const clinic = await deps.findClinicByToken(token)
+    if (!clinic) return { status: 401, result: 'ignored' }
+    clinicId = clinic.clinicId
+  } catch (e) {
+    console.error('[webhooks/asaas] falha ao identificar a clínica:', errMsg(e))
+    return { status: 500, result: 'failed' }
+  }
 
   const parsed = parseAsaasWebhook(body)
   if (!parsed) return { status: 200, result: 'ignored' }
 
+  let inserted: { id: string } | null
   try {
     // Persiste primeiro como 'failed': se o processo cair no meio, a conferência reprocessa.
-    const inserted = await deps.insertEvent({
-      clinicId: clinic.clinicId,
+    inserted = await deps.insertEvent({
+      clinicId,
       providerEventId: parsed.eventId,
       event: parsed.event,
-      payload: body,
+      payload: sanitizePayload(body),
       status: 'failed',
       error: 'Processamento interrompido',
       receivedAt: now,
     })
-    if (!inserted) return { status: 200, result: 'duplicate' }
-
-    const out = await process(clinic.clinicId, parsed, deps, now, false)
-    await deps.finishEvent(clinic.clinicId, inserted.id, out.result, out.error ?? null)
-    return { status: 200, result: out.result }
   } catch (e) {
+    // Sem o evento gravado, devolve 500 para o Asaas tentar de novo.
     console.error('[webhooks/asaas] falha ao registrar o evento:', errMsg(e))
+    return { status: 500, result: 'failed' }
+  }
+  if (!inserted) return { status: 200, result: 'duplicate' }
+
+  const out = await process(clinicId, parsed, deps, now, false)
+  try {
+    await deps.finishEvent(clinicId, inserted.id, out.result, out.error ?? null)
+  } catch (e) {
+    console.error('[webhooks/asaas] falha ao finalizar o evento:', errMsg(e))
     return { status: 200, result: 'failed' }
   }
+  return { status: 200, result: out.result }
 }
 
-/** Reaplica o payload de um evento guardado como 'failed' (usado pela conferência). */
+/** Reaplica um evento guardado como 'failed' (usado pela conferência), com o estado atual do provedor. */
 export async function reprocessEvent(
   eventRow: { id: string; clinic_id: string; payload: unknown },
   deps: EventDeps,
