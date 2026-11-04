@@ -193,14 +193,17 @@ function ymdToDays(ymd: string): number {
   return Date.UTC(y, m - 1, d) / 86_400_000
 }
 
-function planCharges(c: Ctx): QueueItem[] {
+function planCharges(c: Ctx, type: 'charge' | 'payment_due'): QueueItem[] {
   const { input, setting } = c
   const today = ymdToDays(todayYmd(input.now, input.cfg.timezone))
   const offsets = setting.config.offset_days ?? []
   const out: QueueItem[] = []
   for (const p of input.payments) {
     if (!p.due_date || (p.status !== 'pending' && p.status !== 'overdue')) continue
-    const elapsed = today - ymdToDays(p.due_date)
+    if (p.provider_state === 'creating') continue
+    if (type === 'payment_due' && !p.invoice_url) continue
+    // charge: dias após o vencimento; payment_due: dias antes
+    const elapsed = type === 'charge' ? today - ymdToDays(p.due_date) : ymdToDays(p.due_date) - today
     if (!offsets.includes(elapsed)) continue
     const t = c.target(p.patient_id)
     if (!t) continue
@@ -213,7 +216,7 @@ function planCharges(c: Ctx): QueueItem[] {
           payment_id: p.id,
           scheduled_for: windowStartToday(input.now, input.cfg),
           expires_at: null,
-          dedupe_key: dedupeKey('charge', { paymentId: p.id, offsetDays: elapsed }),
+          dedupe_key: dedupeKey(type, { paymentId: p.id, offsetDays: elapsed }),
         },
         { payment: p },
       ),
@@ -245,7 +248,8 @@ export function planMessages(input: PlanInput): QueueItem[] {
         out.push(...planBirthdays(c))
         break
       case 'charge':
-        out.push(...planCharges(c))
+      case 'payment_due':
+        out.push(...planCharges(c, setting.type))
         break
     }
   }
@@ -282,8 +286,9 @@ export function staleReason(
     if (item.type === 'reminder' && a.status !== 'confirmed') return 'not_confirmed'
     return null
   }
-  if (item.type === 'charge') {
-    if (!ctx.payment || ctx.payment.status === 'paid') return 'paid'
+  if (item.type === 'charge' || item.type === 'payment_due') {
+    const st = ctx.payment?.status
+    if (!st || st === 'paid' || st === 'cancelled' || st === 'refunded') return 'paid'
   }
   return null
 }

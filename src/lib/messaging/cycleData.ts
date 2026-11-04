@@ -87,7 +87,7 @@ export async function loadPlanInput(
     fetchAll<PaymentRow>((a, b) =>
       admin
         .from('payments')
-        .select('id, patient_id, amount, due_date, status')
+        .select('id, patient_id, amount, due_date, status, invoice_url, provider_state')
         .eq('clinic_id', clinicId)
         .in('status', ['pending', 'overdue'])
         .not('due_date', 'is', null)

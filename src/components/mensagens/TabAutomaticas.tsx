@@ -7,7 +7,7 @@ import { useClinicStore } from '@/store/clinicStore'
 import { DEFAULT_TEMPLATES, TEMPLATE_VARIABLES, findUnknownVariables, renderTemplate } from '@/lib/messaging/templates'
 import type { MessageSetting, MessageType } from '@/lib/messaging/types'
 import {
-  DEFAULT_TZ, resolveTz, SETTING_META, SETTING_ORDER, buildPreviewContext, configToForm, insertAtCursor, validateConfig,
+  DEFAULT_TZ, resolveTz, SETTING_META, SETTING_ORDER, buildPreviewContext, configToForm, insertAtCursor, validateConfig, variablesFor,
   type ConfigForm,
 } from './helpers'
 
@@ -135,6 +135,13 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
             ))}
           </>
         )}
+        {type === 'payment_due' && (
+          <>
+            <label htmlFor={`cfg-${type}`} className="font-medium">Dias antes do vencimento</label>
+            <input id={`cfg-${type}`} type="number" min={1} max={60} step={1} value={form.days[0] ?? ''}
+              onChange={(e) => setForm({ ...form, days: [e.target.value] })} className={inputCls} />
+          </>
+        )}
         {type === 'birthday' && <span className="text-[#6B7280]">Enviado no dia, às 9h</span>}
       </div>
 
@@ -150,7 +157,7 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
             className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#111827] focus:outline-none focus:border-[#3B82F6]"
           />
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {TEMPLATE_VARIABLES.map((v) => (
+            {variablesFor(type, TEMPLATE_VARIABLES).map((v) => (
               <button key={v} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insertVariable(v)}
                 className="px-2 py-0.5 text-xs rounded-full bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]">
                 {`{${v}}`}

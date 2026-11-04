@@ -39,6 +39,8 @@ export interface PaymentRow {
   amount: number
   due_date: string | null
   status: string
+  invoice_url: string | null
+  provider_state: string | null
 }
 
 export interface QueueItem {

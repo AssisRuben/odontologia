@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { buildContext, renderTemplate, DEFAULT_TEMPLATES } from '@/lib/messaging/templates'
+import { buildContext, renderTemplate, DEFAULT_TEMPLATES, MANUAL_TEMPLATES } from '@/lib/messaging/templates'
 import { MAX_MANUAL_LENGTH } from '@/lib/messaging/manual'
-import type { AppointmentRow, MessageType } from '@/lib/messaging/types'
+import type { AppointmentRow, MessageType, PaymentRow } from '@/lib/messaging/types'
 import type { Appointment, Patient } from '@/types'
 import { DEFAULT_TZ, resolveTz } from './helpers'
 
@@ -24,14 +24,18 @@ const TEMPLATE_OPTIONS: { value: MessageType; label: string }[] = [
   { value: 'charge', label: 'Cobrança' },
 ]
 
+type Choice = 'free' | 'payment_link' | MessageType
+
 export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: Props) {
-  const [choice, setChoice] = useState<'free' | MessageType>('free')
+  const [choice, setChoice] = useState<Choice>('free')
   const [text, setText] = useState('')
   const [templates, setTemplates] = useState<Record<MessageType, string>>(DEFAULT_TEMPLATES)
   const [clinicName, setClinicName] = useState('')
   const [tz, setTz] = useState(DEFAULT_TZ)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  // Cobrança em aberto mais próxima do vencimento que tenha link; null = não há; undefined = carregando.
+  const [linkPayment, setLinkPayment] = useState<PaymentRow | null | undefined>(undefined)
   const [openedAt] = useState(() => Date.now())
 
   useEffect(() => {
@@ -53,6 +57,22 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
     return () => { cancelled = true }
   }, [patient.clinic_id])
 
+  useEffect(() => {
+    let cancelled = false
+    createClient()
+      .from('payments')
+      .select('id, patient_id, amount, due_date, status, invoice_url, provider_state')
+      .eq('patient_id', patient.id)
+      .in('status', ['pending', 'overdue'])
+      .not('invoice_url', 'is', null)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(1)
+      .then(({ data }) => {
+        if (!cancelled) setLinkPayment(((data ?? []) as PaymentRow[])[0] ?? null)
+      })
+    return () => { cancelled = true }
+  }, [patient.id])
+
   // Próxima consulta futura (agendada/confirmada) do paciente, se houver.
   const nextAppointment = useMemo<AppointmentRow | undefined>(() => {
     const now = openedAt
@@ -69,19 +89,25 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
     }
   }, [appointments, openedAt])
 
-  function pick(value: 'free' | MessageType) {
+  function pick(value: Choice) {
     setChoice(value)
     setError('')
     if (value === 'free') { setText(''); return }
+    const patientRow = {
+      id: patient.id,
+      name: patient.name,
+      phone: patient.phone ?? null,
+      whatsapp: patient.whatsapp ?? null,
+      birthdate: patient.birthdate ?? null,
+      whatsapp_opt_out: !!patient.whatsapp_opt_out,
+    }
+    if (value === 'payment_link') {
+      if (!linkPayment) return
+      setText(renderTemplate(MANUAL_TEMPLATES.payment_link, buildContext({ patient: patientRow, clinicName, tz, payment: linkPayment })))
+      return
+    }
     const ctx = buildContext({
-      patient: {
-        id: patient.id,
-        name: patient.name,
-        phone: patient.phone ?? null,
-        whatsapp: patient.whatsapp ?? null,
-        birthdate: patient.birthdate ?? null,
-        whatsapp_opt_out: !!patient.whatsapp_opt_out,
-      },
+      patient: patientRow,
       clinicName,
       tz,
       appointment: value === 'reminder' ? nextAppointment : undefined,
@@ -130,11 +156,14 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
             <select
               id="wa-modelo"
               value={choice}
-              onChange={(e) => pick(e.target.value as 'free' | MessageType)}
+              onChange={(e) => pick(e.target.value as Choice)}
               className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
             >
               <option value="free">Texto livre</option>
               {TEMPLATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <option value="payment_link" disabled={!linkPayment}>
+                {linkPayment === undefined || linkPayment ? 'Link de pagamento' : 'Link de pagamento (sem cobrança em aberto com link)'}
+              </option>
             </select>
           </div>
 

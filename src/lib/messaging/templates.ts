@@ -14,12 +14,21 @@ export const DEFAULT_TEMPLATES: Record<MessageType, string> = {
   payment_due: 'Olá, {paciente}! Sua parcela de {valor} na {clinica} vence em {vencimento}. Pague por aqui: {link}',
 }
 
+/** Textos dos envios manuais de cobrança (não são configuráveis). */
+export const MANUAL_TEMPLATES = {
+  payment_link: 'Olá, {paciente}! Segue o link para o pagamento de {valor} com vencimento em {vencimento}: {link}',
+  invoice: 'Olá, {paciente}! Segue a nota fiscal do seu pagamento de {valor}: {link}',
+} as const
+
 const VAR_RE = /\{(\w+)\}/g
 
 export function renderTemplate(t: string, ctx: TemplateContext): string {
-  return t.replace(VAR_RE, (match, key: string) =>
-    (TEMPLATE_VARIABLES as string[]).includes(key) ? (ctx[key as keyof TemplateContext] ?? '') : match,
-  )
+  // trimEnd: um {link} vazio na última linha não deixa linhas em branco no fim.
+  return t
+    .replace(VAR_RE, (match, key: string) =>
+      (TEMPLATE_VARIABLES as string[]).includes(key) ? (ctx[key as keyof TemplateContext] ?? '') : match,
+    )
+    .trimEnd()
 }
 
 export function findUnknownVariables(t: string): string[] {
@@ -36,8 +45,10 @@ export function buildContext(args: {
   tz: string
   appointment?: AppointmentRow
   payment?: PaymentRow
+  /** Sobrepõe o link do pagamento (ex.: PDF da nota). */
+  link?: string
 }): TemplateContext {
-  const { patient, clinicName, tz, appointment, payment } = args
+  const { patient, clinicName, tz, appointment, payment, link } = args
   const ctx: TemplateContext = {
     paciente: patient.name.trim().split(/\s+/)[0] ?? '',
     paciente_completo: patient.name.trim(),
@@ -52,6 +63,8 @@ export function buildContext(args: {
   if (payment) {
     ctx.valor = formatValor(payment.amount)
     if (payment.due_date) ctx.vencimento = formatDataLonga(payment.due_date)
+    if (payment.invoice_url) ctx.link = payment.invoice_url
   }
+  if (link !== undefined) ctx.link = link
   return ctx
 }

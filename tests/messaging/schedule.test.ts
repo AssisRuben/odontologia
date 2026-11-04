@@ -26,7 +26,8 @@ const appt = (o: Partial<AppointmentRow> = {}): AppointmentRow => ({
   id: 'a1', patient_id: 'p1', professional_name: 'Dr. João', start_time: '2026-11-04T12:00:00Z', status: 'scheduled', ...o,
 })
 const pay = (o: Partial<PaymentRow> = {}): PaymentRow => ({
-  id: 'pay1', patient_id: 'p1', amount: 150, due_date: '2026-11-02', status: 'pending', ...o,
+  id: 'pay1', patient_id: 'p1', amount: 150, due_date: '2026-11-02', status: 'pending',
+  invoice_url: 'https://pay.example/i/1', provider_state: 'active', ...o,
 })
 function input(o: Partial<PlanInput> = {}): PlanInput {
   return {
@@ -139,7 +140,35 @@ describe('planMessages - charge', () => {
   })
 })
 
+describe('planMessages - payment_due', () => {
+  it('plans payment_due 3 days before due for pending payment with invoice_url', () => {
+    const items = planMessages(input({ payments: [pay({ due_date: '2026-11-06' })] }))
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ type: 'payment_due', payment_id: 'pay1', dedupe_key: 'payment_due:pay1:3', expires_at: null })
+    expect(items[0].body).toContain('https://pay.example/i/1')
+    expect(items[0].body).toContain('06/11/2026')
+  })
+  it('no payment_due without invoice_url', () => {
+    expect(planMessages(input({ payments: [pay({ due_date: '2026-11-06', invoice_url: null })] }))).toEqual([])
+  })
+  it('no charge/payment_due for provider_state creating', () => {
+    expect(planMessages(input({ payments: [pay({ due_date: '2026-11-06', provider_state: 'creating' })] }))).toEqual([])
+    expect(planMessages(input({ payments: [pay({ due_date: '2026-11-02', provider_state: 'creating' })] }))).toEqual([])
+  })
+  it('charge includes the link when present', () => {
+    const items = planMessages(input({ payments: [pay({ due_date: '2026-11-02' })] }))
+    expect(items[0].body.endsWith('https://pay.example/i/1')).toBe(true)
+  })
+  it('charge without link has no trailing blank lines', () => {
+    const items = planMessages(input({ payments: [pay({ due_date: '2026-11-02', invoice_url: null })] }))
+    expect(items[0].body).toBe(items[0].body.trimEnd())
+  })
+})
+
 describe('dedupeKey', () => {
+  it('dedupe key payment_due:<id>:3', () => {
+    expect(dedupeKey('payment_due', { paymentId: 'x', offsetDays: 3 })).toBe('payment_due:x:3')
+  })
   it('formata por tipo', () => {
     expect(dedupeKey('birthday', { patientId: 'p', year: 2026 })).toBe('birthday:p:2026')
     expect(dedupeKey('charge', { paymentId: 'x', offsetDays: 7 })).toBe('charge:x:7')
@@ -168,6 +197,16 @@ describe('staleReason', () => {
     const c = { type: 'charge' as const, dedupe_key: 'charge:pay1:1', expires_at: null }
     expect(staleReason(c, NOW, { payment: { status: 'paid' } })).toBe('paid')
     expect(staleReason(c, NOW, { payment: { status: 'pending' } })).toBeNull()
+  })
+  it('staleReason charge/payment_due for cancelled and refunded -> paid', () => {
+    for (const type of ['charge', 'payment_due'] as const)
+      for (const status of ['paid', 'cancelled', 'refunded']) {
+        const it_ = { type, dedupe_key: `${type}:pay1:1`, expires_at: null }
+        expect(staleReason(it_, NOW, { payment: { status } })).toBe('paid')
+      }
+    const due = { type: 'payment_due' as const, dedupe_key: 'x', expires_at: null }
+    expect(staleReason(due, NOW, { payment: { status: 'overdue' } })).toBeNull()
+    expect(staleReason(due, NOW, { payment: null })).toBe('paid')
   })
   it('opt-out e expirado', () => {
     expect(staleReason(item, NOW, { ...ok, patient: { whatsapp_opt_out: true } })).toBe('opt_out')
