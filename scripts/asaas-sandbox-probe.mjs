@@ -3,6 +3,7 @@
 // Passos: customer single carne card min-value get receive-in-cash due-date delete
 //         cancel-installment webhook fiscal-info invoice errors
 // Só usa ASAAS_SANDBOX_API_KEY; grava respostas em tests/payments/fixtures/ com dados fictícios.
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -144,15 +145,18 @@ const steps = {
   async webhook() {
     const r = await api('POST', '/webhooks', {
       name: 'probe', url: 'https://example.com/api/webhooks/asaas', email: 'paciente@exemplo.com',
-      enabled: true, interrupted: false, apiVersion: 3, authToken: 'tK9xQ2mWvR7pLz4HbN8cYd3Fs6JgAe5U',
+      enabled: true, interrupted: false, apiVersion: 3, authToken: crypto.randomBytes(32).toString('hex'),
       sendType: 'SEQUENTIALLY',
       events: ['PAYMENT_CREATED', 'PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED', 'PAYMENT_UPDATED',
         'INVOICE_CREATED', 'INVOICE_UPDATED', 'INVOICE_SYNCHRONIZED', 'INVOICE_AUTHORIZED', 'INVOICE_PROCESSING_CANCELLATION', 'INVOICE_CANCELED', 'INVOICE_CANCELLATION_DENIED', 'INVOICE_ERROR'],
     })
-    write('webhook-create', r.status, r.json)
-    if (r.json.id) {
-      const d = await api('DELETE', `/webhooks/${r.json.id}`)
-      console.log('webhook removido', d.status, JSON.stringify(d.json))
+    try {
+      write('webhook-create', r.status, r.json)
+    } finally {
+      if (r.json && r.json.id) {
+        const d = await api('DELETE', `/webhooks/${r.json.id}`)
+        console.log('webhook removido', d.status, JSON.stringify(d.json))
+      }
     }
   },
   // Extras: vencimento em avulsa e em carnê BOLETO; rotas alternativas de fiscalInfo
