@@ -52,6 +52,8 @@ export function dedupeKey(
       return `birthday:${parts.patientId}:${parts.year}`
     case 'charge':
       return `charge:${parts.paymentId}:${parts.offsetDays}`
+    case 'payment_due':
+      return `payment_due:${parts.paymentId}:${parts.offsetDays}`
   }
 }
 

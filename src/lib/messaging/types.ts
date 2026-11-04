@@ -1,4 +1,4 @@
-export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge'
+export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge' | 'payment_due'
 export type MessageKind = MessageType | 'manual' | 'auto_reply' | 'incoming'
 export type MessageStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'received'
 
@@ -63,4 +63,5 @@ export interface TemplateContext {
   clinica?: string
   valor?: string
   vencimento?: string
+  link?: string
 }

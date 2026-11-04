@@ -24,6 +24,7 @@ export const SETTING_META: Record<MessageType, { title: string; description: str
   recall: { title: 'Retorno semestral', description: 'Lembre seus pacientes de marcar o retorno após a última consulta.' },
   birthday: { title: 'Aniversariantes', description: 'Envie felicitações automáticas no dia do aniversário dos seus pacientes.' },
   charge: { title: 'Inadimplentes', description: 'Notifique pacientes com pagamentos em atraso.' },
+  payment_due: { title: 'Lembrete de vencimento', description: 'Avisa o paciente antes do vencimento de uma cobrança.' },
 }
 
 export const KIND_LABELS: Record<MessageKind, string> = {
@@ -32,6 +33,7 @@ export const KIND_LABELS: Record<MessageKind, string> = {
   recall: 'Retorno',
   birthday: 'Aniversário',
   charge: 'Cobrança',
+  payment_due: 'Lembrete de vencimento',
   manual: 'Manual',
   auto_reply: 'Resposta automática',
   incoming: 'Recebida',
@@ -121,6 +123,14 @@ export function validateConfig(type: MessageType, form: ConfigForm): ConfigResul
       const nums = form.days.map((d) => parseIntInRange(d, 1, 60))
       if (nums.length === 0 || nums.some((n) => n === null)) {
         return { ok: false, error: 'Informe os dias após o vencimento como números inteiros de 1 a 60.' }
+      }
+      const unique = [...new Set(nums as number[])].sort((a, b) => a - b)
+      return { ok: true, config: { offset_days: unique } }
+    }
+    case 'payment_due': {
+      const nums = form.days.map((d) => parseIntInRange(d, 1, 60))
+      if (nums.length === 0 || nums.some((n) => n === null)) {
+        return { ok: false, error: 'Informe os dias antes do vencimento como números inteiros de 1 a 60.' }
       }
       const unique = [...new Set(nums as number[])].sort((a, b) => a - b)
       return { ok: true, config: { offset_days: unique } }

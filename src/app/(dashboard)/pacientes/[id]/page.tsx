@@ -389,6 +389,8 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                     paid:    { label: 'Pago',     color: '#10B981', icon: CheckCircle2 },
                     pending: { label: 'Pendente', color: '#F59E0B', icon: Clock },
                     overdue: { label: 'Atrasado', color: '#EF4444', icon: AlertCircle },
+                    cancelled: { label: 'Cancelado', color: '#6B7280', icon: AlertCircle },
+                    refunded: { label: 'Estornado', color: '#6B7280', icon: AlertCircle },
                   }[pay.status] || { label: pay.status, color: '#6B7280', icon: Clock }
                   const Icon = statusConfig.icon
 

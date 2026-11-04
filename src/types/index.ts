@@ -122,7 +122,9 @@ export type PaymentMethod =
   | 'boleto'
   | 'convenio'
 
-export type PaymentStatus = 'pending' | 'paid' | 'overdue'
+export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'cancelled' | 'refunded'
+
+export type ChargeKind = 'manual' | 'avulsa' | 'carne' | 'cartao_parcelado'
 
 export interface Payment {
   id: string
@@ -135,8 +137,38 @@ export interface Payment {
   due_date?: string
   paid_at?: string
   description?: string
+  budget_id?: string
+  charge_kind: ChargeKind
+  charge_group_id?: string
+  installment_number?: number
+  installment_count?: number
+  provider_charge_id?: string
+  provider_installment_id?: string
+  provider_state?: 'creating' | 'active'
+  invoice_url?: string
+  net_amount?: number
+  alert?: 'chargeback' | 'refunded_with_invoice'
+  updated_at?: string
   created_at: string
   patient?: Patient
+}
+
+export type FiscalInvoiceStatus = 'scheduled' | 'authorized' | 'error' | 'cancelling' | 'cancelled'
+
+export interface FiscalInvoice {
+  id: string
+  clinic_id: string
+  payment_id: string
+  provider_invoice_id: string
+  status: FiscalInvoiceStatus
+  number?: string
+  value: number
+  description: string
+  pdf_url?: string
+  xml_url?: string
+  error?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface Expense {

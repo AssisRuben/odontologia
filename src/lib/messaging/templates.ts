@@ -2,7 +2,7 @@ import type { MessageType, TemplateContext, PatientRow, AppointmentRow, PaymentR
 import { formatDataCurta, formatHora, formatDataLonga, formatValor } from './time'
 
 export const TEMPLATE_VARIABLES: (keyof TemplateContext)[] = [
-  'paciente', 'paciente_completo', 'data', 'hora', 'profissional', 'clinica', 'valor', 'vencimento',
+  'paciente', 'paciente_completo', 'data', 'hora', 'profissional', 'clinica', 'valor', 'vencimento', 'link',
 ]
 
 export const DEFAULT_TEMPLATES: Record<MessageType, string> = {
@@ -10,7 +10,8 @@ export const DEFAULT_TEMPLATES: Record<MessageType, string> = {
   reminder: 'Olá, {paciente}! Lembrete: sua consulta na {clinica} é hoje às {hora}. Até logo!',
   recall: 'Olá, {paciente}! Já faz um tempo desde sua última visita à {clinica}. Que tal agendar sua revisão? É só responder esta mensagem.',
   birthday: 'Feliz aniversário, {paciente}! 🎉 A equipe da {clinica} deseja um dia muito especial para você.',
-  charge: 'Olá, {paciente}. Identificamos um pagamento de {valor} com vencimento em {vencimento} ainda em aberto na {clinica}. Se já pagou, desconsidere esta mensagem.',
+  charge: 'Olá, {paciente}. Identificamos um pagamento de {valor} com vencimento em {vencimento} ainda em aberto na {clinica}. Se já pagou, desconsidere esta mensagem.\n\n{link}',
+  payment_due: 'Olá, {paciente}! Sua parcela de {valor} na {clinica} vence em {vencimento}. Pague por aqui: {link}',
 }
 
 const VAR_RE = /\{(\w+)\}/g
