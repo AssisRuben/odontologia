@@ -41,8 +41,9 @@ export async function getProviderForClinic(
   if (!data) return null
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { api_key, webhook_token, ...connection } = data as Record<string, unknown>
+  if (typeof api_key !== 'string' || !api_key) throw new Error('Conexão Asaas sem chave')
   const provider = new AsaasProvider({
-    apiKey: String(api_key),
+    apiKey: api_key,
     environment: connection.environment === 'production' ? 'production' : 'sandbox',
   })
   return { provider, connection: connection as unknown as PaymentConnection }

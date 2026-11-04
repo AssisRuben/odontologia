@@ -1,3 +1,4 @@
+import { todayYmd } from '@/lib/messaging/time'
 import { fromCents, toCents } from './money'
 import {
   PaymentProviderError,
@@ -156,6 +157,9 @@ export class AsaasProvider implements PaymentProvider {
     if (res.status === 404) {
       throw new PaymentProviderError('not_found', description ?? 'Não encontrado no Asaas', code)
     }
+    if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+      throw new PaymentProviderError('validation', description ?? `Requisição recusada pelo Asaas (HTTP ${res.status})`, code)
+    }
     throw new PaymentProviderError('unavailable', `Asaas indisponível (HTTP ${res.status})`, code)
   }
 
@@ -186,6 +190,15 @@ export class AsaasProvider implements PaymentProvider {
   }
 
   async ensureCustomer(c: { externalId: string; name: string; cpf: string; phone?: string; email?: string }) {
+    const existing = await this.request('GET', `/customers?externalReference=${encodeURIComponent(c.externalId)}&limit=10`)
+    const list = asObject(existing)?.data
+    if (Array.isArray(list)) {
+      for (const raw of list) {
+        const o = asObject(raw)
+        const eid = str(o?.id)
+        if (o && eid && o.deleted !== true) return eid
+      }
+    }
     const json = await this.request('POST', '/customers', {
       name: c.name,
       cpfCnpj: c.cpf,
@@ -288,7 +301,7 @@ export class AsaasProvider implements PaymentProvider {
       serviceDescription: i.description,
       observations: i.description,
       value: fromCents(i.valueCents),
-      effectiveDate: new Date().toISOString().slice(0, 10),
+      effectiveDate: todayYmd(new Date(), 'America/Sao_Paulo'),
       externalReference: i.externalReference,
       municipalServiceCode: i.serviceCode,
       municipalServiceName: i.description,

@@ -36,6 +36,9 @@ function make(handler: (c: Call) => Response | Promise<Response>) {
   return { provider, calls }
 }
 
+const emptyList = { object: 'list', hasMore: false, totalCount: 0, limit: 10, offset: 0, data: [] }
+const listOf = (...data: unknown[]) => ({ ...emptyList, totalCount: data.length, data })
+
 const baseCharge = {
   customerId: 'cus_1',
   externalReference: 'pay-1',
@@ -72,9 +75,11 @@ describe('AsaasProvider.createCharge', () => {
       fine: { value: 2 },
       interest: { value: 1 },
     })
-    const { provider: p2, calls: c2 } = make(() => res(200, customerCreate))
+    const { provider: p2, calls: c2 } = make((c) =>
+      c.init.method === 'GET' ? res(200, emptyList) : res(200, customerCreate),
+    )
     await p2.ensureCustomer({ externalId: 'pac-1', name: 'A', cpf: '52998224725' })
-    expect(c2[0].body).toMatchObject({ notificationDisabled: true })
+    expect(c2[1].body).toMatchObject({ notificationDisabled: true })
   })
 
   it('createCharge avulsa does not send installment fields', async () => {
@@ -113,6 +118,8 @@ describe('AsaasProvider errors and headers', () => {
     expect(v.kind).toBe('validation')
     expect(v.message).toBe(error400.errors[0].description)
     expect((await run(() => new Response('', { status: 404 }))).kind).toBe('not_found')
+    expect((await run(() => res(422, error400))).kind).toBe('validation')
+    expect((await run(() => res(408, {}))).kind).toBe('unavailable')
     expect((await run(() => res(500, {}))).kind).toBe('unavailable')
     expect((await run(() => res(429, {}))).kind).toBe('unavailable')
     expect(
@@ -179,11 +186,30 @@ describe('AsaasProvider mapping', () => {
     expect(await b.provider.getFiscalStatus()).toEqual({ configured: true, missing: [] })
   })
 
+  it('ensureCustomer reuses existing customer by externalReference', async () => {
+    const { provider, calls } = make(() =>
+      res(200, listOf({ ...customerCreate, id: 'cus_old', deleted: true }, customerCreate)),
+    )
+    expect(await provider.ensureCustomer({ externalId: 'pac 1', name: 'Ana', cpf: '52998224725' })).toBe('cus_000009834094')
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toContain('/customers?externalReference=pac%201')
+  })
+
+  it('ensureCustomer creates when none exists', async () => {
+    const { provider, calls } = make((c) =>
+      c.init.method === 'GET' ? res(200, emptyList) : res(200, customerCreate),
+    )
+    expect(await provider.ensureCustomer({ externalId: 'pac-1', name: 'Ana', cpf: '52998224725' })).toBe('cus_000009834094')
+    expect(calls.map((c) => c.init.method)).toEqual(['GET', 'POST'])
+  })
+
   it('ensureCustomer sends externalReference = patient id', async () => {
-    const { provider, calls } = make(() => res(200, customerCreate))
+    const { provider, calls } = make((c) =>
+      c.init.method === 'GET' ? res(200, emptyList) : res(200, customerCreate),
+    )
     const id = await provider.ensureCustomer({ externalId: 'pac-1', name: 'Ana', cpf: '52998224725', phone: '11999990000' })
     expect(id).toBe('cus_000009834094')
-    expect(calls[0].body).toMatchObject({ externalReference: 'pac-1', cpfCnpj: '52998224725', mobilePhone: '11999990000' })
+    expect(calls[1].body).toMatchObject({ externalReference: 'pac-1', cpfCnpj: '52998224725', mobilePhone: '11999990000' })
   })
 
   it('registerWebhook sends authToken, SEQUENTIALLY and the event list', async () => {
