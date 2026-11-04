@@ -14,6 +14,8 @@ export type ConnectionDeps = {
   getStored(clinicId: string): Promise<StoredConnection | null>
   saveConnection(row: Record<string, unknown>): Promise<void>
   deleteConnection(clinicId: string): Promise<void>
+  /** Apaga os clientes em cache (podem ser de outra conta/ambiente). */
+  clearCustomerCache(clinicId: string): Promise<void>
   /** false quando a clínica não tem conexão. */
   updateConnection(clinicId: string, patch: Record<string, unknown>): Promise<boolean>
 }
@@ -94,6 +96,11 @@ export async function connect(
     console.error('[payments/connection] falha ao gravar a conexão:', (e as Error).message)
     await provider.removeWebhook(webhookId).catch(() => {})
     return { ok: false, status: 500, error: INTERNAL }
+  }
+  try {
+    await deps.clearCustomerCache(input.clinicId)
+  } catch (e) {
+    console.error('[payments/connection] falha ao limpar o cache de clientes:', (e as Error).message)
   }
   return { ok: true, accountName }
 }

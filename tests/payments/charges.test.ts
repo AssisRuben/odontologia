@@ -63,7 +63,7 @@ describe('createCharge', () => {
     expect(provider.createCharge.mock.calls[0][0]).toMatchObject({
       customerId: 'cus_1', externalReference: groupId, totalCents: 10000, installmentCount: 10, finePercent: 2,
     })
-    expect(deps.linkRows).toHaveBeenCalledWith(groupId, expect.any(Array))
+    expect(deps.linkRows).toHaveBeenCalledWith('c1', groupId, expect.any(Array))
     const body = r.body as { groupId: string; paymentIds: string[]; pending?: true }
     expect(body.groupId).toBe(groupId)
     expect(body.paymentIds).toHaveLength(10)
@@ -136,17 +136,36 @@ describe('createCharge', () => {
     provider.createCharge.mockRejectedValue(new PaymentProviderError('validation', 'CPF recusado'))
     const r = await createCharge(base, deps, NOW)
     expect(r).toEqual({ status: 422, body: { error: 'CPF recusado' } })
-    expect(deps.deleteRows).toHaveBeenCalledWith(expect.any(String))
+    expect(deps.deleteRows).toHaveBeenCalledWith('c1', expect.any(String))
     expect(deps.linkRows).not.toHaveBeenCalled()
   })
 
-  it("provider unavailable deletes rows and returns 503 'Nada foi cobrado'", async () => {
+  it("ensureCustomer unavailable deletes rows and returns 503 'Nada foi cobrado'", async () => {
     const { deps, provider } = makeDeps()
     provider.ensureCustomer.mockRejectedValue(new PaymentProviderError('unavailable', 'timeout'))
     const r = await createCharge(base, deps, NOW)
-    expect(r.status).toBe(503)
+    expect(r).toEqual({
+      status: 503,
+      body: { error: 'Não foi possível gerar a cobrança agora. Nada foi cobrado do paciente. Tente novamente.' },
+    })
     expect(deps.deleteRows).toHaveBeenCalled()
-    expect((r.body as { error: string }).error).toContain('Nada foi alterado')
+  })
+
+  it('createCharge unavailable keeps rows creating and returns pending', async () => {
+    const { deps, provider } = makeDeps()
+    provider.createCharge.mockRejectedValue(new PaymentProviderError('unavailable', 'timeout'))
+    const r = await createCharge({ ...base, sendWhatsApp: true }, deps, NOW)
+    expect(r.status).toBe(201)
+    expect(r.body).toMatchObject({ pending: true, paymentIds: expect.any(Array) })
+    expect(deps.deleteRows).not.toHaveBeenCalled()
+    expect(deps.linkRows).not.toHaveBeenCalled()
+    expect(deps.sendLink).not.toHaveBeenCalled()
+  })
+
+  it('passes the injected now to today()', async () => {
+    const { deps } = makeDeps()
+    await createCharge(base, deps, NOW)
+    expect(deps.today).toHaveBeenCalledWith('c1', NOW)
   })
 
   it('leaves rows creating when linking fails after provider success', async () => {

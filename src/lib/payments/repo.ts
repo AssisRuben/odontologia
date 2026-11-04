@@ -56,6 +56,10 @@ export function createSupabaseConnectionDeps(admin: SupabaseClient): ConnectionD
       const { error } = await admin.from('payment_connections').delete().eq('clinic_id', clinicId)
       check(error)
     },
+    async clearCustomerCache(clinicId) {
+      const { error } = await admin.from('payment_customers').delete().eq('clinic_id', clinicId)
+      check(error)
+    },
     async updateConnection(clinicId, patch) {
       const { data, error } = await admin
         .from('payment_connections')
@@ -157,11 +161,12 @@ export function createChargeDeps(admin: SupabaseClient): ChargeDeps {
       if (list.length !== rows.length) throw new Error('Falha ao gravar as parcelas')
       return list.sort((a, b) => (a.installment_number ?? 0) - (b.installment_number ?? 0)).map((r) => r.id)
     },
-    async linkRows(groupId, charges) {
+    async linkRows(clinicId, groupId, charges) {
       const { data, error } = await admin
         .from('payments')
         .select('id, installment_number')
         .eq('charge_group_id', groupId)
+        .eq('clinic_id', clinicId)
       check(error)
       const rows = ((data ?? []) as { id: string; installment_number: number | null }[]).sort(
         (a, b) => (a.installment_number ?? 0) - (b.installment_number ?? 0),
@@ -182,19 +187,20 @@ export function createChargeDeps(admin: SupabaseClient): ChargeDeps {
             updated_at: new Date().toISOString(),
           })
           .eq('id', rows[i].id)
+          .eq('clinic_id', clinicId)
         check(upErr)
       }
     },
-    async deleteRows(groupId) {
-      const { error } = await admin.from('payments').delete().eq('charge_group_id', groupId).eq('provider_state', 'creating')
+    async deleteRows(clinicId, groupId) {
+      const { error } = await admin.from('payments').delete().eq('clinic_id', clinicId).eq('charge_group_id', groupId).eq('provider_state', 'creating')
       check(error)
     },
     markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
     sendLink: (clinicId, paymentId) => sendPaymentLink(admin, clinicId, paymentId),
-    async today(clinicId) {
+    async today(clinicId, now) {
       const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
       check(error)
-      return todayYmd(new Date(), normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone)
+      return todayYmd(now, normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone)
     },
   }
 }

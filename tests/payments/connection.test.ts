@@ -17,6 +17,7 @@ function setup(o: {
     registered: [] as { url: string; token: string }[],
     removed: [] as { key: string; id: string }[],
     deleted: [] as string[],
+    cleared: [] as string[],
     updated: [] as Record<string, unknown>[],
   }
   const deps: ConnectionDeps = {
@@ -39,6 +40,7 @@ function setup(o: {
       calls.saved.push(row)
     },
     deleteConnection: async (id) => { calls.deleted.push(id) },
+    clearCustomerCache: async (id) => { calls.cleared.push(id) },
     updateConnection: async (_id, patch) => { calls.updated.push(patch); return true },
   }
   return { deps, calls }
@@ -67,6 +69,12 @@ describe('connect', () => {
     expect(r).toEqual({ ok: false, status: 422, error: 'Chave inválida para o ambiente escolhido' })
     expect(calls.saved).toHaveLength(0)
     expect(calls.registered).toHaveLength(0)
+  })
+
+  it('connect clears customer cache', async () => {
+    const { deps, calls } = setup()
+    await connect(input, deps)
+    expect(calls.cleared).toEqual(['c1'])
   })
 
   it('rejects empty key and bad environment', async () => {

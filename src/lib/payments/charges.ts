@@ -56,17 +56,18 @@ export interface ChargeDeps {
   ): Promise<boolean>
   /** Insere as linhas 'creating' e devolve os ids, na ordem das parcelas. */
   insertCreatingRows(rows: CreatingRow[]): Promise<string[]>
-  linkRows(groupId: string, charges: ProviderCharge[]): Promise<void>
-  deleteRows(groupId: string): Promise<void>
+  linkRows(clinicId: string, groupId: string, charges: ProviderCharge[]): Promise<void>
+  deleteRows(clinicId: string, groupId: string): Promise<void>
   markInvalidKey(clinicId: string): Promise<void>
   sendLink(clinicId: string, paymentId: string): Promise<ManualResult>
-  today(clinicId: string): Promise<string>
+  today(clinicId: string, now: Date): Promise<string>
 }
 
 export type CreateChargeResult =
   | { status: 201; body: { groupId: string; paymentIds: string[]; pending?: true; whatsapp?: { ok: boolean; error?: string } } }
   | { status: number; body: { error: string } }
 
+const UNAVAILABLE_MSG = 'Não foi possível gerar a cobrança agora. Nada foi cobrado do paciente. Tente novamente.'
 const DUPLICATE_WINDOW_MS = 30_000
 const KINDS: ChargeKind[] = ['avulsa', 'carne', 'cartao_parcelado']
 const fail = (status: number, error: string) => ({ status, body: { error } })
@@ -90,7 +91,7 @@ export async function createCharge(input: CreateChargeInput, deps: ChargeDeps, n
     amountCents: input.amountCents,
     installmentCount: count,
     firstDueDate: input.firstDueDate,
-    today: await deps.today(clinicId),
+    today: await deps.today(clinicId, now),
   })
   if (invalid) return fail(422, invalid)
 
@@ -145,6 +146,8 @@ export async function createCharge(input: CreateChargeInput, deps: ChargeDeps, n
   const paymentIds = await deps.insertCreatingRows(rows)
 
   let charges: ProviderCharge[]
+  // Depois que createCharge é chamado, o Asaas pode ter criado as cobranças mesmo com erro de rede.
+  let creating = false
   try {
     let customerId = await deps.getCustomerId(clinicId, patientId)
     if (!customerId) {
@@ -162,6 +165,7 @@ export async function createCharge(input: CreateChargeInput, deps: ChargeDeps, n
         console.error('[payments/charges] falha ao guardar o cliente:', (e as Error).message)
       }
     }
+    creating = true
     charges = await conn.provider.createCharge({
       customerId,
       externalReference: groupId,
@@ -175,14 +179,20 @@ export async function createCharge(input: CreateChargeInput, deps: ChargeDeps, n
     })
   } catch (e) {
     const err = toApiError(e)
+    if (creating && err.status === 503) {
+      // Incerto se o Asaas criou: as linhas ficam 'creating' e a conferência completa ou apaga.
+      console.error('[payments/charges] Asaas sem resposta ao criar; aguardando conferência:', (e as Error).message)
+      return { status: 201, body: { groupId, paymentIds, pending: true } }
+    }
+    if (err.status === 503) err.error = UNAVAILABLE_MSG
     if (err.status === 409) await deps.markInvalidKey(clinicId).catch(() => {})
     else if (err.status === 500) console.error('[payments/charges] falha ao criar no Asaas:', (e as Error).message)
-    await deps.deleteRows(groupId).catch((d) => console.error('[payments/charges] falha ao apagar linhas:', (d as Error).message))
+    await deps.deleteRows(clinicId, groupId).catch((d) => console.error('[payments/charges] falha ao apagar linhas:', (d as Error).message))
     return fail(err.status, err.error)
   }
 
   try {
-    await deps.linkRows(groupId, charges)
+    await deps.linkRows(clinicId, groupId, charges)
   } catch (e) {
     // O Asaas já criou: as linhas ficam 'creating' e a conferência completa depois.
     console.error('[payments/charges] falha ao associar cobranças:', (e as Error).message)
