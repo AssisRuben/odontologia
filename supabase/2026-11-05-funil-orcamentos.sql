@@ -171,12 +171,21 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Trava: aprovado/concluído não muda total nem valor aprovado
+  -- Trava: aprovado/concluído não muda total nem valor aprovado, e só alterna
+  -- entre approved e completed (não volta para rascunho nem vira perdido)
   IF OLD.status IN ('approved','completed') THEN
     IF NEW.total IS DISTINCT FROM OLD.total
-       OR NEW.approved_total IS DISTINCT FROM OLD.approved_total THEN
+       OR NEW.approved_total IS DISTINCT FROM OLD.approved_total
+       OR (NEW.status IS DISTINCT FROM OLD.status
+           AND NOT (OLD.status = 'approved' AND NEW.status = 'completed')
+           AND NOT (OLD.status = 'completed' AND NEW.status = 'approved')) THEN
       RAISE EXCEPTION 'Orçamento aprovado não pode ser alterado. Reabra-o ou crie um novo.';
     END IF;
+  END IF;
+
+  -- Concluído só vem de aprovado
+  IF NEW.status = 'completed' AND OLD.status NOT IN ('approved','completed') THEN
+    RAISE EXCEPTION 'Só um orçamento aprovado pode ser concluído.';
   END IF;
 
   -- Só o servidor envia, aprova ou vence um orçamento
@@ -361,7 +370,19 @@ BEGIN
     p_signature->>'user_agent',
     COALESCE((p_signature->>'signed_at')::timestamptz, NOW()),
     NULLIF(p_signature->>'approved_by', '')::uuid
-  );
+  )
+  ON CONFLICT (budget_id) DO UPDATE SET
+    clinic_id     = EXCLUDED.clinic_id,
+    provider      = EXCLUDED.provider,
+    provider_ref  = EXCLUDED.provider_ref,
+    signer_name   = EXCLUDED.signer_name,
+    signer_cpf    = EXCLUDED.signer_cpf,
+    snapshot      = EXCLUDED.snapshot,
+    document_hash = EXCLUDED.document_hash,
+    ip            = EXCLUDED.ip,
+    user_agent    = EXCLUDED.user_agent,
+    signed_at     = EXCLUDED.signed_at,
+    approved_by   = EXCLUDED.approved_by;
 
   UPDATE budget_links SET revoked_at = NOW() WHERE budget_id = p_budget_id AND revoked_at IS NULL;
 

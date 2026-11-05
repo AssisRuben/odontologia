@@ -250,6 +250,16 @@ describe.each(['2026-11-05-funil-orcamentos.sql', 'schema.sql'])('%s funil-orcam
     expect(sql).toContain("RAISE EXCEPTION 'Orçamento aprovado não pode ser alterado. Reabra-o ou crie um novo.';")
   })
 
+  it('trava de status: aprovado/concluído só alterna entre si e concluído só vem de aprovado', () => {
+    expect(sql).toContain("AND NOT (OLD.status = 'approved' AND NEW.status = 'completed')")
+    expect(sql).toContain("AND NOT (OLD.status = 'completed' AND NEW.status = 'approved')")
+    expect(sql).toContain("IF NEW.status = 'completed' AND OLD.status NOT IN ('approved','completed') THEN")
+  })
+
+  it('approve_budget sobrescreve assinatura existente em vez de falhar na chave', () => {
+    expect(sql).toContain('ON CONFLICT (budget_id) DO UPDATE SET')
+  })
+
   it('send_budget usa a data de São Paulo', () => {
     expect(sql).toContain("(NOW() AT TIME ZONE 'America/Sao_Paulo')::date + p_validity_days")
   })
