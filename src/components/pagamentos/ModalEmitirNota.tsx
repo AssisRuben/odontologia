@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { parseReaisInput, fromCents } from '@/lib/payments/money'
 import { formatCurrency } from '@/lib/utils'
+import { errorText } from './errorText'
 
 interface Props {
   paymentId: string
@@ -16,7 +17,6 @@ interface Props {
   onDone: () => void
 }
 
-const INVALID_KEY_MSG = 'A chave do Asaas não é mais válida. Reconecte o Asaas em Configurações → Pagamentos.'
 const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
 
 export function ModalEmitirNota({ paymentId, defaultAmount, isGroup, defaultDescription, onClose, onDone }: Props) {
@@ -43,7 +43,7 @@ export function ModalEmitirNota({ paymentId, defaultAmount, isGroup, defaultDesc
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) {
-        setError(data?.error === 'asaas_invalid_key' ? INVALID_KEY_MSG : (data?.error || 'Não foi possível emitir a nota.'))
+        setError(errorText(res.status, data, 'Não foi possível emitir a nota.'))
         return
       }
       onClose()

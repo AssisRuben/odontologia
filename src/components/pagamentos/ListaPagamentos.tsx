@@ -8,6 +8,7 @@ import type { Payment, FiscalInvoice, PaymentMethod, PaymentStatus } from '@/typ
 import { fromDbPaidAt } from '@/lib/payments/dates'
 import { parseReaisInput, fromCents } from '@/lib/payments/money'
 import { ModalEmitirNota } from './ModalEmitirNota'
+import { errorText } from './errorText'
 
 interface Props {
   payments: Payment[]
@@ -16,7 +17,7 @@ interface Props {
   onChanged: () => void | Promise<void>
 }
 
-interface NfseInfo { enabled: boolean | null; description: string }
+interface NfseInfo { enabled: boolean | null; description: string; invalidKey: boolean }
 
 type Dialog =
   | { kind: 'due'; p: Payment }
@@ -28,8 +29,24 @@ type Dialog =
 type ActionId = 'copy' | 'whatsapp' | 'due' | 'receive' | 'cancel' | 'note' | 'retry' | 'pdf' | 'sendNote' | 'cancelNote'
 interface MenuItem { id: ActionId; label: string; danger?: boolean; disabled?: boolean; title?: string }
 
-/** Ações disponíveis para um pagamento; as indisponíveis ficam de fora. */
-function menuItems(p: Payment, inv: FiscalInvoice | undefined, noteBlocked = false): MenuItem[] {
+const RECONNECT_TITLE = 'Reconecte o Asaas em Configurações → Pagamentos'
+/** Ações que passam pelo Asaas num lançamento do Asaas. */
+const PROVIDER_ACTIONS: ActionId[] = ['copy', 'whatsapp', 'due', 'receive', 'cancel']
+/** Ações de nota: passam pelo Asaas em qualquer lançamento. */
+const INVOICE_ACTIONS: ActionId[] = ['note', 'retry', 'cancelNote']
+
+/** Ações disponíveis para um pagamento; as indisponíveis ficam de fora. Com a chave inválida, as do Asaas ficam desabilitadas. */
+function menuItems(p: Payment, inv: FiscalInvoice | undefined, noteBlocked = false, invalidKey = false): MenuItem[] {
+  const items = baseMenuItems(p, inv, noteBlocked)
+  if (!invalidKey) return items
+  const asaasRow = p.charge_kind !== 'manual'
+  return items.map(it =>
+    INVOICE_ACTIONS.includes(it.id) || (asaasRow && PROVIDER_ACTIONS.includes(it.id))
+      ? { ...it, disabled: true, title: RECONNECT_TITLE }
+      : it)
+}
+
+function baseMenuItems(p: Payment, inv: FiscalInvoice | undefined, noteBlocked: boolean): MenuItem[] {
   const items: MenuItem[] = []
   if (p.provider_state === 'creating') return items
   const open = p.status === 'pending' || p.status === 'overdue'
@@ -53,8 +70,7 @@ function menuItems(p: Payment, inv: FiscalInvoice | undefined, noteBlocked = fal
   return items
 }
 
-const INVALID_KEY_MSG = 'A chave do Asaas não é mais válida. Reconecte o Asaas em Configurações → Pagamentos.'
-const DEFAULT_NFSE_DESC = 'Serviços odontológicos - {descricao}'
+const DEFAULT_NFSE_DESC = 'Serviços odontológicos: {descricao}'
 
 const STATUS: Record<PaymentStatus, { label: string; cls: string }> = {
   pending:   { label: 'A vencer',  cls: 'bg-blue-50 text-blue-700' },
@@ -87,12 +103,6 @@ function activeInvoiceOf(paymentId: string, invoices: FiscalInvoice[]): FiscalIn
     .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
 }
 
-function errorText(status: number, data: { error?: string } | null): string {
-  if (data?.error === 'asaas_invalid_key') return INVALID_KEY_MSG
-  if (data?.error && /^[a-z_]+$/.test(data.error)) return 'Não foi possível concluir a ação. Tente novamente.'
-  return data?.error || (status >= 500 ? 'Erro interno. Tente novamente.' : 'Não foi possível concluir a ação.')
-}
-
 function reaisInput(amount: number): string {
   return fromCents(Math.round(amount * 100)).toFixed(2).replace('.', ',')
 }
@@ -101,7 +111,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [menu, setMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null)
-  const [nfse, setNfse] = useState<NfseInfo>({ enabled: null, description: DEFAULT_NFSE_DESC })
+  const [nfse, setNfse] = useState<NfseInfo>({ enabled: null, description: DEFAULT_NFSE_DESC, invalidKey: false })
   const [busy, setBusy] = useState(false)
   const [dialogError, setDialogError] = useState('')
   const inFlight = useRef(false)
@@ -115,6 +125,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
         setNfse({
           enabled: !!(d.connected && d.fiscal?.configured),
           description: typeof d.nfse_description === 'string' && d.nfse_description ? d.nfse_description : DEFAULT_NFSE_DESC,
+          invalidKey: !!d.connected && d.status === 'invalid_key',
         })
       })
       .catch(() => { /* usa os padrões */ })
@@ -296,7 +307,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
           <div role="menu" style={{ top: menu.top, right: menu.right }}
             className="fixed z-50 w-60 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1">
-            {menuItems(menuPayment, invoiceByPayment.get(menuPayment.id), nfse.enabled === false).map(it => (
+            {menuItems(menuPayment, invoiceByPayment.get(menuPayment.id), nfse.enabled === false, nfse.invalidKey).map(it => (
               <button key={it.id} role="menuitem" disabled={busy || it.disabled} title={it.title} onClick={() => perform(it.id, menuPayment, invoiceByPayment.get(menuPayment.id))}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-[#F9FAFB] disabled:opacity-50 ${it.danger ? 'text-red-600' : 'text-[#374151]'}`}>
                 {it.label}

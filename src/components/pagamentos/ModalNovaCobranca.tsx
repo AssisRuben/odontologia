@@ -12,6 +12,7 @@ import { normalizeCpf } from '@/lib/payments/cpf'
 import { toDbPaidAt } from '@/lib/payments/dates'
 import { PAYMENT_METHOD_LABELS } from '@/types'
 import type { PaymentMethod } from '@/types'
+import { errorText } from './errorText'
 
 export interface NovaCobrancaPatient {
   id: string
@@ -35,8 +36,6 @@ const MODES: { value: Mode; label: string }[] = [
   { value: 'cartao_parcelado', label: 'Cartão parcelado' },
   { value: 'manual', label: 'Registrar sem link' },
 ]
-
-const INVALID_KEY_MSG = 'A chave do Asaas não é mais válida. Reconecte o Asaas em Configurações → Pagamentos.'
 
 function todayLocal(): string {
   const d = new Date()
@@ -161,9 +160,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) {
-        setError(data?.error === 'asaas_invalid_key' || (res.status === 409 && String(data?.error).includes('asaas_invalid_key'))
-          ? INVALID_KEY_MSG
-          : typeof data?.error === 'string' ? data.error : 'Não foi possível criar a cobrança. Tente novamente.')
+        setError(errorText(res.status, data, 'Não foi possível criar a cobrança. Tente novamente.'))
         return
       }
       onCreated()
