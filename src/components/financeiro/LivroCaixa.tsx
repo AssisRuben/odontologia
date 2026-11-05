@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Copy, Download } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { fromCents } from '@/lib/payments/money'
+import { formatCpf } from '@/lib/payments/cpf'
 import { monthLabel, shiftMonth } from '@/lib/livro-caixa/mes'
-import { DISCLAIMER } from '@/lib/livro-caixa/exportacao'
+import { DISCLAIMER } from '@/lib/livro-caixa/textos'
 import type { Ledger, ReceiptItem } from '@/lib/livro-caixa/apuracao'
 
 const OMITTED_MSG = 'Os comprovantes passam de 100 MB e ficaram fora do pacote.'
@@ -18,10 +19,6 @@ function currentMonth(): string {
 
 function ddmmyyyy(iso: string): string {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`
-}
-
-function formatCpf(d: string): string {
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
 }
 
 function moneyText(cents: number): string {
@@ -46,14 +43,15 @@ function Line({ label, value, strong, sub }: { label: string; value: number; str
   )
 }
 
-export default function LivroCaixa() {
+export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => void }) {
   const [month, setMonth] = useState(currentMonth)
   const [ledger, setLedger] = useState<Ledger | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [onlyPending, setOnlyPending] = useState(false)
-  const [busyId, setBusyId] = useState<string | null>(null)
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
+  const receiptsRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [copied, setCopied] = useState('')
 
@@ -81,6 +79,7 @@ export default function LivroCaixa() {
   function changeMonth(m: string) {
     setLoading(true)
     setNotice('')
+    setError('')
     setMonth(m)
   }
 
@@ -93,7 +92,7 @@ export default function LivroCaixa() {
 
   async function toggleIssued(r: ReceiptItem) {
     const wasIssued = !!r.issuedAt
-    setBusyId(r.paymentId)
+    setBusyIds((b) => new Set(b).add(r.paymentId))
     setError('')
     setIssued(r.paymentId, wasIssued ? null : new Date().toISOString())
     try {
@@ -106,8 +105,13 @@ export default function LivroCaixa() {
       setIssued(r.paymentId, r.issuedAt)
       setError('Não foi possível atualizar o recibo.')
     } finally {
-      setBusyId(null)
+      setBusyIds((b) => { const n = new Set(b); n.delete(r.paymentId); return n })
     }
+  }
+
+  function showPendingReceipts() {
+    setOnlyPending(true)
+    receiptsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function copy(key: string, text: string) {
@@ -148,10 +152,10 @@ export default function LivroCaixa() {
   const alerts = ledger?.alerts
   const receipts = (ledger?.receipts ?? []).filter((r) => !onlyPending || !r.issuedAt)
   const alertLines = alerts ? [
-    alerts.pendingReceipts > 0 && `${alerts.pendingReceipts} recibo(s) do Receita Saúde pendente(s)`,
-    alerts.receiptsWithoutCpf > 0 && `${alerts.receiptsWithoutCpf} pagamento(s) sem CPF do pagador`,
-    alerts.deductibleWithoutAttachment > 0 && `${alerts.deductibleWithoutAttachment} despesa(s) dedutível(is) sem comprovante`,
-  ].filter((x): x is string => !!x) : []
+    alerts.pendingReceipts > 0 && { text: `${alerts.pendingReceipts} recibo(s) do Receita Saúde pendente(s)`, target: 'recibos' as const },
+    alerts.receiptsWithoutCpf > 0 && { text: `${alerts.receiptsWithoutCpf} pagamento(s) sem CPF do pagador`, target: 'recibos' as const },
+    alerts.deductibleWithoutAttachment > 0 && { text: `${alerts.deductibleWithoutAttachment} despesa(s) dedutível(is) sem comprovante`, target: 'despesas' as const },
+  ].filter((x): x is { text: string; target: 'recibos' | 'despesas' } => !!x) : []
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -205,11 +209,15 @@ export default function LivroCaixa() {
 
           {alertLines.length > 0 && (
             <ul className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1 text-sm text-[#92400E]">
-              {alertLines.map((a) => <li key={a}>{a}</li>)}
+              {alertLines.map((a) => (
+                <li key={a.text}>
+                  <button onClick={() => (a.target === 'recibos' ? showPendingReceipts() : onOpenDespesas())} className="text-left underline hover:no-underline">{a.text}</button>
+                </li>
+              ))}
             </ul>
           )}
 
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <div ref={receiptsRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden scroll-mt-4">
             <div className="px-4 py-3 border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold text-[#111827]">Recibos do Receita Saúde</h3>
               <label className="flex items-center gap-2 text-sm text-[#6B7280] cursor-pointer">
@@ -223,7 +231,7 @@ export default function LivroCaixa() {
             ) : (
               <div className="divide-y divide-[#F3F4F6]">
                 {receipts.map((r) => {
-                  const busy = busyId === r.paymentId
+                  const busy = busyIds.has(r.paymentId)
                   return (
                     <div key={r.paymentId} className="px-4 py-3 space-y-2">
                       <div className="flex items-start justify-between gap-3">
@@ -231,7 +239,9 @@ export default function LivroCaixa() {
                           <p className="text-sm font-medium text-[#111827] truncate">{r.payerName}</p>
                           <p className="text-xs text-[#9CA3AF]">
                             {ddmmyyyy(r.date)}
-                            {r.payerName !== r.patientName && ` · Paciente: ${r.patientName}`}
+                          </p>
+                          <p className="text-xs text-[#9CA3AF]">
+                            Paciente: {r.patientName} · {r.patientCpf ? formatCpf(r.patientCpf) : 'Sem CPF'}
                           </p>
                         </div>
                         <div className="text-right shrink-0">

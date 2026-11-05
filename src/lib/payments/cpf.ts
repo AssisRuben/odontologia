@@ -17,3 +17,9 @@ export function normalizeCpf(s: string): string | null {
 export function isValidCpf(s: string): boolean {
   return normalizeCpf(s) !== null
 }
+
+/** Formata 11 dígitos como 000.000.000-00; devolve o texto original se não tiver 11 dígitos. */
+export function formatCpf(s: string): string {
+  const n = (s ?? '').replace(/\D/g, '')
+  return n.length === 11 ? `${n.slice(0, 3)}.${n.slice(3, 6)}.${n.slice(6, 9)}-${n.slice(9)}` : s
+}

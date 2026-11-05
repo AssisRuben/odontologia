@@ -275,7 +275,7 @@ export default function FinanceiroPage() {
 
         {activeTab === 'despesas' && <ListaDespesas />}
 
-        {activeTab === 'livro' && <LivroCaixa />}
+        {activeTab === 'livro' && <LivroCaixa onOpenDespesas={() => setActiveTab('despesas')} />}
 
         {activeTab !== 'painel' && activeTab !== 'despesas' && activeTab !== 'livro' && (
           <div className="flex items-center justify-center h-48 text-[#9CA3AF] text-sm">

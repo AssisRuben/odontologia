@@ -3,11 +3,12 @@ import { zipSync } from 'fflate'
 import type { Ledger, LedgerRow, RowKind } from './apuracao'
 import { categoryLabel, groupLabel } from './categorias'
 import { monthLabel } from './mes'
+import { DISCLAIMER } from './textos'
 
 export const MAX_ATTACHMENTS_BYTES = 100 * 1024 * 1024
 export const SKIPPED_NOTE =
   'Os comprovantes deste mês passam de 100 MB e não foram incluídos. Baixe-os pela tela de Despesas.'
-export const DISCLAIMER = 'Valores para conferência. O cálculo oficial do imposto é feito no Carnê-Leão Web.'
+export { DISCLAIMER }
 
 const KIND_LABEL: Record<RowKind, string> = {
   receita: 'Receita de paciente',

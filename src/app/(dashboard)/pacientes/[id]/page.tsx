@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCpf } from '@/lib/payments/cpf'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -494,11 +495,6 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
 }
 
 // ─── sub-componentes ─────────────────────────────────────────────────────────
-
-function formatCpf(d: string): string {
-  const n = d.replace(/\D/g, '')
-  return n.length === 11 ? `${n.slice(0, 3)}.${n.slice(3, 6)}.${n.slice(6, 9)}-${n.slice(9)}` : d
-}
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
