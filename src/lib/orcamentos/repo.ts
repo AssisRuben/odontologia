@@ -9,6 +9,7 @@ import type { LinkDeps } from './links'
 import type { ApprovalDeps } from './aprovacao'
 import type { SendDeps } from './envio'
 import type { Snapshot } from './assinatura'
+import type { PublicDeps } from './publico'
 
 function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
@@ -292,4 +293,71 @@ export async function loadSignature(admin: SupabaseClient, budgetId: string, cli
     .maybeSingle()
   if (checkId(error)) return null
   return data as { snapshot: Snapshot; document_hash: string; ip: string | null; user_agent: string | null; provider: 'app' | 'reception' } | null
+}
+
+
+/** Dependências da página pública do paciente (sempre filtradas por clínica). */
+export function createPublicDeps(admin: SupabaseClient): PublicDeps {
+  return {
+    ...createLinkDeps(admin),
+    async loadOpen(budgetId, clinicId) {
+      const { data, error } = await admin
+        .from('budgets')
+        .select('id, created_at, valid_until, professionals(name), budget_items(id, procedure, tooth, quantity, unit_price)')
+        .eq('id', budgetId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (checkId(error) || !data) return null
+      const row = data as unknown as {
+        id: string; created_at: string; valid_until: string | null
+        professionals: { name: string } | { name: string }[] | null
+        budget_items: { id: string; procedure: string; tooth: string | null; quantity: number; unit_price: number }[]
+      }
+      const clinic = await admin.from('clinics').select('name').eq('id', clinicId).single()
+      check(clinic.error)
+      return {
+        // clinics ainda não tem coluna de logotipo
+        clinic: { name: (clinic.data as { name: string }).name, logoUrl: null },
+        professional: first(row.professionals)?.name ?? null,
+        number: row.id.slice(0, 8).toUpperCase(),
+        createdAt: row.created_at,
+        validUntil: row.valid_until,
+        items: row.budget_items.map((i) => ({
+          id: i.id, procedure: i.procedure, tooth: i.tooth, quantity: i.quantity, unitPrice: Number(i.unit_price),
+        })),
+      }
+    },
+    async patientCpfs(budgetId, clinicId) {
+      const { data, error } = await admin
+        .from('budgets')
+        .select('patients(cpf, payer_cpf)')
+        .eq('id', budgetId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (checkId(error) || !data) return null
+      const p = first((data as unknown as { patients: { cpf: string | null; payer_cpf: string | null } | { cpf: string | null; payer_cpf: string | null }[] | null }).patients)
+      return p ? { cpf: p.cpf, payerCpf: p.payer_cpf } : null
+    },
+    async bumpView(linkId, clinicId) {
+      const cur = await admin.from('budget_links').select('view_count').eq('id', linkId).eq('clinic_id', clinicId).single()
+      check(cur.error)
+      const before = (cur.data as { view_count: number }).view_count ?? 0
+      const { error } = await admin.from('budget_links').update({ view_count: before + 1 }).eq('id', linkId).eq('clinic_id', clinicId)
+      check(error)
+      return before
+    },
+    async markViewed(budgetId, clinicId, now) {
+      const { error } = await admin
+        .from('budgets')
+        .update({ viewed_at: now.toISOString() })
+        .eq('id', budgetId)
+        .eq('clinic_id', clinicId)
+        .is('viewed_at', null)
+      check(error)
+    },
+    async addViewedEvent(budgetId, clinicId) {
+      const { error } = await admin.from('budget_events').insert({ budget_id: budgetId, clinic_id: clinicId, type: 'viewed' })
+      check(error)
+    },
+  }
 }
