@@ -23,6 +23,7 @@ import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
 import { useClinicStore } from '@/store/clinicStore'
 import { ModalEnviarWhatsApp } from '@/components/mensagens/ModalEnviarWhatsApp'
+import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
 import { normalizePhone } from '@/lib/messaging/phone'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
   const [modalEditOpen, setModalEditOpen] = useState(false)
   const [modalWaOpen, setModalWaOpen] = useState(false)
   const [waNotice, setWaNotice]       = useState(false)
+  const [modalCobrancaOpen, setModalCobrancaOpen] = useState(false)
   const [treatRefresh, setTreatRefresh] = useState(0)
   const { clinicId } = useClinicStore()
 
@@ -103,6 +105,12 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     }
     load()
   }, [params])
+
+  async function reloadPayments() {
+    if (!patient) return
+    const { data } = await createClient().from('payments').select('*').eq('patient_id', patient.id).order('due_date', { ascending: false })
+    setPayments(data || [])
+  }
 
   async function handleSaveTags(newTags: string[]) {
     if (!patient) return
@@ -376,7 +384,13 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
           <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#111827]">Pagamentos</h3>
-              <span className="text-xs text-[#6B7280]">{payments.length} lançamento(s)</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-[#6B7280]">{payments.length} lançamento(s)</span>
+                <button onClick={() => setModalCobrancaOpen(true)}
+                  className="flex items-center gap-1.5 px-3 h-8 bg-[#3B82F6] text-white text-xs font-medium rounded-lg hover:bg-[#2563EB] transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Nova cobrança
+                </button>
+              </div>
             </div>
             {payments.length === 0 ? (
               <div className="flex items-center justify-center h-40 text-sm text-[#9CA3AF]">
@@ -457,7 +471,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
 
         {/* ── Orçamentos ──────────────────────────────────────────────────── */}
         {activeTab === 'orcamentos' && clinicId && (
-          <TabOrcamentos patientId={patient.id} clinicId={clinicId} />
+          <TabOrcamentos patientId={patient.id} clinicId={clinicId} patient={patient} />
         )}
 
         {/* ── Documentos ──────────────────────────────────────────────────── */}
@@ -486,6 +500,14 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
           appointments={appointments}
           onClose={() => setModalWaOpen(false)}
           onSent={() => { setWaNotice(true); setTimeout(() => setWaNotice(false), 4000) }}
+        />
+      )}
+
+      {modalCobrancaOpen && (
+        <ModalNovaCobranca
+          patient={patient}
+          onClose={() => setModalCobrancaOpen(false)}
+          onCreated={reloadPayments}
         />
       )}
 

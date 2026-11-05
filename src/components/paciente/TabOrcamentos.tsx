@@ -6,6 +6,8 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils'
+import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
+import type { NovaCobrancaPatient } from '@/components/pagamentos/ModalNovaCobranca'
 
 interface BudgetItem {
   id: string
@@ -31,6 +33,7 @@ interface Budget {
 interface Props {
   patientId: string
   clinicId: string
+  patient?: NovaCobrancaPatient
 }
 
 const BUDGET_STATUS = {
@@ -46,11 +49,13 @@ const ITEM_STATUS = {
   completed:   { label: 'Concluído',   color: '#10B981' },
 }
 
-export function TabOrcamentos({ patientId, clinicId }: Props) {
+export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
   const [budgets, setBudgets]   = useState<Budget[]>([])
   const [loading, setLoading]   = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [charged, setCharged] = useState<Record<string, number>>({})
+  const [chargeBudget, setChargeBudget] = useState<{ id: string; total: number; label: string } | null>(null)
 
   async function load() {
     const supabase = createClient()
@@ -59,16 +64,40 @@ export function TabOrcamentos({ patientId, clinicId }: Props) {
       .select('*, items:budget_items(*)')
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
-    if (data) setBudgets(data)
+    if (data) {
+      setBudgets(data)
+      const ids = data.map((b: Budget) => b.id)
+      if (ids.length > 0) {
+        const { data: pays } = await supabase
+          .from('payments')
+          .select('budget_id, amount, status')
+          .in('budget_id', ids)
+        const sums: Record<string, number> = {}
+        for (const p of (pays ?? []) as { budget_id: string; amount: number; status: string }[]) {
+          if (p.status === 'cancelled' || p.status === 'refunded') continue
+          sums[p.budget_id] = (sums[p.budget_id] ?? 0) + Number(p.amount)
+        }
+        setCharged(sums)
+      } else {
+        setCharged({})
+      }
+    }
     setLoading(false)
+  }
+
+  function openCharge(b: Budget, total: number) {
+    setChargeBudget({ id: b.id, total, label: `Orçamento #${b.id.replace(/-/g, '').slice(0, 6).toUpperCase()}` })
   }
 
   useEffect(() => { load() }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function updateStatus(id: string, status: Budget['status']) {
+  async function updateStatus(id: string, status: Budget['status'], total = 0) {
     const supabase = createClient()
     await supabase.from('budgets').update({ status }).eq('id', id)
-    load()
+    await load()
+    if (status === 'approved' && patient && total > 0) {
+      setChargeBudget({ id, total, label: `Orçamento #${id.replace(/-/g, '').slice(0, 6).toUpperCase()}` })
+    }
   }
 
   async function updateItemStatus(id: string, status: BudgetItem['status']) {
@@ -125,6 +154,11 @@ export function TabOrcamentos({ patientId, clinicId }: Props) {
                       </span>
                     </div>
                     <p className="text-xs text-[#6B7280]">{items.length} procedimento(s)</p>
+                    {(b.status === 'approved' || b.status === 'completed') && (
+                      <p className="text-xs text-[#6B7280] mt-0.5">
+                        Cobrado {formatCurrency(charged[b.id] ?? 0)} de {formatCurrency(total)}
+                      </p>
+                    )}
                   </div>
                   <p className="text-base font-bold text-[#111827] shrink-0">{formatCurrency(total)}</p>
                 </button>
@@ -171,7 +205,7 @@ export function TabOrcamentos({ patientId, clinicId }: Props) {
                       <span className="text-xs text-[#6B7280]">Alterar status:</span>
                       <div className="flex gap-2">
                         {b.status !== 'approved' && (
-                          <button onClick={() => updateStatus(b.id, 'approved')}
+                          <button onClick={() => updateStatus(b.id, 'approved', total)}
                             className="px-3 h-7 rounded-lg bg-[#ECFDF5] text-[#10B981] text-xs font-medium hover:bg-[#D1FAE5] transition-colors">
                             Aprovar
                           </button>
@@ -180,6 +214,12 @@ export function TabOrcamentos({ patientId, clinicId }: Props) {
                           <button onClick={() => updateStatus(b.id, 'rejected')}
                             className="px-3 h-7 rounded-lg bg-[#FEF2F2] text-[#EF4444] text-xs font-medium hover:bg-[#FEE2E2] transition-colors">
                             Recusar
+                          </button>
+                        )}
+                        {patient && (b.status === 'approved' || b.status === 'completed') && (
+                          <button onClick={() => openCharge(b, Math.max(0, total - (charged[b.id] ?? 0)))}
+                            className="px-3 h-7 rounded-lg bg-[#FFFBEB] text-[#B45309] text-xs font-medium hover:bg-[#FEF3C7] transition-colors">
+                            Cobrar
                           </button>
                         )}
                         {b.status === 'approved' && (
@@ -196,6 +236,15 @@ export function TabOrcamentos({ patientId, clinicId }: Props) {
             )
           })}
         </div>
+      )}
+
+      {chargeBudget && patient && (
+        <ModalNovaCobranca
+          patient={patient}
+          budget={chargeBudget}
+          onClose={() => setChargeBudget(null)}
+          onCreated={() => { load() }}
+        />
       )}
 
       {showModal && (
