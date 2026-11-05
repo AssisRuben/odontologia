@@ -54,6 +54,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
   const [chargeBudget, setChargeBudget] = useState<{ id: string; total: number; label: string } | null>(null)
   const [decisao, setDecisao] = useState<{ budget: Budget; mode: 'approve' | 'lose' } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [resetN, setResetN] = useState(0)
   const [msgs, setMsgs] = useState<Record<string, Msg>>({})
 
   const setMsg = (id: string, m?: Msg) =>
@@ -118,7 +119,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
 
   function changeValidity(b: Budget, value: string) {
     if (value === (b.valid_until ?? '')) return
-    if (b.status === 'sent' && !window.confirm(SENT_EDIT_NOTICE)) { load(); return }
+    if (b.status === 'sent' && !window.confirm(SENT_EDIT_NOTICE)) { setResetN(n => n + 1); return }
     updateBudget(b, { valid_until: value || null })
   }
 
@@ -268,7 +269,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                         <input
                           type="date"
                           defaultValue={b.valid_until ?? ''}
-                          key={`${b.id}-${b.valid_until ?? ''}`}
+                          key={`${b.id}-${b.valid_until ?? ''}-${resetN}`}
                           disabled={!act.editValidity || disabled}
                           onBlur={e => changeValidity(b, e.target.value)}
                           className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white disabled:bg-[#F3F4F6]"
