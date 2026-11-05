@@ -242,7 +242,7 @@ Envio do orçamento pelo WhatsApp, aprovação e assinatura pelo paciente no cel
 ### 1. Banco e endereço do app
 
 1. No SQL Editor do Supabase, aplique [`supabase/2026-11-05-funil-orcamentos.sql`](supabase/2026-11-05-funil-orcamentos.sql) (pode rodar de novo sem problema).
-2. `APP_URL` precisa ser um endereço que o celular do paciente alcance. Em produção, o endereço público do app. Em teste local, use um túnel, por exemplo `cloudflared tunnel --url http://localhost:3001`, e coloque o endereço gerado em `APP_URL`.
+2. O link do orçamento precisa ser um endereço que o celular do paciente alcance. Em produção, o `APP_URL` já serve. Em teste local, o `APP_URL` aponta para o Docker (`host.docker.internal`), então use um túnel, por exemplo `npx cloudflared tunnel --url http://localhost:3001`, e coloque o endereço gerado em `PUBLIC_APP_URL` (sem mexer no `APP_URL`). Reinicie o `npm run dev` depois.
 3. Os lembretes rodam na rotina de mensagens que já existe (`/api/cron/messages`). A mesma rotina marca como vencidos os orçamentos fora da validade.
 
 ### O que o app faz

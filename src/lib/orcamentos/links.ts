@@ -43,8 +43,10 @@ export function newToken(): string {
   return randomBytes(32).toString('base64url')
 }
 
+/** Endereço que o celular do paciente abre: PUBLIC_APP_URL (ex.: túnel no teste local) ou APP_URL. */
 export function linkUrl(token: string): string {
-  return `${process.env.APP_URL ?? ''}/orcamento/${token}`
+  const base = process.env.PUBLIC_APP_URL || process.env.APP_URL || ''
+  return `${base.replace(/\/+$/, '')}/orcamento/${token}`
 }
 
 export async function resolveLink(token: string, deps: LinkDeps, now: Date = new Date()): Promise<LinkView | null> {

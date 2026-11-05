@@ -21,8 +21,15 @@ describe('token', () => {
     expect(newToken()).not.toBe(a)
   })
   it('linkUrl usa APP_URL', () => {
+    delete process.env.PUBLIC_APP_URL
     process.env.APP_URL = 'https://x.app'
     expect(linkUrl('abc')).toBe('https://x.app/orcamento/abc')
+  })
+  it('linkUrl prefere PUBLIC_APP_URL e tira a barra final', () => {
+    process.env.APP_URL = 'http://host.docker.internal:3001'
+    process.env.PUBLIC_APP_URL = 'https://tunel.example/'
+    expect(linkUrl('abc')).toBe('https://tunel.example/orcamento/abc')
+    delete process.env.PUBLIC_APP_URL
   })
 })
 
