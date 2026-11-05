@@ -54,6 +54,8 @@ CREATE TABLE patients (
   address           JSONB,  -- { street, number, complement, neighborhood, city, state, zip }
   insurance_plan_id UUID REFERENCES insurance_plans(id) ON DELETE SET NULL,
   notes             TEXT,   -- texto livre ou JSON { tags, notes }
+  payer_name        TEXT,   -- responsável financeiro (recibo no Receita Saúde)
+  payer_cpf         TEXT,   -- só dígitos
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -90,15 +92,33 @@ CREATE TABLE payments (
 );
 
 CREATE TABLE expenses (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  clinic_id   UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
-  description TEXT NOT NULL,
-  amount      NUMERIC(10,2) NOT NULL,
-  category    TEXT,
-  due_date    DATE,
-  paid_at     TIMESTAMPTZ,
-  status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','overdue')),
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id       UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  description     TEXT NOT NULL,
+  amount          NUMERIC(10,2) NOT NULL,
+  category        TEXT NOT NULL DEFAULT 'outras'
+                  CHECK (category IN ('aluguel','contas','material','laboratorio','servicos','manutencao','marketing','conselho','iptu_taxas','tarifas','salarios','emolumentos','equipamentos','reformas','cursos','outras')),
+  deduction_group TEXT CHECK (deduction_group IN ('custeio','pessoal','emolumentos')),  -- NULL = não dedutível
+  payment_method  TEXT CHECK (payment_method IN ('dinheiro','cartao_credito','cartao_debito','pix','boleto')),
+  professional_id UUID REFERENCES professionals(id) ON DELETE SET NULL,
+  notes           TEXT,
+  receipt_path    TEXT,   -- caminho no bucket expense-receipts
+  receipt_name    TEXT,
+  receipt_size    BIGINT,
+  receipt_type    TEXT,
+  due_date        DATE,
+  paid_at         TIMESTAMPTZ,
+  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','overdue')),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Recibos de pacientes marcados como lançados no Receita Saúde.
+CREATE TABLE IF NOT EXISTS health_receipts (
+  payment_id UUID PRIMARY KEY REFERENCES payments(id) ON DELETE CASCADE,
+  clinic_id  UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  issued_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  issued_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
 
@@ -471,6 +491,24 @@ DROP POLICY IF EXISTS "clinic_member_select" ON fiscal_invoices;
 CREATE POLICY "clinic_member_select" ON fiscal_invoices FOR SELECT TO authenticated
   USING (clinic_id IN (SELECT public.user_clinic_ids()));
 
+-- ── RLS do livro-caixa ──────────────────────────────────────
+
+ALTER TABLE health_receipts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "health_receipts_select" ON health_receipts;
+CREATE POLICY "health_receipts_select" ON health_receipts FOR SELECT TO authenticated
+  USING (clinic_id IN (SELECT public.user_clinic_ids()));
+
+DROP POLICY IF EXISTS "health_receipts_insert" ON health_receipts;
+CREATE POLICY "health_receipts_insert" ON health_receipts FOR INSERT TO authenticated
+  WITH CHECK (clinic_id IN (SELECT public.user_clinic_ids())
+              AND EXISTS (SELECT 1 FROM payments p
+                          WHERE p.id = payment_id AND p.clinic_id = health_receipts.clinic_id));
+
+DROP POLICY IF EXISTS "health_receipts_delete" ON health_receipts;
+CREATE POLICY "health_receipts_delete" ON health_receipts FOR DELETE TO authenticated
+  USING (clinic_id IN (SELECT public.user_clinic_ids()));
+
 -- ── Proteção dos lançamentos do Asaas ───────────────────────
 -- Usuário logado (cliente do navegador) não altera nem apaga lançamento do
 -- Asaas, nem transforma um manual em um do Asaas: isso passa pelas rotas da
@@ -591,11 +629,11 @@ CREATE TRIGGER on_auth_user_created
 -- Arquivos ficam em anneOdonto/<clinic_id>/<patient_id>/<arquivo>
 
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('anneOdonto', 'anneOdonto', true)
+VALUES ('anneOdonto', 'anneOdonto', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Cada clínica só lista, envia e apaga na própria pasta.
--- Atenção: o bucket é público — quem tiver o link direto abre o arquivo.
+-- O bucket é privado: as telas abrem os arquivos com links assinados (createSignedUrl).
 CREATE POLICY "anneOdonto_select" ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'anneOdonto'
          AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
@@ -604,4 +642,22 @@ CREATE POLICY "anneOdonto_insert" ON storage.objects FOR INSERT TO authenticated
          AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
 CREATE POLICY "anneOdonto_delete" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'anneOdonto'
+         AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
+
+
+-- ── Storage: comprovantes de despesa (privado) ──────────────
+-- Arquivos ficam em expense-receipts/<clinic_id>/<expense_id>/<uuid>.<ext>
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('expense-receipts', 'expense-receipts', false)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "expense_receipts_select" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'expense-receipts'
+         AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
+CREATE POLICY "expense_receipts_insert" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'expense-receipts'
+         AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));
+CREATE POLICY "expense_receipts_delete" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'expense-receipts'
          AND (storage.foldername(name))[1] IN (SELECT public.user_clinic_ids()::text));

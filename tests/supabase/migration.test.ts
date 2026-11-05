@@ -107,3 +107,49 @@ describe('2026-11-04-cobranca-asaas.sql agendamento', () => {
     expect(sql).toContain("--     url := '<APP_URL>/api/cron/payments?scope=creating',")
   })
 })
+
+describe.each(['2026-11-05-livro-caixa.sql', 'schema.sql'])('%s livro-caixa', (file) => {
+  const sql = read(file)
+
+  it('expenses aceita só as categorias da lista', () => {
+    expect(sql).toContain(
+      "CHECK (category IN ('aluguel','contas','material','laboratorio','servicos','manutencao','marketing','conselho','iptu_taxas','tarifas','salarios','emolumentos','equipamentos','reformas','cursos','outras'))",
+    )
+  })
+
+  it('deduction_group com os três grupos', () => {
+    expect(sql).toContain("CHECK (deduction_group IN ('custeio','pessoal','emolumentos'))")
+  })
+
+  it('health_receipts com RLS ligada', () => {
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS health_receipts')
+    expect(sql).toContain('ALTER TABLE health_receipts ENABLE ROW LEVEL SECURITY;')
+  })
+
+  it('bucket de comprovantes privado', () => {
+    expect(sql).toContain("('expense-receipts', 'expense-receipts', false)")
+  })
+
+  it('bucket de documentos privado', () => {
+    if (file === 'schema.sql') {
+      expect(sql).toContain("VALUES ('anneOdonto', 'anneOdonto', false)")
+    } else {
+      expect(sql).toContain("UPDATE storage.buckets SET public = false WHERE id = 'anneOdonto';")
+    }
+  })
+})
+
+describe('2026-11-05-livro-caixa.sql migração de dados', () => {
+  const sql = read('2026-11-05-livro-caixa.sql')
+
+  it('migra categorias antigas para outras antes do CHECK', () => {
+    const update = sql.search(/UPDATE expenses SET[^;]*category = 'outras'/)
+    const add = sql.indexOf('ADD CONSTRAINT expenses_category_check')
+    expect(update).toBeGreaterThan(-1)
+    expect(add).toBeGreaterThan(update)
+  })
+
+  it('converte file_url público em caminho', () => {
+    expect(sql).toContain('/storage/v1/object/public/anneOdonto/')
+  })
+})
