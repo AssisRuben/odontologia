@@ -26,11 +26,12 @@ function makeDeps(payment: Partial<ActionPayment> | null = {}) {
   }
   const deps = {
     getPayment: vi.fn<ActionDeps['getPayment']>(async () => (payment ? { ...base, ...payment } : null)),
-    getConnection: vi.fn<ActionDeps['getConnection']>(async () => ({ provider: provider as never })),
+    getConnection: vi.fn<ActionDeps['getConnection']>(async () => ({ provider: provider as never, connection: { nfse_auto: false } })),
     listUnpaidInGroup: vi.fn<ActionDeps['listUnpaidInGroup']>(async () => ['p1', 'p2', 'p3']),
     updateRows: vi.fn<ActionDeps['updateRows']>(async (_c, ids) => ids.length),
     markInvalidKey: vi.fn<ActionDeps['markInvalidKey']>(async () => {}),
     today: vi.fn<ActionDeps['today']>(async () => '2027-01-10'),
+    scheduleInvoice: vi.fn<ActionDeps['scheduleInvoice']>(async () => {}),
   }
   return { deps, provider }
 }
@@ -85,6 +86,40 @@ describe('markReceived', () => {
     const { deps: d2 } = makeDeps({ status: 'cancelled' })
     expect(await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 100 }, d2, NOW))
       .toEqual({ status: 409, body: { error: 'Este lançamento não está em aberto' } })
+  })
+  it('markReceived on Asaas row with nfse_auto schedules invoice', async () => {
+    const { deps, provider } = makeDeps()
+    deps.getConnection.mockResolvedValue({ provider: provider as never, connection: { nfse_auto: true } })
+    const r = await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 10000 }, deps, NOW)
+    expect(r.status).toBe(200)
+    expect(deps.scheduleInvoice).toHaveBeenCalledWith('c1', 'p1')
+    expect(deps.updateRows.mock.invocationCallOrder[0]).toBeLessThan(deps.scheduleInvoice.mock.invocationCallOrder[0])
+  })
+  it('markReceived on Asaas row without nfse_auto does not schedule invoice', async () => {
+    const { deps } = makeDeps()
+    expect((await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 10000 }, deps, NOW)).status).toBe(200)
+    expect(deps.scheduleInvoice).not.toHaveBeenCalled()
+  })
+  it('markReceived: invoice failure is logged and the receipt still succeeds', async () => {
+    const { deps, provider } = makeDeps()
+    deps.getConnection.mockResolvedValue({ provider: provider as never, connection: { nfse_auto: true } })
+    deps.scheduleInvoice.mockRejectedValue(new Error('Configure a alíquota do ISS'))
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 10000 }, deps, NOW)
+    expect(r).toEqual({ status: 200, body: { ok: true, ids: ['p1'] } })
+    expect(err).toHaveBeenCalledWith(expect.any(String), 'Configure a alíquota do ISS')
+    err.mockRestore()
+  })
+  it('markReceived: no invoice when the row did not change or is manual', async () => {
+    const { deps, provider } = makeDeps()
+    deps.getConnection.mockResolvedValue({ provider: provider as never, connection: { nfse_auto: true } })
+    deps.updateRows.mockResolvedValue(0)
+    expect((await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 10000 }, deps, NOW)).status).toBe(409)
+    const { deps: d2 } = makeDeps({ providerChargeId: null, providerState: null, chargeKind: 'manual' })
+    d2.getConnection.mockResolvedValue({ provider: provider as never, connection: { nfse_auto: true } })
+    expect((await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 10000 }, d2, NOW)).status).toBe(200)
+    expect(deps.scheduleInvoice).not.toHaveBeenCalled()
+    expect(d2.scheduleInvoice).not.toHaveBeenCalled()
   })
 })
 

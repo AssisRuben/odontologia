@@ -32,6 +32,7 @@ function makeDeps(over: Partial<Record<keyof ChargeDeps, never>> = {}) {
     getCustomerId: vi.fn<ChargeDeps['getCustomerId']>(async () => null),
     saveCustomerId: vi.fn<ChargeDeps['saveCustomerId']>(async () => {}),
     findRecentDuplicate: vi.fn<ChargeDeps['findRecentDuplicate']>(async () => false),
+    findCreatingDuplicate: vi.fn<ChargeDeps['findCreatingDuplicate']>(async () => false),
     insertCreatingRows: vi.fn<ChargeDeps['insertCreatingRows']>(async (rows) => rows.map((_, i) => `row${i + 1}`)),
     linkRows: vi.fn<ChargeDeps['linkRows']>(async () => {}),
     deleteRows: vi.fn<ChargeDeps['deleteRows']>(async () => {}),
@@ -160,6 +161,45 @@ describe('createCharge', () => {
     expect(deps.deleteRows).not.toHaveBeenCalled()
     expect(deps.linkRows).not.toHaveBeenCalled()
     expect(deps.sendLink).not.toHaveBeenCalled()
+  })
+
+  it('installments GET not_found after POST keeps rows creating', async () => {
+    const { deps, provider } = makeDeps()
+    provider.createCharge.mockRejectedValue(new PaymentProviderError('not_found', 'Recurso não encontrado'))
+    const r = await createCharge({ ...base, sendWhatsApp: true }, deps, NOW)
+    expect(r.status).toBe(201)
+    expect(r.body).toMatchObject({ pending: true, paymentIds: expect.any(Array), groupId: expect.any(String) })
+    expect(deps.deleteRows).not.toHaveBeenCalled()
+    expect(deps.markInvalidKey).not.toHaveBeenCalled()
+    expect(deps.sendLink).not.toHaveBeenCalled()
+  })
+
+  it('non-provider error after createCharge keeps rows creating', async () => {
+    const { deps, provider } = makeDeps()
+    provider.createCharge.mockRejectedValue(new TypeError('Cannot read properties of undefined'))
+    const r = await createCharge({ ...base, sendWhatsApp: true }, deps, NOW)
+    expect(r.status).toBe(201)
+    expect(r.body).toMatchObject({ pending: true, paymentIds: expect.any(Array) })
+    expect(deps.deleteRows).not.toHaveBeenCalled()
+    expect(deps.sendLink).not.toHaveBeenCalled()
+  })
+
+  it('ensureCustomer non-provider error still deletes rows', async () => {
+    const { deps, provider } = makeDeps()
+    provider.ensureCustomer.mockRejectedValue(new Error('boom'))
+    const r = await createCharge(base, deps, NOW)
+    expect(r.status).toBe(500)
+    expect(deps.deleteRows).toHaveBeenCalled()
+    expect(provider.createCharge).not.toHaveBeenCalled()
+  })
+
+  it('creating group with same amount and description blocks a new charge', async () => {
+    const { deps } = makeDeps()
+    deps.findCreatingDuplicate.mockResolvedValue(true)
+    const r = await createCharge(base, deps, NOW)
+    expect(r).toEqual({ status: 409, body: { error: 'Cobrança igual criada há instantes' } })
+    expect(deps.findCreatingDuplicate).toHaveBeenCalledWith('c1', 'p1', 10000, 'Tratamento')
+    expect(deps.insertCreatingRows).not.toHaveBeenCalled()
   })
 
   it('passes the injected now to today()', async () => {

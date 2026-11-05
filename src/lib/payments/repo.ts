@@ -18,6 +18,26 @@ function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
 }
 
+export const PAGE_SIZE = 1000
+
+/**
+ * Lê todas as páginas (range em blocos de PAGE_SIZE) até uma página vir incompleta
+ * ou `alive` dizer que o prazo acabou; devolve o que foi lido. A consulta precisa de ordem estável.
+ */
+export async function fetchAllPages<T>(
+  page: (from: number, to: number) => Promise<T[]>,
+  alive?: () => boolean,
+): Promise<T[]> {
+  const out: T[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const rows = await page(from, from + PAGE_SIZE - 1)
+    out.push(...rows)
+    if (rows.length < PAGE_SIZE) break
+    if (alive && !alive()) break
+  }
+  return out
+}
+
 /** Marca a conexão como "chave inválida" (o Asaas recusou a chave). */
 export async function markInvalidKey(admin: SupabaseClient, clinicId: string): Promise<void> {
   const { error } = await admin
@@ -137,6 +157,31 @@ export function createChargeDeps(admin: SupabaseClient): ChargeDeps {
       check(error)
       const totals = new Map<string, number>()
       for (const r of (data ?? []) as { amount: number | string; charge_group_id: string }[]) {
+        totals.set(r.charge_group_id, (totals.get(r.charge_group_id) ?? 0) + toCents(Number(r.amount)))
+      }
+      return [...totals.values()].some((t) => t === amountCents)
+    },
+    async findCreatingDuplicate(clinicId, patientId, amountCents, description) {
+      const { data, error } = await admin
+        .from('payments')
+        .select('charge_group_id')
+        .eq('clinic_id', clinicId)
+        .eq('patient_id', patientId)
+        .eq('description', description)
+        .eq('provider_state', 'creating')
+        .not('charge_group_id', 'is', null)
+      check(error)
+      const groups = [...new Set(((data ?? []) as { charge_group_id: string }[]).map((r) => r.charge_group_id))]
+      if (groups.length === 0) return false
+      // O total é o do grupo inteiro (inclusive linhas já ativas).
+      const { data: rows, error: rErr } = await admin
+        .from('payments')
+        .select('amount, charge_group_id')
+        .eq('clinic_id', clinicId)
+        .in('charge_group_id', groups)
+      check(rErr)
+      const totals = new Map<string, number>()
+      for (const r of (rows ?? []) as { amount: number | string; charge_group_id: string }[]) {
         totals.set(r.charge_group_id, (totals.get(r.charge_group_id) ?? 0) + toCents(Number(r.amount)))
       }
       return [...totals.values()].some((t) => t === amountCents)
@@ -285,6 +330,9 @@ export function createActionDeps(admin: SupabaseClient): ActionDeps {
       const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
       check(error)
       return todayYmd(now, normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone)
+    },
+    async scheduleInvoice(clinicId, paymentId) {
+      await createWebhookInvoiceScheduler(admin)(clinicId, paymentId, {})
     },
   }
 }
@@ -584,37 +632,57 @@ type GroupRow = ReconcileGroup['rows'][number]
 export function createReconcileDeps(admin: SupabaseClient): ReconcileDeps {
   return {
     async listConnectedClinics() {
-      const { data, error } = await admin.from('payment_connections').select('clinic_id').eq('status', 'connected')
-      check(error)
-      return ((data ?? []) as { clinic_id: string }[]).map((r) => r.clinic_id)
+      const data = await fetchAllPages(async (from, to) => {
+        const { data, error } = await admin
+          .from('payment_connections')
+          .select('clinic_id')
+          .eq('status', 'connected')
+          .order('clinic_id', { ascending: true })
+          .range(from, to)
+        check(error)
+        return (data ?? []) as { clinic_id: string }[]
+      })
+      return data.map((r) => r.clinic_id)
     },
     getConnection: (clinicId) => getProviderForClinic(admin, clinicId),
-    async listCreatingGroups(clinicId) {
-      const { data, error } = await admin
-        .from('payments')
-        .select('charge_group_id, created_at')
-        .eq('clinic_id', clinicId)
-        .eq('provider_state', 'creating')
-        .not('charge_group_id', 'is', null)
-      check(error)
+    async listCreatingGroups(clinicId, alive) {
+      const data = await fetchAllPages(async (from, to) => {
+        const { data, error } = await admin
+          .from('payments')
+          .select('charge_group_id, created_at')
+          .eq('clinic_id', clinicId)
+          .eq('provider_state', 'creating')
+          .not('charge_group_id', 'is', null)
+          .order('id', { ascending: true })
+          .range(from, to)
+        check(error)
+        return (data ?? []) as { charge_group_id: string; created_at: string }[]
+      }, alive)
       const oldest = new Map<string, Date>()
-      for (const r of (data ?? []) as { charge_group_id: string; created_at: string }[]) {
+      for (const r of data) {
         const d = new Date(r.created_at)
         const prev = oldest.get(r.charge_group_id)
         if (!prev || d < prev) oldest.set(r.charge_group_id, d)
       }
       if (oldest.size === 0) return []
-      const { data: rows, error: rErr } = await admin
-        .from('payments')
-        .select('id, charge_group_id, installment_number, provider_charge_id, provider_state')
-        .eq('clinic_id', clinicId)
-        .in('charge_group_id', [...oldest.keys()])
-      check(rErr)
-      const byGroup = new Map<string, GroupRow[]>()
-      for (const r of (rows ?? []) as {
+      type Row = {
         id: string; charge_group_id: string; installment_number: number | null
         provider_charge_id: string | null; provider_state: GroupRow['providerState']
-      }[]) {
+      }
+      // Sem `alive` aqui: um grupo com linhas faltando seria comparado errado com o Asaas.
+      const rows = await fetchAllPages(async (from, to) => {
+        const { data, error } = await admin
+          .from('payments')
+          .select('id, charge_group_id, installment_number, provider_charge_id, provider_state')
+          .eq('clinic_id', clinicId)
+          .in('charge_group_id', [...oldest.keys()])
+          .order('id', { ascending: true })
+          .range(from, to)
+        check(error)
+        return (data ?? []) as Row[]
+      })
+      const byGroup = new Map<string, GroupRow[]>()
+      for (const r of rows) {
         const list = byGroup.get(r.charge_group_id) ?? []
         list.push({
           id: r.id,
@@ -659,41 +727,52 @@ export function createReconcileDeps(admin: SupabaseClient): ReconcileDeps {
         .eq('provider_state', 'creating')
       check(error)
     },
-    async listOpenChargeIds(clinicId) {
-      const { data, error } = await admin
-        .from('payments')
-        .select('provider_charge_id')
-        .eq('clinic_id', clinicId)
-        .in('status', ['pending', 'overdue'])
-        .not('provider_charge_id', 'is', null)
-        .order('due_date', { ascending: true })
-      check(error)
-      return ((data ?? []) as { provider_charge_id: string }[]).map((r) => r.provider_charge_id)
+    async listOpenChargeIds(clinicId, alive) {
+      const data = await fetchAllPages(async (from, to) => {
+        const { data, error } = await admin
+          .from('payments')
+          .select('provider_charge_id')
+          .eq('clinic_id', clinicId)
+          .in('status', ['pending', 'overdue'])
+          .not('provider_charge_id', 'is', null)
+          .order('due_date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+        check(error)
+        return (data ?? []) as { provider_charge_id: string }[]
+      }, alive)
+      return data.map((r) => r.provider_charge_id)
     },
-    async listStaleInvoices(clinicId, before) {
-      const { data, error } = await admin
-        .from('fiscal_invoices')
-        .select('provider_invoice_id, status')
-        .eq('clinic_id', clinicId)
-        .in('status', ['scheduled', 'cancelling'])
-        .lt('updated_at', before.toISOString())
-      check(error)
-      return ((data ?? []) as { provider_invoice_id: string; status: InvoiceStatus }[]).map((r) => ({
-        providerInvoiceId: r.provider_invoice_id,
-        status: r.status,
-      }))
+    async listStaleInvoices(clinicId, before, alive) {
+      const data = await fetchAllPages(async (from, to) => {
+        const { data, error } = await admin
+          .from('fiscal_invoices')
+          .select('provider_invoice_id, status')
+          .eq('clinic_id', clinicId)
+          .in('status', ['scheduled', 'cancelling'])
+          .lt('updated_at', before.toISOString())
+          .order('id', { ascending: true })
+          .range(from, to)
+        check(error)
+        return (data ?? []) as { provider_invoice_id: string; status: InvoiceStatus }[]
+      }, alive)
+      return data.map((r) => ({ providerInvoiceId: r.provider_invoice_id, status: r.status }))
     },
-    async listFailedEvents(clinicId, olderThan, newerThan) {
-      const { data, error } = await admin
-        .from('payment_events')
-        .select('id, clinic_id, payload')
-        .eq('clinic_id', clinicId)
-        .eq('status', 'failed')
-        .lt('received_at', olderThan.toISOString())
-        .gt('received_at', newerThan.toISOString())
-        .order('received_at', { ascending: true })
-      check(error)
-      return (data ?? []) as { id: string; clinic_id: string; payload: unknown }[]
+    async listFailedEvents(clinicId, olderThan, newerThan, alive) {
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await admin
+          .from('payment_events')
+          .select('id, clinic_id, payload')
+          .eq('clinic_id', clinicId)
+          .eq('status', 'failed')
+          .lt('received_at', olderThan.toISOString())
+          .gt('received_at', newerThan.toISOString())
+          .order('received_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+        check(error)
+        return (data ?? []) as { id: string; clinic_id: string; payload: unknown }[]
+      }, alive)
     },
     async purgeEvents(clinicId, before) {
       const { data, error } = await admin

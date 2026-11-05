@@ -263,6 +263,27 @@ describe('reprocessEvent', () => {
     expect(deps.getCharge).toHaveBeenCalledWith('c1', 'pay_1')
     expect(updates[0].patch).toMatchObject({ status: 'refunded' })
   })
+
+  it('reprocess UNDONE reopens paid when provider is open', async () => {
+    const { deps, updates } = makeDeps({ rows: [{ status: 'paid', paidAt: '2027-01-09', netAmountCents: 9650 }] })
+    const open = (status: string, dueDate: string) => ({
+      id: 'pay_1', installmentId: null, installmentNumber: null, status, deleted: false, valueCents: 10000,
+      netValueCents: null, dueDate, paidAt: null, invoiceUrl: null, externalReference: null,
+    })
+    deps.getCharge.mockResolvedValueOnce(open('PENDING', '2027-01-20'))
+    const body = chargeBody('PAYMENT_RECEIVED_IN_CASH_UNDONE', { status: 'PENDING', paymentDate: null })
+    expect(await reprocessEvent({ id: 'ev_9', clinic_id: 'c1', payload: body }, deps, NOW)).toBe('processed')
+    expect(updates[0]).toEqual({ id: 'p1', patch: { status: 'pending', paid_at: null, net_amount_cents: null } })
+    expect(deps.updatePayment).toHaveBeenCalledWith('c1', 'p1', expect.anything(), 'paid')
+  })
+
+  it('reprocess UNDONE keeps paid when provider says it is paid again', async () => {
+    const { deps, updates } = makeDeps({ rows: [{ status: 'paid', paidAt: '2027-01-09', netAmountCents: 9650 }] })
+    const body = chargeBody('PAYMENT_RECEIVED_IN_CASH_UNDONE', { status: 'PENDING', paymentDate: null })
+    // getCharge padrão devolve RECEIVED
+    expect(await reprocessEvent({ id: 'ev_9', clinic_id: 'c1', payload: body }, deps, NOW)).toBe('processed')
+    expect(updates).toEqual([])
+  })
 })
 
 describe('parseAsaasWebhook', () => {

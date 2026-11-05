@@ -152,9 +152,13 @@ async function processCharge(
     paid_at: payment.paidAt,
     amount_cents: payment.amountCents,
   }
-  const patch = reprocess
-    ? applyProviderStatus(state, charge, today)
-    : applyPaymentEvent(state, parsed.event, charge, today)
+  // applyProviderStatus nunca reabre um pago; o UNDONE guardado reabre se o provedor ainda estiver em aberto.
+  const providerOpen = !charge.deleted && (charge.status === 'PENDING' || charge.status === 'OVERDUE')
+  const patch = !reprocess
+    ? applyPaymentEvent(state, parsed.event, charge, today)
+    : parsed.event === 'PAYMENT_RECEIVED_IN_CASH_UNDONE' && providerOpen
+      ? applyPaymentEvent(state, 'PAYMENT_RECEIVED_IN_CASH_UNDONE', charge, today)
+      : applyProviderStatus(state, charge, today)
 
   let becamePaid = false
   if (patch) {

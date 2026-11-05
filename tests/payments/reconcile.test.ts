@@ -138,7 +138,7 @@ describe('reconcileAll', () => {
     const { deps, events } = makeDeps()
     deps.listStaleInvoices.mockResolvedValue([{ providerInvoiceId: 'inv_1', status: 'scheduled' }])
     const r = await reconcileAll(deps, NOW, FAR)
-    expect(deps.listStaleInvoices).toHaveBeenCalledWith('c1', ago(HOUR))
+    expect(deps.listStaleInvoices).toHaveBeenCalledWith('c1', ago(HOUR), expect.any(Function))
     expect(events.updateInvoice).toHaveBeenCalledWith(
       'c1', 'inv_1', expect.objectContaining({ status: 'authorized', number: '123' }), ['scheduled', 'error'],
     )
@@ -151,7 +151,7 @@ describe('reconcileAll', () => {
       { id: 'e2', clinic_id: 'c1', payload: { not: 'a webhook' } },
     ])
     const r = await reconcileAll(deps, NOW, FAR)
-    expect(deps.listFailedEvents).toHaveBeenCalledWith('c1', ago(5 * MIN), ago(7 * 24 * HOUR))
+    expect(deps.listFailedEvents).toHaveBeenCalledWith('c1', ago(5 * MIN), ago(7 * 24 * HOUR), expect.any(Function))
     expect(r.c1.reprocessed).toBe(1)
   })
   it('purges processed events older than 90 days', async () => {
@@ -211,5 +211,32 @@ describe('reconcileAll', () => {
     await reconcileAll(deps, NOW, deadline)
     // c1 tem 25 s de fatia: faz 2 chamadas (40 s) e para; c2 ainda roda com o que restou
     expect(provider.getCharge.mock.calls.map((c) => c[0])).toEqual(['a', 'b', 'z'])
+  })
+  it('scope creating only reconciles creating groups', async () => {
+    const { deps, provider } = makeDeps()
+    deps.listCreatingGroups.mockResolvedValue([{ groupId: 'g1', createdAt: ago(20 * MIN), rows: [row('p1', null)] }])
+    provider.listChargesByReference.mockResolvedValue([charge()])
+    deps.listOpenChargeIds.mockResolvedValue(['pay_1'])
+    const r = await reconcileAll(deps, NOW, FAR, { scope: 'creating' })
+    expect(r.c1.completed).toBe(1)
+    expect(deps.listOpenChargeIds).not.toHaveBeenCalled()
+    expect(provider.getCharge).not.toHaveBeenCalled()
+    expect(deps.listStaleInvoices).not.toHaveBeenCalled()
+    expect(deps.listFailedEvents).not.toHaveBeenCalled()
+    expect(deps.purgeEvents).not.toHaveBeenCalled()
+  })
+  it('passes the clinic deadline to the paged lists', async () => {
+    const { deps } = makeDeps()
+    let t = NOW.getTime()
+    deps.clock = () => t
+    await reconcileAll(deps, NOW, FAR)
+    for (const fn of [deps.listCreatingGroups, deps.listOpenChargeIds, deps.listStaleInvoices, deps.listFailedEvents]) {
+      const alive = fn.mock.calls[0].at(-1) as () => boolean
+      expect(typeof alive).toBe('function')
+    }
+    const alive = deps.listOpenChargeIds.mock.calls[0][1] as unknown as () => boolean
+    expect(alive()).toBe(true)
+    t = FAR.getTime()
+    expect(alive()).toBe(false)
   })
 })

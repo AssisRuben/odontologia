@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { normalizeCpf } from './cpf'
 import { splitInstallments, validateChargeInput } from './installments'
 import { toApiError } from './connection'
-import type { ChargeKind, PaymentProvider, ProviderCharge } from './provider'
+import { PaymentProviderError, type ChargeKind, type PaymentProvider, type ProviderCharge } from './provider'
 import type { ManualResult } from '@/lib/messaging/manual'
 
 export interface CreateChargeInput {
@@ -54,6 +54,8 @@ export interface ChargeDeps {
   findRecentDuplicate(
     clinicId: string, patientId: string, amountCents: number, description: string, since: Date,
   ): Promise<boolean>
+  /** Há grupo do paciente ainda 'creating' com o mesmo total e descrição (qualquer idade). */
+  findCreatingDuplicate(clinicId: string, patientId: string, amountCents: number, description: string): Promise<boolean>
   /** Insere as linhas 'creating' e devolve os ids, na ordem das parcelas. */
   insertCreatingRows(rows: CreatingRow[]): Promise<string[]>
   linkRows(clinicId: string, groupId: string, charges: ProviderCharge[]): Promise<void>
@@ -120,7 +122,10 @@ export async function createCharge(input: CreateChargeInput, deps: ChargeDeps, n
   if (conn.connection.status !== 'connected') return fail(409, 'asaas_invalid_key')
 
   const since = new Date(now.getTime() - DUPLICATE_WINDOW_MS)
-  if (await deps.findRecentDuplicate(clinicId, patientId, input.amountCents, description, since)) {
+  if (
+    (await deps.findRecentDuplicate(clinicId, patientId, input.amountCents, description, since)) ||
+    (await deps.findCreatingDuplicate(clinicId, patientId, input.amountCents, description))
+  ) {
     return fail(409, 'Cobrança igual criada há instantes')
   }
 
@@ -179,9 +184,10 @@ export async function createCharge(input: CreateChargeInput, deps: ChargeDeps, n
     })
   } catch (e) {
     const err = toApiError(e)
-    if (creating && err.status === 503) {
-      // Incerto se o Asaas criou: as linhas ficam 'creating' e a conferência completa ou apaga.
-      console.error('[payments/charges] Asaas sem resposta ao criar; aguardando conferência:', (e as Error).message)
+    const refused = e instanceof PaymentProviderError && (e.kind === 'validation' || e.kind === 'invalid_key')
+    if (creating && !refused) {
+      // Só recusa explícita garante que nada foi criado; no resto as linhas ficam 'creating' e a conferência completa ou apaga.
+      console.error('[payments/charges] resultado incerto ao criar no Asaas; aguardando conferência:', (e as Error).message)
       return { status: 201, body: { groupId, paymentIds, pending: true } }
     }
     if (err.status === 503) err.error = UNAVAILABLE_MSG

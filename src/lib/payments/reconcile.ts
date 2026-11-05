@@ -13,20 +13,25 @@ export interface ReconcileGroup {
 export interface ReconcileDeps {
   listConnectedClinics(): Promise<string[]>
   getConnection(clinicId: string): Promise<{ provider: PaymentProvider } | null>
-  /** Grupos com ao menos uma linha 'creating'. */
-  listCreatingGroups(clinicId: string): Promise<ReconcileGroup[]>
+  /** Grupos com ao menos uma linha 'creating'. `alive` limita a paginação ao prazo da clínica. */
+  listCreatingGroups(clinicId: string, alive?: () => boolean): Promise<ReconcileGroup[]>
   /** Completa só as linhas 'creating' do grupo, casando pelo número da parcela; devolve quantas. */
   completeRows(clinicId: string, groupId: string, charges: ProviderCharge[]): Promise<number>
   /** Apaga só as linhas 'creating' do grupo. */
   deleteRows(clinicId: string, groupId: string): Promise<void>
   /** provider_charge_id dos lançamentos pending/overdue. */
-  listOpenChargeIds(clinicId: string): Promise<string[]>
+  listOpenChargeIds(clinicId: string, alive?: () => boolean): Promise<string[]>
   /** Notas scheduled/cancelling atualizadas antes de `before`. */
-  listStaleInvoices(clinicId: string, before: Date): Promise<{ providerInvoiceId: string; status: InvoiceStatus }[]>
+  listStaleInvoices(
+    clinicId: string,
+    before: Date,
+    alive?: () => boolean,
+  ): Promise<{ providerInvoiceId: string; status: InvoiceStatus }[]>
   listFailedEvents(
     clinicId: string,
     olderThan: Date,
     newerThan: Date,
+    alive?: () => boolean,
   ): Promise<{ id: string; clinic_id: string; payload: unknown }[]>
   purgeEvents(clinicId: string, before: Date): Promise<number>
   markInvalidKey(clinicId: string): Promise<void>
@@ -65,7 +70,7 @@ async function reconcileGroups(
   res: ClinicReconcileResult,
   alive: () => boolean,
 ): Promise<void> {
-  for (const g of await deps.listCreatingGroups(clinicId)) {
+  for (const g of await deps.listCreatingGroups(clinicId, alive)) {
     if (!alive()) return
     const age = now.getTime() - g.createdAt.getTime()
     if (age <= CREATING_MIN_AGE) continue
@@ -106,7 +111,7 @@ async function reconcileOpenPayments(
 ): Promise<void> {
   const ev = deps.events
   const today = await ev.today(clinicId, now)
-  for (const chargeId of await deps.listOpenChargeIds(clinicId)) {
+  for (const chargeId of await deps.listOpenChargeIds(clinicId, alive)) {
     if (!alive()) return
     try {
       const payment = await ev.findPayment(clinicId, chargeId)
@@ -183,7 +188,7 @@ async function reconcileInvoices(
   res: ClinicReconcileResult,
   alive: () => boolean,
 ): Promise<void> {
-  const stale = await deps.listStaleInvoices(clinicId, new Date(now.getTime() - INVOICE_MIN_AGE))
+  const stale = await deps.listStaleInvoices(clinicId, new Date(now.getTime() - INVOICE_MIN_AGE), alive)
   for (const row of stale) {
     if (!alive()) return
     try {
@@ -208,6 +213,7 @@ async function reconcileEvents(
     clinicId,
     new Date(now.getTime() - EVENT_MIN_AGE),
     new Date(now.getTime() - EVENT_MAX_AGE),
+    alive,
   )
   for (const ev of failed) {
     if (!alive()) return
@@ -221,10 +227,14 @@ async function reconcileEvents(
   }
 }
 
+export type ReconcileScope = 'all' | 'creating'
+
+/** scope 'creating' roda só a etapa dos grupos 'creating' (agendamento a cada 15 min). */
 export async function reconcileAll(
   deps: ReconcileDeps,
   now: Date,
   deadline: Date,
+  opts: { scope?: ReconcileScope } = {},
 ): Promise<Record<string, ClinicReconcileResult>> {
   const clock = deps.clock ?? Date.now
   const out: Record<string, ClinicReconcileResult> = {}
@@ -241,6 +251,7 @@ export async function reconcileAll(
       const conn = await deps.getConnection(clinicId)
       if (!conn) continue
       await reconcileGroups(clinicId, conn.provider, deps, now, res, alive)
+      if (opts.scope === 'creating') continue
       await reconcileOpenPayments(clinicId, conn.provider, deps, now, res, alive)
       await reconcileInvoices(clinicId, conn.provider, deps, now, res, alive)
       await reconcileEvents(clinicId, deps, now, res, alive)

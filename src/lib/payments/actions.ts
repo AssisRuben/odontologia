@@ -31,13 +31,15 @@ export interface RowPatch {
 
 export interface ActionDeps {
   getPayment(clinicId: string, paymentId: string): Promise<ActionPayment | null>
-  getConnection(clinicId: string): Promise<{ provider: PaymentProvider } | null>
+  getConnection(clinicId: string): Promise<{ provider: PaymentProvider; connection: { nfse_auto: boolean } } | null>
   /** Linhas do grupo ainda em aberto (pending/overdue). */
   listUnpaidInGroup(clinicId: string, groupId: string): Promise<string[]>
   /** Só altera linhas ainda pending/overdue; devolve quantas foram alteradas. */
   updateRows(clinicId: string, ids: string[], patch: RowPatch): Promise<number>
   markInvalidKey(clinicId: string): Promise<void>
   today(clinicId: string, now: Date): Promise<string>
+  /** Emissão automática da nota (a mesma do webhook); lança em caso de falha. */
+  scheduleInvoice(clinicId: string, paymentId: string): Promise<void>
 }
 
 export type ActionResult =
@@ -58,10 +60,14 @@ function isRealDate(ymd: unknown): ymd is string {
 
 const isOpen = (p: ActionPayment) => p.status === 'pending' || p.status === 'overdue'
 
-async function providerFor(clinicId: string, p: ActionPayment, deps: ActionDeps) {
+async function connectionFor(clinicId: string, p: ActionPayment, deps: ActionDeps) {
   if (!p.providerChargeId) return null
-  const conn = await deps.getConnection(clinicId)
-  return conn ? conn.provider : undefined
+  return (await deps.getConnection(clinicId)) ?? undefined
+}
+
+async function providerFor(clinicId: string, p: ActionPayment, deps: ActionDeps) {
+  const conn = await connectionFor(clinicId, p, deps)
+  return conn ? conn.provider : conn
 }
 
 async function providerFailure(clinicId: string, e: unknown, deps: ActionDeps, tag: string): Promise<ActionResult> {
@@ -126,11 +132,11 @@ export async function markReceived(
     return fail(422, 'Data de pagamento inválida')
   }
 
-  const provider = await providerFor(clinicId, p, deps)
-  if (provider === undefined) return fail(409, NO_CONNECTION)
-  if (provider) {
+  const conn = await connectionFor(clinicId, p, deps)
+  if (conn === undefined) return fail(409, NO_CONNECTION)
+  if (conn) {
     try {
-      await provider.receiveInCash(p.providerChargeId!, input.paidAt, input.amountCents)
+      await conn.provider.receiveInCash(p.providerChargeId!, input.paidAt, input.amountCents)
     } catch (e) {
       return providerFailure(clinicId, e, deps, 'receive')
     }
@@ -138,6 +144,15 @@ export async function markReceived(
   const patch: RowPatch = { status: 'paid', paid_at: input.paidAt }
   if (input.method) patch.payment_method = input.method
   if ((await deps.updateRows(clinicId, [p.id], patch)) === 0) return fail(409, NOT_OPEN)
+  // O webhook do Asaas chega com o lançamento já pago e não emite a nota: emite aqui.
+  if (conn?.connection.nfse_auto) {
+    try {
+      await deps.scheduleInvoice(clinicId, p.id)
+    } catch (e) {
+      // A baixa foi gravada; a nota pode ser emitida manualmente.
+      console.error('[payments/receive] nota automática:', e instanceof Error ? e.message : 'Erro desconhecido')
+    }
+  }
   return { status: 200, body: { ok: true, ids: [p.id] } }
 }
 
