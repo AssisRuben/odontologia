@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   buildConnectionResponse, connect, disconnect, updateSettings, type SettingsPatch,
 } from '@/lib/payments/connection'
+import { getProviderForClinic } from '@/lib/payments'
 import { createSupabaseConnectionDeps, getPublicConnection } from '@/lib/payments/repo'
 
 export const dynamic = 'force-dynamic'
@@ -47,8 +48,16 @@ async function handle(
 export async function GET() {
   return handle('GET', async (clinicId, admin) => {
     const row = await getPublicConnection(admin, clinicId)
-    // fiscal (getFiscalStatus) entra na Task 10
-    return { status: 200, body: buildConnectionResponse(row, null) }
+    let fiscal: { configured: boolean; missing: string[] } | null = null
+    if (row && row.status === 'connected') {
+      try {
+        const conn = await getProviderForClinic(admin, clinicId)
+        fiscal = conn ? await conn.provider.getFiscalStatus() : null
+      } catch {
+        fiscal = null
+      }
+    }
+    return { status: 200, body: buildConnectionResponse(row, fiscal) }
   })
 }
 

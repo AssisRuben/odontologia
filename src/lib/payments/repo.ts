@@ -9,6 +9,8 @@ import type { LocalStatus } from './status'
 import { fromCents, toCents } from './money'
 import { sendPaymentLink } from './notify'
 import type { EventDeps, EventPayment, InvoiceStatus } from './events'
+import { scheduleInvoiceForPayment, type InvoiceDeps, type InvoicePayment } from './invoices'
+import type { ReconcileDeps, ReconcileGroup } from './reconcile'
 import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import { todayYmd } from '@/lib/messaging/time'
 
@@ -441,5 +443,253 @@ export function createEventDeps(admin: SupabaseClient, scheduleInvoice: EventDep
       check(error)
       return todayYmd(now, normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone)
     },
+  }
+}
+
+type InvoicePaymentRow = {
+  id: string; patient_id: string | null; status: LocalStatus; description: string | null; amount: number | string
+  charge_kind: InvoicePayment['chargeKind']; charge_group_id: string | null; installment_number: number | null
+  provider_charge_id: string | null; provider_installment_id: string | null; provider_state: 'creating' | 'active' | null
+}
+const INVOICE_PAYMENT_COLS =
+  'id, patient_id, status, description, amount, charge_kind, charge_group_id, installment_number, provider_charge_id, provider_installment_id, provider_state'
+
+function toInvoicePayment(r: InvoicePaymentRow): InvoicePayment {
+  return {
+    id: r.id,
+    patientId: r.patient_id,
+    status: r.status,
+    description: r.description,
+    amountCents: toCents(Number(r.amount)),
+    chargeKind: r.charge_kind,
+    chargeGroupId: r.charge_group_id,
+    installmentNumber: r.installment_number,
+    providerChargeId: r.provider_charge_id,
+    providerInstallmentId: r.provider_installment_id,
+    providerState: r.provider_state,
+  }
+}
+
+/** Dependências da emissão/cancelamento de NFS-e sobre o Supabase (service role). */
+export function createInvoiceDeps(admin: SupabaseClient): InvoiceDeps {
+  const charge = createChargeDeps(admin)
+  return {
+    async getPayment(clinicId, paymentId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select(INVOICE_PAYMENT_COLS)
+        .eq('id', paymentId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (error?.code === '22P02') return null
+      check(error)
+      return data ? toInvoicePayment(data as InvoicePaymentRow) : null
+    },
+    async listGroup(clinicId, groupId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select(INVOICE_PAYMENT_COLS)
+        .eq('clinic_id', clinicId)
+        .eq('charge_group_id', groupId)
+      check(error)
+      return ((data ?? []) as InvoicePaymentRow[]).map(toInvoicePayment)
+    },
+    async hasActiveInvoice(clinicId, paymentIds) {
+      if (paymentIds.length === 0) return false
+      const { count, error } = await admin
+        .from('fiscal_invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .in('payment_id', paymentIds)
+        .in('status', ['scheduled', 'authorized', 'cancelling'])
+      check(error)
+      return (count ?? 0) > 0
+    },
+    getConnection: (clinicId) => getProviderForClinic(admin, clinicId),
+    getPatient: (clinicId, patientId) => charge.getPatient(clinicId, patientId),
+    getCustomerId: (clinicId, patientId) => charge.getCustomerId(clinicId, patientId),
+    saveCustomerId: (clinicId, patientId, customerId) => charge.saveCustomerId(clinicId, patientId, customerId),
+    async insertInvoice(row) {
+      const { data, error } = await admin
+        .from('fiscal_invoices')
+        .insert({
+          clinic_id: row.clinicId,
+          payment_id: row.paymentId,
+          provider_invoice_id: row.providerInvoiceId,
+          status: row.status,
+          value: fromCents(row.valueCents),
+          description: row.description,
+        })
+        .select('id')
+        .single()
+      if (error?.code === '23505') return null
+      check(error)
+      return { id: (data as { id: string }).id }
+    },
+    async getInvoice(clinicId, invoiceId) {
+      const { data, error } = await admin
+        .from('fiscal_invoices')
+        .select('id, provider_invoice_id, status')
+        .eq('id', invoiceId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (error?.code === '22P02') return null
+      check(error)
+      const r = data as { id: string; provider_invoice_id: string; status: InvoiceStatus } | null
+      return r ? { id: r.id, providerInvoiceId: r.provider_invoice_id, status: r.status } : null
+    },
+    async markCancelling(clinicId, invoiceId) {
+      const { data, error } = await admin
+        .from('fiscal_invoices')
+        .update({ status: 'cancelling', updated_at: new Date().toISOString() })
+        .eq('id', invoiceId)
+        .eq('clinic_id', clinicId)
+        .eq('status', 'authorized')
+        .select('id')
+      check(error)
+      return (data?.length ?? 0) > 0
+    },
+    markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
+  }
+}
+
+/** Emissão automática a partir do webhook/conferência: erro vira exceção (o evento fica 'failed'). */
+export function createWebhookInvoiceScheduler(admin: SupabaseClient): EventDeps['scheduleInvoice'] {
+  const deps = createInvoiceDeps(admin)
+  return async (clinicId, paymentId, opts) => {
+    const r = await scheduleInvoiceForPayment(clinicId, paymentId, opts, deps)
+    if (r.status !== 200) throw new Error((r.body as { error: string }).error)
+  }
+}
+
+type GroupRow = ReconcileGroup['rows'][number]
+
+/** Dependências da conferência diária sobre o Supabase (service role). */
+export function createReconcileDeps(admin: SupabaseClient): ReconcileDeps {
+  return {
+    async listConnectedClinics() {
+      const { data, error } = await admin.from('payment_connections').select('clinic_id').eq('status', 'connected')
+      check(error)
+      return ((data ?? []) as { clinic_id: string }[]).map((r) => r.clinic_id)
+    },
+    getConnection: (clinicId) => getProviderForClinic(admin, clinicId),
+    async listCreatingGroups(clinicId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select('charge_group_id, created_at')
+        .eq('clinic_id', clinicId)
+        .eq('provider_state', 'creating')
+        .not('charge_group_id', 'is', null)
+      check(error)
+      const oldest = new Map<string, Date>()
+      for (const r of (data ?? []) as { charge_group_id: string; created_at: string }[]) {
+        const d = new Date(r.created_at)
+        const prev = oldest.get(r.charge_group_id)
+        if (!prev || d < prev) oldest.set(r.charge_group_id, d)
+      }
+      if (oldest.size === 0) return []
+      const { data: rows, error: rErr } = await admin
+        .from('payments')
+        .select('id, charge_group_id, installment_number, provider_charge_id, provider_state')
+        .eq('clinic_id', clinicId)
+        .in('charge_group_id', [...oldest.keys()])
+      check(rErr)
+      const byGroup = new Map<string, GroupRow[]>()
+      for (const r of (rows ?? []) as {
+        id: string; charge_group_id: string; installment_number: number | null
+        provider_charge_id: string | null; provider_state: GroupRow['providerState']
+      }[]) {
+        const list = byGroup.get(r.charge_group_id) ?? []
+        list.push({
+          id: r.id,
+          installmentNumber: r.installment_number,
+          providerChargeId: r.provider_charge_id,
+          providerState: r.provider_state,
+        })
+        byGroup.set(r.charge_group_id, list)
+      }
+      return [...oldest.entries()].map(([groupId, createdAt]) => ({ groupId, createdAt, rows: byGroup.get(groupId) ?? [] }))
+    },
+    async completeRows(clinicId, groupId, charges) {
+      let done = 0
+      for (const c of charges) {
+        let q = admin
+          .from('payments')
+          .update({
+            provider_charge_id: c.id,
+            provider_installment_id: c.installmentId,
+            invoice_url: c.invoiceUrl,
+            due_date: c.dueDate,
+            amount: fromCents(c.valueCents),
+            provider_state: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('clinic_id', clinicId)
+          .eq('charge_group_id', groupId)
+          .eq('provider_state', 'creating')
+        q = c.installmentNumber === null ? q.is('installment_number', null) : q.eq('installment_number', c.installmentNumber)
+        const { data, error } = await q.select('id')
+        check(error)
+        done += data?.length ?? 0
+      }
+      return done
+    },
+    async deleteRows(clinicId, groupId) {
+      const { error } = await admin
+        .from('payments')
+        .delete()
+        .eq('clinic_id', clinicId)
+        .eq('charge_group_id', groupId)
+        .eq('provider_state', 'creating')
+      check(error)
+    },
+    async listOpenChargeIds(clinicId) {
+      const { data, error } = await admin
+        .from('payments')
+        .select('provider_charge_id')
+        .eq('clinic_id', clinicId)
+        .in('status', ['pending', 'overdue'])
+        .not('provider_charge_id', 'is', null)
+      check(error)
+      return ((data ?? []) as { provider_charge_id: string }[]).map((r) => r.provider_charge_id)
+    },
+    async listStaleInvoices(clinicId, before) {
+      const { data, error } = await admin
+        .from('fiscal_invoices')
+        .select('provider_invoice_id, status')
+        .eq('clinic_id', clinicId)
+        .in('status', ['scheduled', 'cancelling'])
+        .lt('updated_at', before.toISOString())
+      check(error)
+      return ((data ?? []) as { provider_invoice_id: string; status: InvoiceStatus }[]).map((r) => ({
+        providerInvoiceId: r.provider_invoice_id,
+        status: r.status,
+      }))
+    },
+    async listFailedEvents(clinicId, olderThan, newerThan) {
+      const { data, error } = await admin
+        .from('payment_events')
+        .select('id, clinic_id, payload')
+        .eq('clinic_id', clinicId)
+        .eq('status', 'failed')
+        .lt('received_at', olderThan.toISOString())
+        .gt('received_at', newerThan.toISOString())
+        .order('received_at', { ascending: true })
+      check(error)
+      return (data ?? []) as { id: string; clinic_id: string; payload: unknown }[]
+    },
+    async purgeEvents(clinicId, before) {
+      const { data, error } = await admin
+        .from('payment_events')
+        .delete()
+        .eq('clinic_id', clinicId)
+        .eq('status', 'processed')
+        .lt('received_at', before.toISOString())
+        .select('id')
+      check(error)
+      return data?.length ?? 0
+    },
+    markInvalidKey: (clinicId) => markInvalidKey(admin, clinicId),
+    events: createEventDeps(admin, createWebhookInvoiceScheduler(admin)),
   }
 }

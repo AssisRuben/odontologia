@@ -112,7 +112,7 @@ function invoiceTransition(event: string, inv: ProviderInvoice): { patch: Invoic
   }
 }
 
-async function maybeScheduleInvoice(
+export async function maybeScheduleInvoice(
   clinicId: string,
   payment: EventPayment,
   deps: EventDeps,
