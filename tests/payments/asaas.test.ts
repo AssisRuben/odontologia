@@ -215,10 +215,11 @@ describe('AsaasProvider mapping', () => {
 
   it('registerWebhook sends authToken, SEQUENTIALLY and the event list', async () => {
     const { provider, calls } = make(() => res(200, webhookCreate))
-    const out = await provider.registerWebhook('https://app.test/api/webhooks/asaas', 'tok-xyz')
+    const out = await provider.registerWebhook('https://app.test/api/webhooks/asaas', 'tok-xyz', 'clinica@x.com')
     expect(out.webhookId).toBe(webhookCreate.id)
     expect(calls[0].body).toMatchObject({
       url: 'https://app.test/api/webhooks/asaas',
+      email: 'clinica@x.com',
       authToken: 'tok-xyz',
       sendType: 'SEQUENTIALLY',
       enabled: true,

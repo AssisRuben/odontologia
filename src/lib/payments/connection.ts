@@ -60,8 +60,9 @@ export async function connect(
 
   const provider = deps.makeProvider(apiKey, input.environment)
   let accountName: string
+  let accountEmail: string | null
   try {
-    accountName = (await provider.verifyKey()).accountName
+    ;({ accountName, email: accountEmail } = await provider.verifyKey())
   } catch (e) {
     if (e instanceof PaymentProviderError && e.kind === 'invalid_key') {
       return { ok: false, status: 422, error: 'Chave inválida para o ambiente escolhido' }
@@ -72,7 +73,7 @@ export async function connect(
   const token = generateWebhookToken(deps.randomHex)
   let webhookId: string
   try {
-    webhookId = (await provider.registerWebhook(deps.webhookUrl(), token)).webhookId
+    webhookId = (await provider.registerWebhook(deps.webhookUrl(), token, accountEmail)).webhookId
   } catch (e) {
     return { ok: false, ...toApiError(e) }
   }

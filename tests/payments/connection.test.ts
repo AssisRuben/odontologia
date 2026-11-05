@@ -7,14 +7,14 @@ import { markInvalidKey } from '@/lib/payments/repo'
 import { PaymentProviderError } from '@/lib/payments/provider'
 
 function setup(o: {
-  verify?: () => Promise<{ accountName: string }>
+  verify?: () => Promise<{ accountName: string; email: string | null }>
   existing?: StoredConnection | null
   saveFails?: boolean
   removeFails?: boolean
 } = {}) {
   const calls = {
     saved: [] as Record<string, unknown>[],
-    registered: [] as { url: string; token: string }[],
+    registered: [] as { url: string; token: string; email: string | null }[],
     removed: [] as { key: string; id: string }[],
     deleted: [] as string[],
     cleared: [] as string[],
@@ -22,9 +22,9 @@ function setup(o: {
   }
   const deps: ConnectionDeps = {
     makeProvider: (apiKey) => ({
-      verifyKey: o.verify ?? (async () => ({ accountName: 'Clínica X' })),
-      registerWebhook: async (url: string, token: string) => {
-        calls.registered.push({ url, token })
+      verifyKey: o.verify ?? (async () => ({ accountName: 'Clínica X', email: 'clinica@x.com' })),
+      registerWebhook: async (url: string, token: string, email: string | null) => {
+        calls.registered.push({ url, token, email })
         return { webhookId: 'wh_new' }
       },
       removeWebhook: async (id: string) => {
@@ -56,6 +56,7 @@ describe('connect', () => {
     expect(calls.registered).toHaveLength(1)
     expect(calls.registered[0].token).toMatch(/^[0-9a-f]{64}$/)
     expect(calls.registered[0].url).toBe('https://app.test/api/webhooks/asaas')
+    expect(calls.registered[0].email).toBe('clinica@x.com')
     expect(calls.saved[0]).toMatchObject({
       clinic_id: 'c1', provider: 'asaas', environment: 'sandbox', api_key: '$aact_key_1234',
       api_key_last4: '1234', account_name: 'Clínica X', webhook_id: 'wh_new',

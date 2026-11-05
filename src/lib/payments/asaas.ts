@@ -184,13 +184,14 @@ export class AsaasProvider implements PaymentProvider {
   async verifyKey() {
     const json = await this.request('GET', '/myAccount/commercialInfo')
     const o = asObject(json)
-    return { accountName: str(o?.companyName) ?? str(o?.name) ?? 'Conta Asaas' }
+    return { accountName: str(o?.companyName) ?? str(o?.name) ?? 'Conta Asaas', email: str(o?.email) ?? null }
   }
 
-  async registerWebhook(url: string, token: string) {
+  async registerWebhook(url: string, token: string, email: string | null) {
     const json = await this.request('POST', '/webhooks', {
       name: 'Odontologia',
       url,
+      ...(email ? { email } : {}),
       enabled: true,
       interrupted: false,
       apiVersion: 3,

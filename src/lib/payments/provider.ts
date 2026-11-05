@@ -46,8 +46,9 @@ export class PaymentProviderError extends Error {
 export type ChargeKind = 'avulsa' | 'carne' | 'cartao_parcelado'
 
 export interface PaymentProvider {
-  verifyKey(): Promise<{ accountName: string }>
-  registerWebhook(url: string, token: string): Promise<{ webhookId: string }>
+  /** email: e-mail da conta, avisado pelo Asaas se a fila de webhooks parar. */
+  verifyKey(): Promise<{ accountName: string; email: string | null }>
+  registerWebhook(url: string, token: string, email: string | null): Promise<{ webhookId: string }>
   removeWebhook(webhookId: string): Promise<void>
   ensureCustomer(c: {
     externalId: string
