@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { formatCurrency } from '@/lib/utils'
-import type { Payment, Expense } from '@/types'
+import type { Payment, Expense, FiscalInvoice } from '@/types'
 import AsaasBanner from '@/components/pagamentos/AsaasBanner'
+import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
 
 type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes'
 
@@ -17,15 +18,19 @@ export default function FinanceiroPage() {
   const [activeTab, setActiveTab] = useState<Tab>('painel')
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [payments, setPayments] = useState<Payment[]>([])
+  const [invoices, setInvoices] = useState<FiscalInvoice[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [reloadKey, setReloadKey] = useState(0)
+  const loadedMonth = useRef<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!clinicId) return
     async function load() {
-      setLoading(true)
       const supabase = createClient()
       const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+      // recarga após uma ação mantém a lista na tela (não perde avisos e janelas abertas)
+      if (loadedMonth.current !== start) setLoading(true)
       const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
 
       const [paymentsRes, expensesRes] = await Promise.all([
@@ -34,12 +39,20 @@ export default function FinanceiroPage() {
         supabase.from('expenses').select('*').eq('clinic_id', clinicId!)
           .gte('due_date', start).lte('due_date', end),
       ])
-      setPayments(paymentsRes.data || [])
+      const loaded: Payment[] = paymentsRes.data || []
+      setPayments(loaded)
+      if (loaded.length > 0) {
+        const { data: inv } = await supabase.from('fiscal_invoices').select('*').in('payment_id', loaded.map(p => p.id))
+        setInvoices((inv as FiscalInvoice[]) || [])
+      } else {
+        setInvoices([])
+      }
       setExpenses(expensesRes.data || [])
+      loadedMonth.current = start
       setLoading(false)
     }
     load()
-  }, [clinicId, currentMonth])
+  }, [clinicId, currentMonth, reloadKey])
 
   const recebido    = payments.filter((p) => p.status === 'paid').reduce((s, p) => s + p.amount, 0)
   const aReceber    = payments.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0)
@@ -215,6 +228,18 @@ export default function FinanceiroPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {payments.length > 0 && (
+                  <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+                    <h3 className="px-5 py-4 border-b border-[#E5E7EB] font-semibold text-[#111827]">Lançamentos do mês</h3>
+                    <ListaPagamentos
+                      payments={[...payments].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))}
+                      invoices={invoices}
+                      showPatient
+                      onChanged={() => setReloadKey(k => k + 1)}
+                    />
                   </div>
                 )}
 

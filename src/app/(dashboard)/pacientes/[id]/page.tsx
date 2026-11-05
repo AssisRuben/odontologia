@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, Phone, Edit2, Tag, Plus, ClipboardList,
-  Calendar, CheckCircle2, AlertCircle, Clock, User2, MessageCircle,
+  Calendar, Clock, User2, MessageCircle,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,7 +13,7 @@ import { getInitials, formatPhone, formatCurrency } from '@/lib/utils'
 import {
   parsePatientNotes, serializePatientNotes,
 } from '@/types'
-import type { Patient, Appointment, Payment, Prosthetic } from '@/types'
+import type { Patient, Appointment, Payment, Prosthetic, FiscalInvoice } from '@/types'
 import { Odontograma } from '@/components/paciente/Odontograma'
 import { ModalCategoria, CATEGORIA_COLORS } from '@/components/paciente/ModalCategoria'
 import { ModalEditarPaciente } from '@/components/paciente/ModalEditarPaciente'
@@ -23,6 +23,7 @@ import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
 import { useClinicStore } from '@/store/clinicStore'
 import { ModalEnviarWhatsApp } from '@/components/mensagens/ModalEnviarWhatsApp'
+import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
 import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
 import { normalizePhone } from '@/lib/messaging/phone'
 
@@ -52,14 +53,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'documentos',   label: 'Documentos' },
 ]
 
-const PAYMENT_METHOD_PT: Record<string, string> = {
-  credit_card: 'Cartão de Crédito',
-  health_plan: 'Convênio',
-  bank_slip:   'Boleto',
-  pix:         'PIX',
-  cash:        'Dinheiro',
-}
-
 const GENDER_PT: Record<string, string> = { M: 'Masculino', F: 'Feminino', O: 'Outro' }
 
 // ─── página ─────────────────────────────────────────────────────────────────
@@ -68,6 +61,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
   const [patient, setPatient]         = useState<Patient | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [payments, setPayments]       = useState<Payment[]>([])
+  const [invoices, setInvoices]       = useState<FiscalInvoice[]>([])
   const [prosthetics, setProsthetics] = useState<Prosthetic[]>([])
   const [loading, setLoading]         = useState(true)
   const [activeTab, setActiveTab]     = useState<Tab>('visao-geral')
@@ -95,6 +89,10 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
       setPatient(p)
       setAppointments(aptsRes.data || [])
       setPayments(paymentsRes.data || [])
+      if (paymentsRes.data?.length) {
+        const { data: inv } = await supabase.from('fiscal_invoices').select('*').in('payment_id', paymentsRes.data.map((x: Payment) => x.id))
+        setInvoices((inv as FiscalInvoice[]) || [])
+      }
       setProsthetics(prostRes.data || [])
       if (p) {
         const parsed = parsePatientNotes(p.notes)
@@ -106,10 +104,18 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     load()
   }, [params])
 
+  async function loadInvoices(list: Payment[]) {
+    if (list.length === 0) { setInvoices([]); return }
+    const { data } = await createClient().from('fiscal_invoices').select('*').in('payment_id', list.map(p => p.id))
+    setInvoices((data as FiscalInvoice[]) || [])
+  }
+
   async function reloadPayments() {
     if (!patient) return
-    const { data } = await createClient().from('payments').select('*').eq('patient_id', patient.id).order('due_date', { ascending: false })
+    const supabase = createClient()
+    const { data } = await supabase.from('payments').select('*').eq('patient_id', patient.id).order('due_date', { ascending: false })
     setPayments(data || [])
+    await loadInvoices(data || [])
   }
 
   async function handleSaveTags(newTags: string[]) {
@@ -392,50 +398,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                 </button>
               </div>
             </div>
-            {payments.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-sm text-[#9CA3AF]">
-                Nenhum pagamento registrado.
-              </div>
-            ) : (
-              <div className="divide-y divide-[#F3F4F6]">
-                {payments.map((pay) => {
-                  const statusConfig = {
-                    paid:    { label: 'Pago',     color: '#10B981', icon: CheckCircle2 },
-                    pending: { label: 'Pendente', color: '#F59E0B', icon: Clock },
-                    overdue: { label: 'Atrasado', color: '#EF4444', icon: AlertCircle },
-                    cancelled: { label: 'Cancelado', color: '#6B7280', icon: AlertCircle },
-                    refunded: { label: 'Estornado', color: '#6B7280', icon: AlertCircle },
-                  }[pay.status] || { label: pay.status, color: '#6B7280', icon: Clock }
-                  const Icon = statusConfig.icon
-
-                  return (
-                    <div key={pay.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 hover:bg-[#F9FAFB] transition-colors">
-                      <Icon className="w-4 h-4 shrink-0" style={{ color: statusConfig.color }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#111827] truncate">
-                          {pay.description || 'Pagamento'}
-                        </p>
-                        <p className="text-xs text-[#6B7280]">
-                          {pay.due_date && `Venc. ${format(parseISO(pay.due_date), 'dd/MM/yyyy')}`}
-                          {pay.payment_method && ` · ${PAYMENT_METHOD_PT[pay.payment_method] || pay.payment_method}`}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-[#111827]">
-                          {formatCurrency(pay.amount)}
-                        </p>
-                        <span
-                          className="text-xs font-medium"
-                          style={{ color: statusConfig.color }}
-                        >
-                          {statusConfig.label}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <ListaPagamentos payments={payments} invoices={invoices} onChanged={reloadPayments} />
 
             {/* Totalizador */}
             {payments.length > 0 && (
