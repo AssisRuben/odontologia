@@ -216,12 +216,14 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                             Recusar
                           </button>
                         )}
-                        {patient && (b.status === 'approved' || b.status === 'completed') && (
+                        {patient && (b.status === 'approved' || b.status === 'completed') && (total - (charged[b.id] ?? 0) <= 0.004 ? (
+                          <span className="px-3 h-7 inline-flex items-center text-xs text-[#6B7280]">Cobrado integralmente</span>
+                        ) : (
                           <button onClick={() => openCharge(b, Math.max(0, total - (charged[b.id] ?? 0)))}
                             className="px-3 h-7 rounded-lg bg-[#FFFBEB] text-[#B45309] text-xs font-medium hover:bg-[#FEF3C7] transition-colors">
                             Cobrar
                           </button>
-                        )}
+                        ))}
                         {b.status === 'approved' && (
                           <button onClick={() => updateStatus(b.id, 'completed')}
                             className="px-3 h-7 rounded-lg bg-[#EFF6FF] text-[#3B82F6] text-xs font-medium hover:bg-[#DBEAFE] transition-colors">

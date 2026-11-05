@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { formatCurrency } from '@/lib/utils'
 import { splitInstallments, validateChargeInput, MAX_INSTALLMENTS } from '@/lib/payments/installments'
-import { toCents } from '@/lib/payments/money'
+import { parseReaisInput } from '@/lib/payments/money'
 import { normalizeCpf } from '@/lib/payments/cpf'
 import { toDbPaidAt } from '@/lib/payments/dates'
 import { PAYMENT_METHOD_LABELS } from '@/types'
@@ -48,11 +48,6 @@ function ddmm(iso: string): string {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 }
 
-function parseReais(s: string): number {
-  const n = parseFloat(s.replace(/\./g, '').replace(',', '.'))
-  return Number.isFinite(n) ? n : 0
-}
-
 const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
 
 export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props) {
@@ -72,6 +67,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
   const [paidDate, setPaidDate] = useState(today)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const inFlight = useRef(false)
   const [notices, setNotices] = useState<string[] | null>(null)
 
   useEffect(() => {
@@ -92,7 +88,8 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
   const effectiveMode: Mode = mode ?? (asaasOk ? 'avulsa' : 'manual')
   const isAsaas = effectiveMode !== 'manual'
   const installmentCount = effectiveMode === 'avulsa' || effectiveMode === 'manual' ? 1 : count
-  const amountCents = toCents(parseReais(amount))
+  const parsedCents = parseReaisInput(amount)
+  const amountCents = parsedCents ?? 0
   const needCpf = isAsaas && !patient.cpf
 
   const waBlock = patient.whatsapp_opt_out
@@ -105,7 +102,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
     () => validateChargeInput({ amountCents, installmentCount, firstDueDate: dueForValidation, today }),
     [amountCents, installmentCount, dueForValidation, today],
   )
-  const amountOnlyError = effectiveMode === 'manual' && received
+  const amountOnlyError = parsedCents === null ? 'Valor inválido' : effectiveMode === 'manual' && received
     ? (amountCents > 0 ? null : 'Informe um valor maior que zero')
     : validation
   const dateMissing = !(effectiveMode === 'manual' && received ? paidDate : firstDue)
@@ -123,8 +120,10 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
     (effectiveMode !== 'manual' || !!clinicId) && (!isAsaas || asaasOk === true)
 
   async function handleSubmit() {
+    if (inFlight.current) return
+    inFlight.current = true
     setError('')
-    if (needCpf && !normalizeCpf(cpf)) { setError('CPF inválido'); return }
+    if (needCpf && !normalizeCpf(cpf)) { setError('CPF inválido'); inFlight.current = false; return }
     setSubmitting(true)
     try {
       if (effectiveMode === 'manual') {
@@ -178,6 +177,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
     } catch {
       setError('Não foi possível concluir. Verifique a conexão e tente novamente.')
     } finally {
+      inFlight.current = false
       setSubmitting(false)
     }
   }
