@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Patient, InsurancePlan } from '@/types'
+import { normalizeCpf } from '@/lib/payments/cpf'
 
 interface Props {
   open: boolean
@@ -35,6 +36,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
   const [state, setState]         = useState('')
   const [zip, setZip]             = useState('')
   const [optOut, setOptOut]   = useState(false)
+  const [payerName, setPayerName] = useState('')
+  const [payerCpf, setPayerCpf]   = useState('')
   const [plans, setPlans]         = useState<InsurancePlan[]>([])
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
@@ -57,6 +60,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
     setState(patient.address?.state || '')
     setZip(patient.address?.zip || '')
     setOptOut(!!patient.whatsapp_opt_out)
+    setPayerName(patient.payer_name || '')
+    setPayerCpf(patient.payer_cpf || '')
     setSaved(false)
     setError('')
 
@@ -70,6 +75,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) { setError('Nome é obrigatório.'); return }
+    const payerCpfDigits = payerCpf.trim() ? normalizeCpf(payerCpf) : null
+    if (payerCpf.trim() && !payerCpfDigits) { setError('CPF inválido'); return }
     setError('')
     setSaving(true)
     const supabase = createClient()
@@ -85,6 +92,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
         gender: gender || null,
         insurance_plan_id: planId || null,
         whatsapp_opt_out: optOut,
+        payer_name: payerName.trim() || null,
+        payer_cpf: payerCpfDigits,
         address: { street, number, neighborhood, city, state, zip },
       })
       .eq('id', patient.id)
@@ -231,6 +240,23 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
                   <input value={state} onChange={e => setState(e.target.value)} maxLength={2} placeholder="SP"
                     className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] uppercase" />
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Responsável pelo pagamento */}
+          <section>
+            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Responsável pelo pagamento (opcional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-[#111827] mb-1">Nome do responsável</label>
+                <input value={payerName} onChange={e => setPayerName(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#111827] mb-1">CPF do responsável</label>
+                <input value={payerCpf} onChange={e => setPayerCpf(e.target.value)} placeholder="000.000.000-00"
+                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
               </div>
             </div>
           </section>

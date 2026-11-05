@@ -304,6 +304,12 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                   {patient.cpf && (
                     <InfoRow label="CPF" value={patient.cpf} />
                   )}
+                  {(patient.payer_name || patient.payer_cpf) && (
+                    <InfoRow
+                      label="Responsável pelo pagamento"
+                      value={[patient.payer_name, patient.payer_cpf ? formatCpf(patient.payer_cpf) : null].filter(Boolean).join(' · ')}
+                    />
+                  )}
                   {patient.email && (
                     <InfoRow label="E-mail" value={patient.email} />
                   )}
@@ -488,6 +494,11 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
 }
 
 // ─── sub-componentes ─────────────────────────────────────────────────────────
+
+function formatCpf(d: string): string {
+  const n = d.replace(/\D/g, '')
+  return n.length === 11 ? `${n.slice(0, 3)}.${n.slice(3, 6)}.${n.slice(6, 9)}-${n.slice(9)}` : d
+}
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
