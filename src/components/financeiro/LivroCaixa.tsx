@@ -109,8 +109,8 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
     }
   }
 
-  function showPendingReceipts() {
-    setOnlyPending(true)
+  function showReceipts(pendingOnly: boolean) {
+    setOnlyPending(pendingOnly)
     receiptsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -150,12 +150,15 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
 
   const t = ledger?.totals
   const alerts = ledger?.alerts
-  const receipts = (ledger?.receipts ?? []).filter((r) => !onlyPending || !r.issuedAt)
+  const allReceipts = ledger?.receipts ?? []
+  const pendingCount = allReceipts.filter((r) => !r.issuedAt).length
+  const withoutCpfCount = allReceipts.filter((r) => !r.payerCpf).length
+  const receipts = allReceipts.filter((r) => !onlyPending || !r.issuedAt)
   const alertLines = alerts ? [
-    alerts.pendingReceipts > 0 && { text: `${alerts.pendingReceipts} recibo(s) do Receita Saúde pendente(s)`, target: 'recibos' as const },
-    alerts.receiptsWithoutCpf > 0 && { text: `${alerts.receiptsWithoutCpf} pagamento(s) sem CPF do pagador`, target: 'recibos' as const },
+    pendingCount > 0 && { text: `${pendingCount} recibo(s) do Receita Saúde pendente(s)`, target: 'pendentes' as const },
+    withoutCpfCount > 0 && { text: `${withoutCpfCount} pagamento(s) sem CPF válido do pagador`, target: 'recibos' as const },
     alerts.deductibleWithoutAttachment > 0 && { text: `${alerts.deductibleWithoutAttachment} despesa(s) dedutível(is) sem comprovante`, target: 'despesas' as const },
-  ].filter((x): x is { text: string; target: 'recibos' | 'despesas' } => !!x) : []
+  ].filter((x): x is { text: string; target: 'pendentes' | 'recibos' | 'despesas' } => !!x) : []
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -211,7 +214,7 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
             <ul className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1 text-sm text-[#92400E]">
               {alertLines.map((a) => (
                 <li key={a.text}>
-                  <button onClick={() => (a.target === 'recibos' ? showPendingReceipts() : onOpenDespesas())} className="text-left underline hover:no-underline">{a.text}</button>
+                  <button onClick={() => (a.target === 'despesas' ? onOpenDespesas() : showReceipts(a.target === 'pendentes'))} className="text-left underline hover:no-underline">{a.text}</button>
                 </li>
               ))}
             </ul>
@@ -241,7 +244,7 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
                             {ddmmyyyy(r.date)}
                           </p>
                           <p className="text-xs text-[#9CA3AF]">
-                            Paciente: {r.patientName} · {r.patientCpf ? formatCpf(r.patientCpf) : 'Sem CPF'}
+                            Paciente: {r.patientName} · {r.patientCpf ? formatCpf(r.patientCpf) : 'CPF ausente ou inválido'}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
@@ -262,7 +265,7 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
                           </>
                         ) : (
                           <>
-                            <span className="text-[#EF4444]">Sem CPF</span>
+                            <span className="text-[#EF4444]">CPF ausente ou inválido</span>
                             <Link href={`/pacientes/${r.patientId}`} className="hover:underline">Abrir paciente</Link>
                           </>
                         )}

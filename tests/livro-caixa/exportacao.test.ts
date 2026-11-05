@@ -69,6 +69,16 @@ describe('toCsv', () => {
     expect(csv).toContain('"Ana; ""filha""\nok"')
   })
 
+  it('neutralizes formula injection in text fields but not in money', () => {
+    const r = row({ description: '=HYPERLINK("x")', payerName: '+cmd', patientName: '-1', amountCents: -500 })
+    const line = toCsv(ledger([r])).split('\r\n')[1]
+    expect(line).toContain(`;"'=HYPERLINK(""x"")";`)
+    expect(line).toContain(";-5,00;'+cmd;")
+    expect(line).toContain(";'-1;")
+    const at = toCsv(ledger([row({ description: '@x' })])).split('\r\n')[1]
+    expect(at).toContain(";'@x;")
+  })
+
   it('keeps accents', () => {
     const csv = toCsv(ledger([row({ receiptIssued: false })]))
     expect(csv).toContain('Descrição')

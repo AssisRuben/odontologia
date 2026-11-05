@@ -94,6 +94,7 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
   // despesa já gravada nesta janela (se o comprovante falhar, salvar de novo atualiza em vez de duplicar)
   const savedRef = useRef<{ id: string; receipt_path?: string | null } | null>(expense ?? null)
   const inFlight = useRef(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!clinicId) return
@@ -143,6 +144,7 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
           // a despesa fica salva; o usuário anexa de novo
           onSaved()
           setFile(null)
+          if (fileRef.current) fileRef.current.value = ''
           setError(RECEIPT_FAILED_MSG)
           return
         }
@@ -195,6 +197,9 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
               className={inputCls}>
               {CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
             </select>
+            {form.category === 'tarifas' && (
+              <p className="text-xs text-[#92400E] mt-1.5">As tarifas do Asaas já entram sozinhas no livro-caixa. Lance aqui só tarifas de outros bancos.</p>
+            )}
             <div className="text-xs text-[#6B7280] mt-1.5">
               {editGroup ? (
                 <select aria-label="Grupo do Carnê-Leão" value={form.deductionGroup ?? ''}
@@ -253,7 +258,7 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
             <label htmlFor="dp-file" className="block text-sm font-medium text-[#111827] mb-1">
               {expense?.receipt_path ? 'Trocar comprovante' : 'Comprovante'}
             </label>
-            <input id="dp-file" type="file" accept={RECEIPT_TYPES.join(',')} capture="environment"
+            <input id="dp-file" ref={fileRef} type="file" accept={RECEIPT_TYPES.join(',')}
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
               className="block w-full text-sm text-[#374151]" />
             {fileError && <p className="text-xs text-red-600 mt-1">{fileError}</p>}

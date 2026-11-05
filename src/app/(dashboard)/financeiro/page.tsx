@@ -12,6 +12,7 @@ import AsaasBanner from '@/components/pagamentos/AsaasBanner'
 import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
 import ListaDespesas from '@/components/financeiro/ListaDespesas'
 import LivroCaixa from '@/components/financeiro/LivroCaixa'
+import { categoryLabel } from '@/lib/livro-caixa/categorias'
 
 type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes' | 'despesas' | 'livro'
 
@@ -241,7 +242,7 @@ export default function FinanceiroPage() {
                         <div key={exp.id} className="flex items-center justify-between py-2 border-b border-[#F3F4F6] last:border-0">
                           <div>
                             <p className="text-sm font-medium text-[#111827]">{exp.description}</p>
-                            <p className="text-xs text-[#9CA3AF]">{exp.category} · Vence {exp.due_date ? format(new Date(exp.due_date), 'dd/MM/yyyy') : '—'}</p>
+                            <p className="text-xs text-[#9CA3AF]">{categoryLabel(exp.category)} · Vence {exp.due_date ? format(new Date(exp.due_date), 'dd/MM/yyyy') : '—'}</p>
                           </div>
                           <span className="text-sm font-semibold text-[#EF4444]">{formatCurrency(exp.amount)}</span>
                         </div>

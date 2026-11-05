@@ -32,6 +32,11 @@ export default function ListaDespesas() {
   const fileInput = useRef<HTMLInputElement>(null)
   const attachTarget = useRef<Expense | null>(null)
 
+  function changeMonth(m: string) {
+    setLoading(true)
+    setMonth(m)
+  }
+
   const reload = useCallback(() => setReloadKey((k) => k + 1), [])
 
   useEffect(() => {
@@ -127,12 +132,12 @@ export default function ListaDespesas() {
     <div className="space-y-4 max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mês anterior"
+          <button onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Mês anterior"
             className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-base font-semibold text-[#111827] capitalize w-44 text-center">{monthLabel(month)}</span>
-          <button onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Próximo mês"
+          <button onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Próximo mês"
             className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -145,7 +150,7 @@ export default function ListaDespesas() {
 
       {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
-      <input ref={fileInput} type="file" className="hidden" accept={RECEIPT_TYPES.join(',')} capture="environment"
+      <input ref={fileInput} type="file" className="hidden" accept={RECEIPT_TYPES.join(',')}
         onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)} />
 
       {loading ? (

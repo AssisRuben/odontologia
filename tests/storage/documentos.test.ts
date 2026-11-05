@@ -9,6 +9,12 @@ describe('documentPath', () => {
     ).toBe('c1/p1/a b.pdf')
   })
 
+  it('falls back to the undecoded path on malformed percent sequences', () => {
+    expect(
+      documentPath('https://x.supabase.co/storage/v1/object/public/anneOdonto/c1/p1/100%.pdf'),
+    ).toBe('c1/p1/100%.pdf')
+  })
+
   it('keeps plain path', () => {
     expect(documentPath('c1/p1/a.pdf')).toBe('c1/p1/a.pdf')
   })

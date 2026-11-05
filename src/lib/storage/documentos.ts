@@ -7,7 +7,11 @@ export function documentPath(fileUrl: string): string {
   const idx = fileUrl.indexOf(PUBLIC_MARKER)
   if (idx === -1) return fileUrl
   const rest = fileUrl.slice(idx + PUBLIC_MARKER.length).split('?')[0]
-  return decodeURIComponent(rest)
+  try {
+    return decodeURIComponent(rest)
+  } catch {
+    return rest
+  }
 }
 
 /** Gera links temporários (1h). Caminhos que falharem ficam fora do mapa. */

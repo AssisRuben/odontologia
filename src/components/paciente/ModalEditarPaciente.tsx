@@ -77,6 +77,7 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
     if (!name.trim()) { setError('Nome é obrigatório.'); return }
     const payerCpfDigits = payerCpf.trim() ? normalizeCpf(payerCpf) : null
     if (payerCpf.trim() && !payerCpfDigits) { setError('CPF inválido'); return }
+    if (payerCpf.trim() && !payerName.trim()) { setError('Informe o nome do responsável'); return }
     setError('')
     setSaving(true)
     const supabase = createClient()

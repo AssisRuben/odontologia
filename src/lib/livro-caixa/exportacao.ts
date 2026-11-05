@@ -40,7 +40,11 @@ function pdfMoney(cents: number): string {
   return `${sign}R$ ${int},${String(abs % 100).padStart(2, '0')}`
 }
 
-function csvField(v: string): string {
+const VALOR_COLUMN = CSV_HEADER.indexOf('Valor')
+
+/** Campos de texto que começam com = + - @ ganham um apóstrofo (evita fórmula no Excel); o Valor fica numérico. */
+function csvField(v: string, i: number): string {
+  if (i !== VALOR_COLUMN && /^[=+\-@]/.test(v)) v = `'${v}`
   return /[;"\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
 }
 
@@ -80,7 +84,7 @@ export function toCsv(ledger: Ledger): string {
       r.kind === 'receita' && r.receiptIssued !== null ? (r.receiptIssued ? 'Sim' : 'Não') : '',
       r.attachmentPath ? attachmentFileName(r) : '',
     ]
-    lines.push(fields.map(csvField).join(';'))
+    lines.push(fields.map((f, i) => csvField(f, i)).join(';'))
   }
   return '﻿' + lines.join('\r\n') + '\r\n'
 }
