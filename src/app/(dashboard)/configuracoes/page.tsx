@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, ChevronRight } from 'lucide-react'
+import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, ChevronRight } from 'lucide-react'
 
 const configCards = [
   {
@@ -43,6 +43,13 @@ const configCards = [
     description: 'Crie e edite modelos de anamnese para seus pacientes.',
     icon: FileText,
     color: '#EF4444',
+  },
+  {
+    id: 'pagamentos',
+    title: 'Pagamentos',
+    description: 'Conecte o Asaas para cobranças, Pix, boleto e nota fiscal.',
+    icon: Wallet,
+    color: '#0EA5E9',
   },
 ]
 

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { formatCurrency } from '@/lib/utils'
 import type { Payment, Expense } from '@/types'
+import AsaasBanner from '@/components/pagamentos/AsaasBanner'
 
 type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes'
 
@@ -69,6 +70,7 @@ export default function FinanceiroPage() {
       <div className="bg-white border-b border-[#E5E7EB] px-4 sm:px-6 py-3 sm:py-4">
         <h1 className="text-lg sm:text-xl font-semibold text-[#111827]">Financeiro</h1>
       </div>
+      <AsaasBanner />
 
       <div className="bg-white border-b border-[#E5E7EB] px-2 sm:px-6 overflow-x-auto">
         <div className="flex min-w-max">
