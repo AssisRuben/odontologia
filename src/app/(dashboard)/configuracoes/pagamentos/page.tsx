@@ -43,7 +43,7 @@ function fmt(n: number | null | undefined): string {
 }
 
 export default function PagamentosConfigPage() {
-  const { clinicId } = useClinicStore()
+  const { clinicId, loading: clinicLoading } = useClinicStore()
   const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true
@@ -73,7 +73,7 @@ export default function PagamentosConfigPage() {
   const [saveError, setSaveError] = useState('')
 
   // CNPJ da clínica
-  const [hasCnpj, setHasCnpj] = useState<boolean | null>(null)
+  const [hasCnpj, setHasCnpj] = useState<boolean | 'error' | null>(null)
 
   const applyConnection = useCallback((data: Connection) => {
     setConn(data)
@@ -110,14 +110,20 @@ export default function PagamentosConfigPage() {
   }, [load])
 
   useEffect(() => {
-    if (!clinicId) return
+    if (!clinicId) {
+      if (clinicLoading) return
+      const t = setTimeout(() => { if (mounted.current) setHasCnpj('error') }, 0)
+      return () => clearTimeout(t)
+    }
     async function loadCnpj() {
       const supabase = createClient()
-      const { data } = await supabase.from('clinics').select('cnpj').eq('id', clinicId).single()
-      if (mounted.current) setHasCnpj(!!(data?.cnpj && String(data.cnpj).replace(/\D/g, '')))
+      const { data, error } = await supabase.from('clinics').select('cnpj').eq('id', clinicId).single()
+      if (!mounted.current) return
+      if (error || !data) { setHasCnpj('error'); return }
+      setHasCnpj(!!(data.cnpj && String(data.cnpj).replace(/\D/g, '')))
     }
     loadCnpj()
-  }, [clinicId])
+  }, [clinicId, clinicLoading])
 
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault()
@@ -177,7 +183,7 @@ export default function PagamentosConfigPage() {
     }
     body.fine_percent = fineN
     body.interest_percent_month = interestN
-    if (hasCnpj) {
+    if (hasCnpj !== false) {
       body.nfse_auto = nfseAuto
       body.nfse_description = nfseDescription.trim() || null
       body.nfse_service_code = nfseCode.trim() || null
@@ -225,7 +231,15 @@ export default function PagamentosConfigPage() {
           <h1 className="text-xl font-semibold text-[#111827]">Pagamentos</h1>
         </div>
 
-        {loadError && <p className={`${errCls} mb-4`}>{loadError}</p>}
+        {loadError && <div role="alert" className={`${errCls} mb-4 flex items-center justify-between gap-3`}>
+            <span>{loadError}</span>
+            {conn === null && (
+              <button type="button" onClick={load}
+                className="shrink-0 h-8 px-3 rounded-lg border border-red-200 text-red-700 text-sm hover:bg-red-100">
+                Tentar novamente
+              </button>
+            )}
+          </div>}
 
         {conn === null && !loadError ? (
           <div className="flex justify-center py-8">
@@ -257,16 +271,16 @@ export default function PagamentosConfigPage() {
               {showKeyForm && (
                 <form onSubmit={handleConnect} className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-[#111827] mb-1">Ambiente</label>
-                    <select value={environment} onChange={e => setEnvironment(e.target.value as Environment)}
+                    <label htmlFor="pg-ambiente" className="block text-sm font-medium text-[#111827] mb-1">Ambiente</label>
+                    <select id="pg-ambiente" value={environment} onChange={e => setEnvironment(e.target.value as Environment)}
                       disabled={connBusy} className={inputCls}>
                       <option value="sandbox">Teste (sandbox)</option>
                       <option value="production">Produção</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#111827] mb-1">Chave de API</label>
-                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
+                    <label htmlFor="pg-chave" className="block text-sm font-medium text-[#111827] mb-1">Chave de API</label>
+                    <input id="pg-chave" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
                       autoComplete="off" placeholder="Cole aqui a chave de API do Asaas"
                       disabled={connBusy} className={inputCls} />
                   </div>
@@ -276,7 +290,7 @@ export default function PagamentosConfigPage() {
                     </button>
                     {connected && (
                       <button type="button" disabled={connBusy}
-                        onClick={() => { setReplacing(false); setApiKey(''); setConnError('') }}
+                        onClick={() => { setReplacing(false); setApiKey(''); setConnError(''); setEnvironment(connected.environment) }}
                         className="h-10 px-4 rounded-lg border border-[#E5E7EB] text-sm text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50">
                         Cancelar
                       </button>
@@ -317,7 +331,7 @@ export default function PagamentosConfigPage() {
                 )
               )}
 
-              {connError && <p className={errCls}>{connError}</p>}
+              {connError && <p role="alert" className={errCls}>{connError}</p>}
             </div>
 
             {connected && (
@@ -327,13 +341,13 @@ export default function PagamentosConfigPage() {
                   <p className="text-sm font-semibold text-[#111827]">Multa e juros por atraso</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-[#111827] mb-1">Multa (%)</label>
-                      <input type="text" inputMode="decimal" value={fine} onChange={e => setFine(e.target.value)} className={inputCls} />
+                      <label htmlFor="pg-multa" className="block text-sm font-medium text-[#111827] mb-1">Multa (%)</label>
+                      <input id="pg-multa" type="text" inputMode="decimal" value={fine} onChange={e => setFine(e.target.value)} className={inputCls} />
                       <p className="text-xs text-[#6B7280] mt-1">De 0 a 2%.</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#111827] mb-1">Juros ao mês (%)</label>
-                      <input type="text" inputMode="decimal" value={interest} onChange={e => setInterest(e.target.value)} className={inputCls} />
+                      <label htmlFor="pg-juros" className="block text-sm font-medium text-[#111827] mb-1">Juros ao mês (%)</label>
+                      <input id="pg-juros" type="text" inputMode="decimal" value={interest} onChange={e => setInterest(e.target.value)} className={inputCls} />
                       <p className="text-xs text-[#6B7280] mt-1">De 0 a 1%.</p>
                     </div>
                   </div>
@@ -349,6 +363,11 @@ export default function PagamentosConfigPage() {
                     <p className="text-sm text-[#6B7280]">Carregando...</p>
                   ) : (
                     <>
+                      {hasCnpj === 'error' && (
+                        <p role="alert" className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          Não foi possível verificar o CNPJ da clínica
+                        </p>
+                      )}
                       {connected.fiscal === null ? (
                         <p className="text-sm text-[#6B7280]">Não foi possível consultar a configuração fiscal agora</p>
                       ) : connected.fiscal.configured ? (
@@ -371,17 +390,17 @@ export default function PagamentosConfigPage() {
                       )}
 
                       <div>
-                        <label className="block text-sm font-medium text-[#111827] mb-1">Descrição padrão do serviço</label>
-                        <input type="text" value={nfseDescription} onChange={e => setNfseDescription(e.target.value)} className={inputCls} />
+                        <label htmlFor="pg-descricao" className="block text-sm font-medium text-[#111827] mb-1">Descrição padrão do serviço</label>
+                        <input id="pg-descricao" type="text" value={nfseDescription} onChange={e => setNfseDescription(e.target.value)} className={inputCls} />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm font-medium text-[#111827] mb-1">Código do serviço</label>
-                          <input type="text" value={nfseCode} onChange={e => setNfseCode(e.target.value)} className={inputCls} />
+                          <label htmlFor="pg-codigo" className="block text-sm font-medium text-[#111827] mb-1">Código do serviço</label>
+                          <input id="pg-codigo" type="text" value={nfseCode} onChange={e => setNfseCode(e.target.value)} className={inputCls} />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-[#111827] mb-1">ISS (%)</label>
-                          <input type="text" inputMode="decimal" value={nfseIss} onChange={e => setNfseIss(e.target.value)} className={inputCls} />
+                          <label htmlFor="pg-iss" className="block text-sm font-medium text-[#111827] mb-1">ISS (%)</label>
+                          <input id="pg-iss" type="text" inputMode="decimal" value={nfseIss} onChange={e => setNfseIss(e.target.value)} className={inputCls} />
                           <p className="text-xs text-[#6B7280] mt-1">De 0 a 5%.</p>
                         </div>
                       </div>
@@ -394,7 +413,7 @@ export default function PagamentosConfigPage() {
                   )}
                 </div>
 
-                {saveError && <p className={errCls}>{saveError}</p>}
+                {saveError && <p role="alert" className={errCls}>{saveError}</p>}
 
                 <div className="flex items-center justify-between pt-1">
                   {saved && (
