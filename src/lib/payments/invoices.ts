@@ -43,9 +43,12 @@ export interface InvoiceDeps {
     clinicId: string
     paymentId: string
     providerInvoiceId: string
-    status: 'scheduled'
+    status: 'scheduled' | 'authorized'
     valueCents: number
     description: string
+    number?: string | null
+    pdfUrl?: string | null
+    xmlUrl?: string | null
   }): Promise<{ id: string } | null>
   getInvoice(clinicId: string, invoiceId: string): Promise<{ id: string; providerInvoiceId: string; status: InvoiceStatus } | null>
   /** authorized → cancelling; false se o status mudou. */
@@ -107,7 +110,11 @@ export async function scheduleInvoiceForPayment(
     return fail(409, 'Configure a alíquota do ISS em Configurações → Pagamentos')
   }
 
-  const valueCents = opts.valueCents ?? (isCardGroup ? group.reduce((s, r) => s + r.amountCents, 0) : target.amountCents)
+  const maxCents = isCardGroup ? group.reduce((s, r) => s + r.amountCents, 0) : target.amountCents
+  if (opts.valueCents !== undefined && opts.valueCents > maxCents) {
+    return fail(422, 'Valor da nota maior que o valor recebido')
+  }
+  const valueCents = opts.valueCents ?? maxCents
   const given = opts.description?.trim()
   const description =
     given || connection.nfse_description.replace(/\{descricao\}/g, () => (requested.description ?? ''))
@@ -149,7 +156,18 @@ export async function scheduleInvoiceForPayment(
   }
 
   let providerInvoiceId: string
+  let existing: { status: 'scheduled' | 'authorized'; number: string | null; pdfUrl: string | null; xmlUrl: string | null } = {
+    status: 'scheduled', number: null, pdfUrl: null, xmlUrl: null,
+  }
   try {
+    // Um timeout anterior pode ter deixado a nota criada no Asaas: reaproveita em vez de emitir de novo.
+    const found = await provider.findInvoiceByReference(target.id)
+    if (found) {
+      providerInvoiceId = found.id
+      if (found.status === 'AUTHORIZED') {
+        existing = { status: 'authorized', number: found.number, pdfUrl: found.pdfUrl, xmlUrl: found.xmlUrl }
+      }
+    } else {
     const inv = await provider.scheduleInvoice({
       chargeId,
       installmentId,
@@ -161,6 +179,7 @@ export async function scheduleInvoiceForPayment(
       externalReference: target.id,
     })
     providerInvoiceId = inv.id
+    }
   } catch (e) {
     return providerFailure(clinicId, e, deps, 'invoice')
   }
@@ -172,7 +191,7 @@ export async function scheduleInvoiceForPayment(
   let inserted: { id: string } | null
   try {
     inserted = await deps.insertInvoice({
-      clinicId, paymentId: target.id, providerInvoiceId, status: 'scheduled', valueCents, description,
+      clinicId, paymentId: target.id, providerInvoiceId, valueCents, description, ...existing,
     })
   } catch (e) {
     await cancelProvider()
@@ -191,6 +210,7 @@ export async function cancelInvoice(clinicId: string, invoiceId: string, deps: I
   if (inv.status !== 'authorized') return fail(409, 'Só é possível cancelar notas autorizadas')
   const conn = await deps.getConnection(clinicId)
   if (!conn) return fail(409, 'Conecte o Asaas em Configurações → Pagamentos')
+  if (conn.connection.status !== 'connected') return fail(409, 'asaas_invalid_key')
   try {
     await conn.provider.cancelInvoice(inv.providerInvoiceId)
   } catch (e) {

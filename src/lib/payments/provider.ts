@@ -86,5 +86,7 @@ export interface PaymentProvider {
   }): Promise<ProviderInvoice>
   cancelInvoice(id: string): Promise<void>
   getInvoice(id: string): Promise<ProviderInvoice>
+  /** Nota ativa (nem cancelada nem com erro) criada com esse externalReference; null se não houver. */
+  findInvoiceByReference(externalReference: string): Promise<ProviderInvoice | null>
   parseWebhook(body: unknown): ParsedWebhook | null
 }

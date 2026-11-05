@@ -343,6 +343,17 @@ export class AsaasProvider implements PaymentProvider {
     return inv
   }
 
+  async findInvoiceByReference(externalReference: string) {
+    const json = await this.request('GET', `/invoices?externalReference=${encodeURIComponent(externalReference)}&limit=100`)
+    const data = asObject(json)?.data
+    if (!Array.isArray(data)) throw bad('lista sem data')
+    for (const raw of data) {
+      const inv = mapInvoice(raw)
+      if (inv && inv.status !== 'CANCELED' && inv.status !== 'ERROR') return inv
+    }
+    return null
+  }
+
   parseWebhook(body: unknown): ParsedWebhook | null {
     return parseAsaasWebhook(body)
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { cancelInvoice, scheduleInvoiceForPayment, type InvoiceDeps, type InvoicePayment } from '@/lib/payments/invoices'
-import { PaymentProviderError } from '@/lib/payments'
+import { PaymentProviderError, type PaymentProvider } from '@/lib/payments'
 
 const base: InvoicePayment = {
   id: 'p1', patientId: 'pt1', status: 'paid', description: 'Limpeza', amountCents: 10000, chargeKind: 'avulsa',
@@ -10,11 +10,12 @@ const base: InvoicePayment = {
 
 function makeDeps(payment: Partial<InvoicePayment> | null = {}, over: { group?: InvoicePayment[]; iss?: number | null } = {}) {
   const provider = {
-    scheduleInvoice: vi.fn(async (_i: unknown) => ({
+    scheduleInvoice: vi.fn<PaymentProvider['scheduleInvoice']>(async () => ({
       id: 'inv_1', status: 'SCHEDULED', number: null, pdfUrl: null, xmlUrl: null, error: null, externalReference: 'p1',
     })),
-    cancelInvoice: vi.fn(async (_id: string) => {}),
-    ensureCustomer: vi.fn(async (_c: unknown) => 'cus_1'),
+    findInvoiceByReference: vi.fn<PaymentProvider['findInvoiceByReference']>(async () => null),
+    cancelInvoice: vi.fn<PaymentProvider['cancelInvoice']>(async () => {}),
+    ensureCustomer: vi.fn<PaymentProvider['ensureCustomer']>(async () => 'cus_1'),
   }
   const deps = {
     getPayment: vi.fn<InvoiceDeps['getPayment']>(async (_c, id) => (payment ? { ...base, id, ...payment } : null)),
@@ -53,7 +54,7 @@ describe('scheduleInvoiceForPayment', () => {
     })
     expect(deps.insertInvoice).toHaveBeenCalledWith({
       clinicId: 'c1', paymentId: 'p1', providerInvoiceId: 'inv_1', status: 'scheduled', valueCents: 10000,
-      description: 'Serviços odontológicos - Limpeza',
+      description: 'Serviços odontológicos - Limpeza', number: null, pdfUrl: null, xmlUrl: null,
     })
   })
   it("rejects unpaid → 409 'A nota só pode ser emitida para pagamentos recebidos'", async () => {
@@ -111,6 +112,25 @@ describe('scheduleInvoiceForPayment', () => {
     }))
     expect(deps.insertInvoice).toHaveBeenCalledWith(expect.objectContaining({ paymentId: 'p1', valueCents: 15001 }))
   })
+  it('reuses existing provider invoice by externalReference', async () => {
+    const { deps, provider } = makeDeps()
+    provider.findInvoiceByReference.mockResolvedValue({
+      id: 'inv_9', status: 'AUTHORIZED', number: '7', pdfUrl: 'pdf', xmlUrl: 'xml', error: null, externalReference: 'p1',
+    })
+    const r = await scheduleInvoiceForPayment('c1', 'p1', {}, deps)
+    expect(r.status).toBe(200)
+    expect(provider.findInvoiceByReference).toHaveBeenCalledWith('p1')
+    expect(provider.scheduleInvoice).not.toHaveBeenCalled()
+    expect(deps.insertInvoice).toHaveBeenCalledWith(expect.objectContaining({
+      providerInvoiceId: 'inv_9', status: 'authorized', number: '7', pdfUrl: 'pdf', xmlUrl: 'xml',
+    }))
+  })
+  it('value override above the received amount → 422', async () => {
+    const { deps, provider } = makeDeps()
+    const r = await scheduleInvoiceForPayment('c1', 'p1', { valueCents: 10001 }, deps)
+    expect(r).toEqual({ status: 422, body: { error: 'Valor da nota maior que o valor recebido' } })
+    expect(provider.scheduleInvoice).not.toHaveBeenCalled()
+  })
   it('opts override description and value', async () => {
     const { deps, provider } = makeDeps()
     await scheduleInvoiceForPayment('c1', 'p1', { description: 'Outra', valueCents: 9000 }, deps)
@@ -155,6 +175,13 @@ describe('cancelInvoice', () => {
     expect(r.status).toBe(200)
     expect(provider.cancelInvoice).toHaveBeenCalledWith('inv_1')
     expect(deps.markCancelling).toHaveBeenCalledWith('c1', 'fi1')
+  })
+  it('requires a connected connection', async () => {
+    const { deps, provider } = makeDeps()
+    deps.getConnection.mockResolvedValue({ provider: provider as never, connection: { status: 'invalid_key' } as never })
+    const r = await cancelInvoice('c1', 'fi1', deps)
+    expect(r).toEqual({ status: 409, body: { error: 'asaas_invalid_key' } })
+    expect(provider.cancelInvoice).not.toHaveBeenCalled()
   })
   it('unknown invoice → 404', async () => {
     const { deps } = makeDeps()

@@ -1,4 +1,3 @@
-import { fromDbPaidAt } from './dates'
 import { maybeScheduleInvoice, reprocessEvent, type EventDeps, type InvoicePatch, type InvoiceStatus } from './events'
 import { PaymentProviderError, type PaymentProvider, type ProviderCharge, type ProviderInvoice } from './provider'
 import { applyProviderStatus } from './status'
@@ -119,7 +118,7 @@ async function reconcileOpenPayments(
           due_date: payment.dueDate,
           hasAuthorizedInvoice: payment.hasAuthorizedInvoice,
           net_amount_cents: payment.netAmountCents,
-          paid_at: fromDbPaidAt(payment.paidAt),
+          paid_at: payment.paidAt,
           amount_cents: payment.amountCents,
         },
         charge,
@@ -163,7 +162,7 @@ function invoiceTransition(
         ? { patch: { status: 'error', error: inv.error ?? 'Erro na emissão da nota' }, from: ['scheduled'] }
         : null
     case 'CANCELED':
-      return { patch: { status: 'cancelled' }, from: ['cancelling', 'authorized'] }
+      return { patch: { status: 'cancelled' }, from: ['scheduled', 'cancelling', 'authorized'] }
     case 'CANCELLATION_DENIED':
       return local === 'cancelling'
         ? {
@@ -213,8 +212,7 @@ async function reconcileEvents(
   for (const ev of failed) {
     if (!alive()) return
     try {
-      await reprocessEvent(ev, deps.events, now)
-      res.reprocessed++
+      if ((await reprocessEvent(ev, deps.events, now)) === 'processed') res.reprocessed++
     } catch (e) {
       if (isInvalidKey(e)) throw e
       console.error(`[cron/payments] evento ${ev.id}:`, errMsg(e))
@@ -229,10 +227,14 @@ export async function reconcileAll(
   deadline: Date,
 ): Promise<Record<string, ClinicReconcileResult>> {
   const clock = deps.clock ?? Date.now
-  const alive = () => clock() < deadline.getTime()
   const out: Record<string, ClinicReconcileResult> = {}
-  for (const clinicId of await deps.listConnectedClinics()) {
-    if (!alive()) break
+  const clinics = await deps.listConnectedClinics()
+  for (let i = 0; i < clinics.length; i++) {
+    const clinicId = clinics[i]
+    if (clock() >= deadline.getTime()) break
+    // Cada clínica gasta no máximo uma fatia do tempo que resta, para uma lenta não esgotar as seguintes.
+    const clinicEnd = clock() + (deadline.getTime() - clock()) / (clinics.length - i)
+    const alive = () => clock() < clinicEnd
     const res: ClinicReconcileResult = { completed: 0, deleted: 0, updated: 0, invoices: 0, reprocessed: 0 }
     out[clinicId] = res
     try {

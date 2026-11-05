@@ -519,6 +519,9 @@ export function createInvoiceDeps(admin: SupabaseClient): InvoiceDeps {
           status: row.status,
           value: fromCents(row.valueCents),
           description: row.description,
+          number: row.number ?? null,
+          pdf_url: row.pdfUrl ?? null,
+          xml_url: row.xmlUrl ?? null,
         })
         .select('id')
         .single()
@@ -650,6 +653,7 @@ export function createReconcileDeps(admin: SupabaseClient): ReconcileDeps {
         .eq('clinic_id', clinicId)
         .in('status', ['pending', 'overdue'])
         .not('provider_charge_id', 'is', null)
+        .order('due_date', { ascending: true })
       check(error)
       return ((data ?? []) as { provider_charge_id: string }[]).map((r) => r.provider_charge_id)
     },

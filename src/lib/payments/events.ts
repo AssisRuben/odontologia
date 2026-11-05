@@ -101,7 +101,7 @@ function invoiceTransition(event: string, inv: ProviderInvoice): { patch: Invoic
     case 'INVOICE_ERROR':
       return { patch: { status: 'error', error: inv.error ?? 'Erro na emissão da nota' }, from: ['scheduled'] }
     case 'INVOICE_CANCELED':
-      return { patch: { status: 'cancelled' }, from: ['cancelling', 'authorized'] }
+      return { patch: { status: 'cancelled' }, from: ['scheduled', 'cancelling', 'authorized'] }
     case 'INVOICE_CANCELLATION_DENIED':
       return {
         patch: { status: 'authorized', error: inv.error ?? 'Cancelamento negado pela prefeitura' },

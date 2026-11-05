@@ -13,6 +13,7 @@ import webhookCreate from './fixtures/webhook-create.json'
 import whReceived from './fixtures/webhook-payment-received.json'
 import whInvoice from './fixtures/webhook-invoice-authorized.json'
 import invoiceCreate from './fixtures/invoice-create.json'
+import invoiceList from './fixtures/invoice-list.json'
 import error400 from './fixtures/error-400.json'
 import error401 from './fixtures/error-401.json'
 
@@ -273,5 +274,18 @@ describe('webhookUrl', () => {
     expect(webhookUrl()).toBe('https://tunnel.test/api/webhooks/asaas')
     delete process.env.ASAAS_WEBHOOK_BASE_URL
     expect(webhookUrl()).toBe('https://app.test/api/webhooks/asaas')
+  })
+})
+
+describe('findInvoiceByReference', () => {
+  it('queries by encoded externalReference and returns the first active invoice', async () => {
+    const { provider, calls } = make(() => res(200, invoiceList))
+    const inv = await provider.findInvoiceByReference('p 1')
+    expect(calls[0].url).toContain('/invoices?externalReference=p%201')
+    expect(inv?.id).toBe('inv_live')
+  })
+  it('returns null when only cancelled/error invoices exist', async () => {
+    const { provider } = make(() => res(200, { ...invoiceList, data: invoiceList.data.slice(0, 2) }))
+    expect(await provider.findInvoiceByReference('p1')).toBeNull()
   })
 })

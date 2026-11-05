@@ -181,6 +181,13 @@ describe('handleWebhook', () => {
     expect(invoiceUpdates[0].patch).toEqual({ status: 'error', error: 'CNAE inválido' })
   })
 
+  it('scheduled invoice cancelled in Asaas becomes cancelled', async () => {
+    const { deps, invoiceUpdates } = makeDeps({ invoiceStatus: 'scheduled' })
+    const r = await handleWebhook('tok', invoiceBody('INVOICE_CANCELED', { status: 'CANCELED' }), deps, NOW)
+    expect(r.result).toBe('processed')
+    expect(invoiceUpdates[0].patch).toEqual({ status: 'cancelled' })
+  })
+
   it('INVOICE_CANCELLATION_DENIED returns to authorized', async () => {
     const { deps, invoiceUpdates } = makeDeps({ invoiceStatus: 'cancelling' })
     await handleWebhook('tok', invoiceBody('INVOICE_CANCELLATION_DENIED', { status: 'CANCELLATION_DENIED', statusDescription: 'Prazo expirado' }), deps, NOW)

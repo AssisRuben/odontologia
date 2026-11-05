@@ -1,0 +1,12 @@
+{
+  "object": "list",
+  "hasMore": false,
+  "totalCount": 3,
+  "limit": 10,
+  "offset": 0,
+  "data": [
+    { "object": "invoice", "id": "inv_old", "status": "CANCELED", "externalReference": "p1", "payment": "pay_1" },
+    { "object": "invoice", "id": "inv_err", "status": "ERROR", "statusDescription": "Falha", "externalReference": "p1", "payment": "pay_1" },
+    { "object": "invoice", "id": "inv_live", "status": "SCHEDULED", "externalReference": "p1", "payment": "pay_1" }
+  ]
+}

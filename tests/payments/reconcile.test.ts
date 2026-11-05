@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { reconcileAll, type ReconcileDeps } from '@/lib/payments/reconcile'
-import { PaymentProviderError, type ProviderCharge } from '@/lib/payments'
+import { PaymentProviderError, type PaymentProvider, type ProviderCharge } from '@/lib/payments'
 
 const NOW = new Date('2027-01-10T15:00:00Z')
 const FAR = new Date('2027-01-10T15:00:50Z')
@@ -17,14 +17,14 @@ function charge(over: Partial<ProviderCharge> = {}): ProviderCharge {
 
 function makeDeps() {
   const provider = {
-    listChargesByReference: vi.fn(async (_r: string): Promise<ProviderCharge[]> => []),
-    getCharge: vi.fn(async (_id: string): Promise<ProviderCharge> => charge()),
-    getInvoice: vi.fn(async (_id: string) => ({
+    listChargesByReference: vi.fn<PaymentProvider['listChargesByReference']>(async () => []),
+    getCharge: vi.fn<PaymentProvider['getCharge']>(async () => charge()),
+    getInvoice: vi.fn<PaymentProvider['getInvoice']>(async () => ({
       id: 'inv_1', status: 'AUTHORIZED', number: '123', pdfUrl: 'pdf', xmlUrl: 'xml', error: null, externalReference: null,
     })),
   }
   const events = {
-    findPayment: vi.fn(async (_c: string, id: string) => ({
+    findPayment: vi.fn(async (...[, id]: [string, string]) => ({
       id: 'p1', providerChargeId: id, status: 'pending' as const, dueDate: '2027-02-01', amountCents: 10000, paidAt: null,
       netAmountCents: null, hasAuthorizedInvoice: false, chargeKind: 'avulsa' as const, chargeGroupId: 'g1', installmentNumber: null,
     })),
@@ -146,7 +146,10 @@ describe('reconcileAll', () => {
   })
   it('reprocesses failed events', async () => {
     const { deps } = makeDeps()
-    deps.listFailedEvents.mockResolvedValue([{ id: 'e1', clinic_id: 'c1', payload: { not: 'a webhook' } }])
+    deps.listFailedEvents.mockResolvedValue([
+      { id: 'e1', clinic_id: 'c1', payload: { id: 'evt1', event: 'INVOICE_AUTHORIZED', invoice: { id: 'inv_1', status: 'AUTHORIZED' } } },
+      { id: 'e2', clinic_id: 'c1', payload: { not: 'a webhook' } },
+    ])
     const r = await reconcileAll(deps, NOW, FAR)
     expect(deps.listFailedEvents).toHaveBeenCalledWith('c1', ago(5 * MIN), ago(7 * 24 * HOUR))
     expect(r.c1.reprocessed).toBe(1)
@@ -181,5 +184,32 @@ describe('reconcileAll', () => {
     const r = await reconcileAll(deps, NOW, new Date(NOW.getTime() - 1))
     expect(r).toEqual({})
     expect(deps.getConnection).not.toHaveBeenCalled()
+  })
+  it('scheduled invoice cancelled in Asaas becomes cancelled', async () => {
+    const { deps, provider, events } = makeDeps()
+    deps.listStaleInvoices.mockResolvedValue([{ providerInvoiceId: 'inv_1', status: 'scheduled' }])
+    provider.getInvoice.mockResolvedValue({
+      id: 'inv_1', status: 'CANCELED', number: null, pdfUrl: null, xmlUrl: null, error: null, externalReference: null,
+    })
+    const r = await reconcileAll(deps, NOW, FAR)
+    expect(events.updateInvoice).toHaveBeenCalledWith(
+      'c1', 'inv_1', { status: 'cancelled' }, ['scheduled', 'cancelling', 'authorized'],
+    )
+    expect(r.c1.invoices).toBe(1)
+  })
+  it('slow clinic does not starve the next clinic', async () => {
+    const { deps, provider } = makeDeps()
+    let t = NOW.getTime()
+    deps.clock = () => t
+    deps.listConnectedClinics.mockResolvedValue(['c1', 'c2'])
+    deps.listOpenChargeIds.mockImplementation(async (c) => (c === 'c1' ? ['a', 'b', 'c', 'd'] : ['z']))
+    provider.getCharge.mockImplementation(async () => {
+      t += 20_000 // cada chamada lenta consome 20 s
+      return charge()
+    })
+    const deadline = new Date(NOW.getTime() + 50_000)
+    await reconcileAll(deps, NOW, deadline)
+    // c1 tem 25 s de fatia: faz 2 chamadas (40 s) e para; c2 ainda roda com o que restou
+    expect(provider.getCharge.mock.calls.map((c) => c[0])).toEqual(['a', 'b', 'z'])
   })
 })
