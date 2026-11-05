@@ -9,9 +9,9 @@
 -- cole este arquivo inteiro > Run. Pode rodar mais de uma vez.
 -- (Bancos novos criados com supabase/schema.sql já vêm assim.)
 --
--- Depois de aplicar, para a conferência diária, descomente o bloco
--- cron.schedule no fim do arquivo, preencha <APP_URL> e <CRON_SECRET>
--- e rode só aquele bloco.
+-- Depois de aplicar, para a conferência diária e a conferência rápida
+-- das cobranças em criação, descomente os blocos cron.schedule no fim do
+-- arquivo, preencha <APP_URL> e <CRON_SECRET> e rode só aqueles blocos.
 -- ============================================================
 
 -- Extensões usadas pelo agendamento.
@@ -105,7 +105,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS payment_events_provider_uidx ON payment_events
 CREATE TABLE IF NOT EXISTS fiscal_invoices (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   clinic_id           UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
-  payment_id          UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  payment_id          UUID NOT NULL REFERENCES payments(id) ON DELETE RESTRICT,
   provider_invoice_id TEXT NOT NULL,
   status              TEXT NOT NULL CHECK (status IN ('scheduled','authorized','error','cancelling','cancelled')),
   number              TEXT,
@@ -142,6 +142,47 @@ ALTER TABLE fiscal_invoices     ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "clinic_member_select" ON fiscal_invoices;
 CREATE POLICY "clinic_member_select" ON fiscal_invoices FOR SELECT TO authenticated
   USING (clinic_id IN (SELECT public.user_clinic_ids()));
+
+-- ── Proteção dos lançamentos do Asaas ───────────────────────
+-- Usuário logado (cliente do navegador) não altera nem apaga lançamento do
+-- Asaas, nem transforma um manual em um do Asaas: isso passa pelas rotas da
+-- API. O servidor (service role) não é afetado. Nota emitida segura o
+-- lançamento (ON DELETE RESTRICT).
+
+ALTER TABLE fiscal_invoices DROP CONSTRAINT IF EXISTS fiscal_invoices_payment_id_fkey;
+ALTER TABLE fiscal_invoices ADD CONSTRAINT fiscal_invoices_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE RESTRICT;
+
+CREATE OR REPLACE FUNCTION public.payments_guard_provider_rows()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.role() = 'authenticated' THEN
+    IF OLD.charge_kind <> 'manual' THEN
+      RAISE EXCEPTION 'Lançamentos do Asaas só podem ser alterados pelo sistema';
+    END IF;
+    IF TG_OP = 'UPDATE' AND (
+         NEW.charge_kind <> 'manual'
+         OR NEW.provider_charge_id IS DISTINCT FROM OLD.provider_charge_id
+         OR NEW.provider_installment_id IS DISTINCT FROM OLD.provider_installment_id
+         OR NEW.provider_state IS DISTINCT FROM OLD.provider_state
+         OR NEW.invoice_url IS DISTINCT FROM OLD.invoice_url
+       ) THEN
+      RAISE EXCEPTION 'Lançamentos do Asaas só podem ser alterados pelo sistema';
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS payments_guard_provider_rows ON payments;
+CREATE TRIGGER payments_guard_provider_rows
+  BEFORE UPDATE OR DELETE ON payments
+  FOR EACH ROW EXECUTE FUNCTION public.payments_guard_provider_rows();
 
 -- ── Seed das 6 configurações padrão de uma clínica ──────────
 -- Tudo desligado (enabled = false). Os textos devem ficar iguais a
@@ -194,3 +235,16 @@ UPDATE message_settings SET template = 'Olá, {paciente}. Identificamos um pagam
 -- $$);
 --
 -- Para remover: SELECT cron.unschedule('payments-reconcile');
+--
+-- Conferência rápida das cobranças ainda em criação (o Asaas não respondeu
+-- na hora), a cada 15 minutos. Mesmas trocas de <APP_URL> e <CRON_SECRET>:
+--
+-- SELECT cron.schedule('payments-creating', '*/15 * * * *', $$
+--   SELECT net.http_post(
+--     url := '<APP_URL>/api/cron/payments?scope=creating',
+--     headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>'),
+--     timeout_milliseconds := 60000
+--   )
+-- $$);
+--
+-- Para remover: SELECT cron.unschedule('payments-creating');

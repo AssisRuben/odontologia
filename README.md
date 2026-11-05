@@ -172,6 +172,8 @@ Conferência diária (garante que nenhum pagamento fique desatualizado): no fim 
 curl -X POST <APP_URL>/api/cron/payments -H "Authorization: Bearer <CRON_SECRET>"
 ```
 
+Conferência rápida das cobranças em criação (quando o Asaas não responde na hora, a cobrança fica "sendo criada"): logo abaixo há um segundo bloco, `cron.schedule('payments-creating', '*/15 * * * *', …)`, que chama `<APP_URL>/api/cron/payments?scope=creating` **a cada 15 minutos** e só confere essas cobranças. Descomente, faça as mesmas trocas e rode só esse bloco. Sem ele, essas cobranças só se resolvem na conferência diária.
+
 No PowerShell use `curl.exe` no lugar de `curl`.
 
 ### 3. Webhook e teste local

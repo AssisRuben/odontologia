@@ -65,3 +65,45 @@ describe('2026-11-04-cobranca-asaas.sql', () => {
     expect(sql).toContain(`SET template = '${novo}'`)
   })
 })
+
+describe.each(['2026-11-04-cobranca-asaas.sql', 'schema.sql'])('%s proteção dos lançamentos', (file) => {
+  const sql = read(file)
+
+  it('fiscal_invoices.payment_id é ON DELETE RESTRICT (recriado pelo nome)', () => {
+    const drop = sql.indexOf('ALTER TABLE fiscal_invoices DROP CONSTRAINT IF EXISTS fiscal_invoices_payment_id_fkey;')
+    const add = sql.indexOf(
+      'ALTER TABLE fiscal_invoices ADD CONSTRAINT fiscal_invoices_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE RESTRICT;',
+    )
+    expect(drop).toBeGreaterThan(-1)
+    expect(add).toBeGreaterThan(drop)
+    expect(sql).not.toMatch(/payment_id\s+UUID NOT NULL REFERENCES payments\(id\) ON DELETE CASCADE/)
+  })
+
+  it('gatilho impede o usuário logado de alterar ou apagar lançamentos do Asaas', () => {
+    const fn = sql.indexOf('CREATE OR REPLACE FUNCTION public.payments_guard_provider_rows()')
+    const drop = sql.indexOf('DROP TRIGGER IF EXISTS payments_guard_provider_rows ON payments;')
+    const create = sql.indexOf('CREATE TRIGGER payments_guard_provider_rows')
+    expect(fn).toBeGreaterThan(-1)
+    expect(drop).toBeGreaterThan(fn)
+    expect(create).toBeGreaterThan(drop)
+    expect(sql.slice(create)).toMatch(
+      /^CREATE TRIGGER payments_guard_provider_rows\s+BEFORE UPDATE OR DELETE ON payments\s+FOR EACH ROW EXECUTE FUNCTION public\.payments_guard_provider_rows\(\);/,
+    )
+    const body = sql.slice(fn, drop)
+    expect(body).toContain("auth.role() = 'authenticated'")
+    expect(body).toContain("OLD.charge_kind <> 'manual'")
+    expect(body).toContain("RAISE EXCEPTION 'Lançamentos do Asaas só podem ser alterados pelo sistema'")
+    expect(body).toContain("NEW.charge_kind <> 'manual'")
+    for (const col of ['provider_charge_id', 'provider_installment_id', 'provider_state', 'invoice_url']) {
+      expect(body).toContain(`NEW.${col} IS DISTINCT FROM OLD.${col}`)
+    }
+  })
+})
+
+describe('2026-11-04-cobranca-asaas.sql agendamento', () => {
+  it('traz o agendamento de 15 em 15 min dos grupos creating', () => {
+    const sql = read('2026-11-04-cobranca-asaas.sql')
+    expect(sql).toContain("-- SELECT cron.schedule('payments-creating', '*/15 * * * *', $$")
+    expect(sql).toContain("--     url := '<APP_URL>/api/cron/payments?scope=creating',")
+  })
+})
