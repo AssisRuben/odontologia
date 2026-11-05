@@ -144,6 +144,62 @@ Privacidade: o app só guarda mensagens recebidas de pacientes cadastrados (ou d
 
 ---
 
+## Cobrança integrada (Asaas)
+
+O app pode gerar cobranças (Pix, boleto, cartão), enviar o link ao paciente pelo WhatsApp e dar baixa sozinho quando o pagamento cai. Quem processa o dinheiro é o **Asaas**: cada clínica usa a **sua própria conta** lá.
+
+### O que o app faz
+
+- **À vista:** um link em que o paciente escolhe Pix, boleto ou cartão.
+- **Carnê:** boletos mensais, cada um com QR code Pix.
+- **Cartão parcelado:** até 12x.
+- **Registrar sem link:** para dinheiro, maquininha própria ou convênio.
+- O link vai pelo WhatsApp da clínica; as notificações do próprio Asaas ficam desligadas. O status do pagamento atualiza automaticamente. Multa e juros padrão: 2% e 1% ao mês.
+
+### 1. Conta e chave de API
+
+- Teste: conta no sandbox, <https://sandbox.asaas.com>. Produção: <https://www.asaas.com>.
+- A chave fica no painel do Asaas em **Integrações** → **Chaves de API**.
+- No app: **Configurações** → **Pagamentos**, escolha **Teste (sandbox)** ou **Produção** e cole a chave. O app cadastra o webhook sozinho.
+
+### 2. Banco
+
+No SQL Editor do Supabase, aplique [`supabase/2026-11-04-cobranca-asaas.sql`](supabase/2026-11-04-cobranca-asaas.sql) (pode rodar de novo sem problema).
+
+Conferência diária (garante que nenhum pagamento fique desatualizado): no fim desse arquivo há um bloco `cron.schedule('payments-reconcile', '0 9 * * *', …)` comentado. Descomente, troque `<APP_URL>` e `<CRON_SECRET>` e rode só esse bloco. Ele roda todo dia às 06:00 (Brasília). Para disparar à mão:
+
+```bash
+curl -X POST <APP_URL>/api/cron/payments -H "Authorization: Bearer <CRON_SECRET>"
+```
+
+No PowerShell use `curl.exe` no lugar de `curl`.
+
+### 3. Webhook e teste local
+
+O Asaas avisa o app em `<ASAAS_WEBHOOK_BASE_URL ou APP_URL>/api/webhooks/asaas`. Esse endereço precisa ser **HTTPS público**, acessível pelo Asaas.
+
+Para testar no seu computador, use um túnel:
+
+1. `npx cloudflared tunnel --url http://localhost:3001` (use a porta do seu `npm run dev`).
+2. No `.env.local`, defina `ASAAS_WEBHOOK_BASE_URL` com o endereço do túnel e reinicie o `npm run dev`.
+3. Em **Configurações** → **Pagamentos**, (re)conecte a chave para o webhook apontar para o túnel.
+
+Sem túnel, os pagamentos ainda são atualizados pela conferência diária (ou disparando-a à mão, como acima).
+
+### 4. Nota fiscal (NFS-e)
+
+Só para clínicas com **CNPJ**. A parte fiscal (inscrição municipal, certificado digital etc.) é configurada no **painel do Asaas**. No app, defina descrição, código do serviço (padrão 4.12), alíquota de ISS e, se quiser, **Emitir automaticamente ao receber**. Cada nota custa cerca de R$ 0,49 no Asaas. Dentista como pessoa física não é coberto (livro-caixa/Carnê-Leão fica para o futuro).
+
+### Taxas e limites
+
+- O Asaas cobra taxa por pagamento recebido; consulte a tabela oficial: <https://www.asaas.com/precos-e-taxas>.
+- Máximo de 12 parcelas; mínimo de R$ 5,00 por parcela.
+- Parcelas de cartão não podem ser marcadas como recebidas em dinheiro.
+- Estornos são feitos no painel do Asaas.
+- Cobranças criadas direto no painel do Asaas não são importadas para o app.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`
