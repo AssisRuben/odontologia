@@ -13,6 +13,8 @@ const configs: Record<MessageType, MessageSetting['config']> = {
   birthday: {},
   charge: { offset_days: [1, 7] },
   payment_due: { offset_days: [3] },
+  budget: {},
+  budget_reminder: { offset_days: [3, 7] },
 }
 function settings(over: Partial<Record<MessageType, boolean>> = {}): MessageSetting[] {
   return (Object.keys(configs) as MessageType[]).map((type) => ({

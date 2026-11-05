@@ -54,6 +54,9 @@ export function dedupeKey(
       return `charge:${parts.paymentId}:${parts.offsetDays}`
     case 'payment_due':
       return `payment_due:${parts.paymentId}:${parts.offsetDays}`
+    case 'budget':
+    case 'budget_reminder':
+      return `${type}:${parts.patientId}` // Task 5 define a chave definitiva dos lembretes
   }
 }
 
@@ -251,6 +254,9 @@ export function planMessages(input: PlanInput): QueueItem[] {
       case 'payment_due':
         out.push(...planCharges(c, setting.type))
         break
+      case 'budget':
+      case 'budget_reminder':
+        break // lembretes de orçamento: Task 5
     }
   }
   return out

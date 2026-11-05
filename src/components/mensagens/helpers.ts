@@ -30,6 +30,8 @@ export const SETTING_META: Record<MessageType, { title: string; description: str
   birthday: { title: 'Aniversariantes', description: 'Envie felicitações automáticas no dia do aniversário dos seus pacientes.' },
   charge: { title: 'Inadimplentes', description: 'Notifique pacientes com pagamentos em atraso.' },
   payment_due: { title: 'Lembrete de vencimento', description: 'Avisa o paciente antes do vencimento de uma cobrança.' },
+  budget: { title: 'Envio de orçamento', description: 'Texto da mensagem com o link do orçamento.' },
+  budget_reminder: { title: 'Lembrete de orçamento', description: 'Avisa o paciente que o orçamento ainda está disponível.' },
 }
 
 export const KIND_LABELS: Record<MessageKind, string> = {
@@ -39,6 +41,8 @@ export const KIND_LABELS: Record<MessageKind, string> = {
   birthday: 'Aniversário',
   charge: 'Cobrança',
   payment_due: 'Lembrete de vencimento',
+  budget: 'Orçamento',
+  budget_reminder: 'Lembrete de orçamento',
   manual: 'Manual',
   auto_reply: 'Resposta automática',
   incoming: 'Recebida',
@@ -141,7 +145,15 @@ export function validateConfig(type: MessageType, form: ConfigForm): ConfigResul
       return { ok: true, config: { offset_days: unique } }
     }
     case 'birthday':
+    case 'budget':
       return { ok: true, config: {} }
+    case 'budget_reminder': {
+      const nums = form.days.map((d) => parseIntInRange(d, 1, 60))
+      if (nums.length === 0 || nums.some((n) => n === null)) {
+        return { ok: false, error: 'Informe os dias após o envio como números inteiros de 1 a 60.' }
+      }
+      return { ok: true, config: { offset_days: [...new Set(nums as number[])].sort((a, b) => a - b) } }
+    }
   }
 }
 

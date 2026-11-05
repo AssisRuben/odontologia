@@ -12,6 +12,8 @@ export const DEFAULT_TEMPLATES: Record<MessageType, string> = {
   birthday: 'Feliz aniversário, {paciente}! 🎉 A equipe da {clinica} deseja um dia muito especial para você.',
   charge: 'Olá, {paciente}. Identificamos um pagamento de {valor} com vencimento em {vencimento} ainda em aberto na {clinica}. Se já pagou, desconsidere esta mensagem.\n\n{link}',
   payment_due: 'Olá, {paciente}! Sua parcela de {valor} na {clinica} vence em {vencimento}. Pague por aqui: {link}',
+  budget: 'Olá, {paciente}! Segue seu orçamento da {clinica}, no valor de {valor}. Para ver os detalhes e aprovar: {link}',
+  budget_reminder: 'Olá, {paciente}! Seu orçamento na {clinica} ainda está disponível até {vencimento}. Para ver e aprovar: {link}',
 }
 
 /** Textos dos envios manuais de cobrança (não são configuráveis). */
@@ -45,10 +47,11 @@ export function buildContext(args: {
   tz: string
   appointment?: AppointmentRow
   payment?: PaymentRow
+  budget?: { total: number; valid_until: string | null }
   /** Sobrepõe o link do pagamento (ex.: PDF da nota). */
   link?: string
 }): TemplateContext {
-  const { patient, clinicName, tz, appointment, payment, link } = args
+  const { patient, clinicName, tz, appointment, payment, budget, link } = args
   const ctx: TemplateContext = {
     paciente: patient.name.trim().split(/\s+/)[0] ?? '',
     paciente_completo: patient.name.trim(),
@@ -64,6 +67,10 @@ export function buildContext(args: {
     ctx.valor = formatValor(payment.amount)
     if (payment.due_date) ctx.vencimento = formatDataLonga(payment.due_date)
     if (payment.invoice_url) ctx.link = payment.invoice_url
+  }
+  if (budget) {
+    ctx.valor = formatValor(budget.total)
+    ctx.vencimento = budget.valid_until ? formatDataLonga(budget.valid_until) : ''
   }
   if (link !== undefined) ctx.link = link
   return ctx

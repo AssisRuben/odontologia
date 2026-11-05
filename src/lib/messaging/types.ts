@@ -1,4 +1,4 @@
-export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge' | 'payment_due'
+export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge' | 'payment_due' | 'budget' | 'budget_reminder'
 export type MessageKind = MessageType | 'manual' | 'auto_reply' | 'incoming'
 export type MessageStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'received'
 
