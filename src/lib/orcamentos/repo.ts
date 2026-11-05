@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BudgetStatus } from '@/types'
+import type { BudgetStatus, BudgetEvent, LostReason } from '@/types'
+import type { FunnelRow } from './funil'
 import type { PatientRow } from '@/lib/messaging/types'
 import { sendManual } from '@/lib/messaging/manual'
 import { createManualDeps } from '@/lib/messaging/manualDeps'
@@ -7,6 +8,7 @@ import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import type { LinkDeps } from './links'
 import type { ApprovalDeps } from './aprovacao'
 import type { SendDeps } from './envio'
+import type { Snapshot } from './assinatura'
 
 function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
@@ -190,4 +192,104 @@ export function createSendDeps(admin: SupabaseClient): SendDeps {
     },
     sendMessage: (input) => sendManual(input, manual),
   }
+}
+
+export interface FunnelListRow {
+  id: string
+  patient: { id: string; name: string; phone: string | null }
+  professional_name: string | null
+  total: number
+  approved_total: number
+  charged: number
+  sent_at: string | null
+  viewed_at: string | null
+  valid_until: string | null
+  decided_at: string | null
+  lost_reason: LostReason | null
+  followup_at: string | null
+  last_events: BudgetEvent[]
+  approval_seen: boolean
+}
+
+export interface FunnelSource extends FunnelRow {
+  list: FunnelListRow
+  viewed_at: string | null
+  followup_at: string | null
+  link_created_at: string | null
+}
+
+const first = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
+
+/** Orçamentos já enviados da clínica, com tudo que o funil e as abas precisam. */
+export async function loadFunnelSources(admin: SupabaseClient, clinicId: string): Promise<FunnelSource[]> {
+  const { data, error } = await admin
+    .from('budgets')
+    .select(
+      'id, status, total, approved_total, sent_at, viewed_at, valid_until, decided_at, lost_reason, followup_at, approval_seen_at, professional_id, ' +
+        'patients(id, name, phone), professionals(name), budget_links(created_at, revoked_at), payments(amount, status), ' +
+        'budget_events(id, budget_id, clinic_id, type, outcome, reason, note, created_by, created_at)',
+    )
+    .eq('clinic_id', clinicId)
+    .not('sent_at', 'is', null)
+  check(error)
+  type P = { id: string; name: string; phone: string | null }
+  type Raw = {
+    id: string; status: BudgetStatus; total: number; approved_total: number | null; sent_at: string | null
+    viewed_at: string | null; valid_until: string | null; decided_at: string | null; lost_reason: LostReason | null
+    followup_at: string | null; approval_seen_at: string | null; professional_id: string | null
+    patients: P | P[] | null
+    professionals: { name: string } | { name: string }[] | null
+    budget_links: { created_at: string; revoked_at: string | null }[] | null
+    payments: { amount: number; status: string }[] | null
+    budget_events: BudgetEvent[] | null
+  }
+  return ((data ?? []) as unknown as Raw[]).map((r) => {
+    const patient = first(r.patients) ?? { id: '', name: '', phone: null }
+    const profName = first(r.professionals)?.name ?? null
+    const link = (r.budget_links ?? []).filter((l) => !l.revoked_at).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    const charged = (r.payments ?? [])
+      .filter((p) => p.status !== 'cancelled' && p.status !== 'refunded')
+      .reduce((s, p) => s + Number(p.amount), 0)
+    const events = [...(r.budget_events ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
+    const total = Number(r.total)
+    const approved_total = Number(r.approved_total ?? 0)
+    return {
+      id: r.id, status: r.status, sent_at: r.sent_at, decided_at: r.decided_at, total, approved_total,
+      professional_id: r.professional_id, professional_name: profName ?? '', lost_reason: r.lost_reason,
+      viewed_at: r.viewed_at, followup_at: r.followup_at, link_created_at: link?.created_at ?? null,
+      list: {
+        id: r.id, patient, professional_name: profName, total, approved_total, charged,
+        sent_at: r.sent_at, viewed_at: r.viewed_at, valid_until: r.valid_until, decided_at: r.decided_at,
+        lost_reason: r.lost_reason, followup_at: r.followup_at, last_events: events,
+        approval_seen: r.approval_seen_at !== null,
+      },
+    }
+  })
+}
+
+/** Fuso da clínica e dias do lembrete de orçamento (null quando desligado). */
+export async function loadReminderSettings(admin: SupabaseClient, clinicId: string): Promise<{ tz: string; reminderDays: number[] | null }> {
+  const [c, s] = await Promise.all([
+    admin.from('clinics').select('messaging_config').eq('id', clinicId).single(),
+    admin.from('message_settings').select('enabled, config').eq('clinic_id', clinicId).eq('type', 'budget_reminder').maybeSingle(),
+  ])
+  check(c.error); check(s.error)
+  const row = s.data as { enabled: boolean; config: { offset_days?: number[] } | null } | null
+  const days = row?.enabled ? row.config?.offset_days : null
+  return {
+    tz: normalizeMessagingConfig((c.data as { messaging_config: unknown }).messaging_config).timezone,
+    reminderDays: days && days.length > 0 ? days : null,
+  }
+}
+
+/** Comprovante de assinatura do orçamento (da clínica); null se não houver. */
+export async function loadSignature(admin: SupabaseClient, budgetId: string, clinicId: string) {
+  const { data, error } = await admin
+    .from('budget_signatures')
+    .select('snapshot, document_hash, ip, user_agent, provider')
+    .eq('budget_id', budgetId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle()
+  if (checkId(error)) return null
+  return data as { snapshot: Snapshot; document_hash: string; ip: string | null; user_agent: string | null; provider: 'app' | 'reception' } | null
 }
