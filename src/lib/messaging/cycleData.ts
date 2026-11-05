@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PlanInput } from './schedule'
-import type { AppointmentRow, MessageSetting, MessagingConfig, PatientRow, PaymentRow } from './types'
+import type { AppointmentRow, BudgetReminderRow, MessageSetting, MessagingConfig, PatientRow, PaymentRow } from './types'
 
 const HOUR_MS = 3_600_000
 const PAGE = 1000
@@ -26,6 +26,15 @@ export function horizonHours(settings: MessageSetting[]): number {
   return Math.max(48, ...offsets)
 }
 
+interface RawBudgetLink {
+  id: string
+  budget_id: string
+  token: string
+  created_at: string
+  budgets: { patient_id: string; total: number; valid_until: string | null }
+    | { patient_id: string; total: number; valid_until: string | null }[] | null
+}
+
 interface RawUpcoming {
   id: string
   patient_id: string
@@ -42,7 +51,7 @@ export async function loadPlanInput(
   const nowIso = now.toISOString()
   const horizonIso = new Date(now.getTime() + horizonHours(settings) * HOUR_MS).toISOString()
 
-  const [patientRows, upcomingRaw, completed, future, payments] = await Promise.all([
+  const [patientRows, upcomingRaw, completed, future, payments, budgetLinks] = await Promise.all([
     fetchAll<PatientRow>((a, b) =>
       admin
         .from('patients')
@@ -94,7 +103,26 @@ export async function loadPlanInput(
         .order('id')
         .range(a, b),
     ),
+    fetchAll<RawBudgetLink>((a, b) =>
+      admin
+        .from('budget_links')
+        .select('id, budget_id, token, created_at, budgets!inner(patient_id, total, valid_until, status)')
+        .eq('clinic_id', clinicId)
+        .is('revoked_at', null)
+        .eq('budgets.status', 'sent')
+        .order('id')
+        .range(a, b),
+    ),
   ])
+
+  const budgets: BudgetReminderRow[] = budgetLinks.flatMap((l) => {
+    const b = Array.isArray(l.budgets) ? l.budgets[0] : l.budgets
+    if (!b) return []
+    return [{
+      id: l.budget_id, patient_id: b.patient_id, total: Number(b.total), valid_until: b.valid_until,
+      link_id: l.id, token: l.token, link_created_at: l.created_at,
+    }]
+  })
 
   const upcoming: AppointmentRow[] = upcomingRaw.map((r) => {
     const prof = Array.isArray(r.professionals) ? r.professionals[0] : r.professionals
@@ -126,5 +154,6 @@ export async function loadPlanInput(
     lastCompleted: [...latest.values()],
     patientsWithFuture: new Set(future.map((f) => f.patient_id)),
     payments,
+    budgets,
   }
 }
