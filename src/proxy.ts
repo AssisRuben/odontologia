@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Cron e webhooks se autenticam sozinhos (segredo/token); não passam pelo login
+  if (pathname.startsWith('/api/cron/') || pathname.startsWith('/api/webhooks/')) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -25,10 +32,12 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
   const publicPaths = ['/login', '/register']
   const isPublicPath = publicPaths.some((p) => pathname.startsWith(p))
+
+  if (!user && pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  }
 
   if (!user && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url))

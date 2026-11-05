@@ -66,6 +66,9 @@ export interface Patient {
   insurance_plan_id?: string
   insurance_plan?: InsurancePlan
   notes?: string
+  whatsapp_opt_out?: boolean
+  payer_name?: string | null
+  payer_cpf?: string | null
   created_at: string
 }
 
@@ -121,7 +124,9 @@ export type PaymentMethod =
   | 'boleto'
   | 'convenio'
 
-export type PaymentStatus = 'pending' | 'paid' | 'overdue'
+export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'cancelled' | 'refunded'
+
+export type ChargeKind = 'manual' | 'avulsa' | 'carne' | 'cartao_parcelado'
 
 export interface Payment {
   id: string
@@ -134,20 +139,73 @@ export interface Payment {
   due_date?: string
   paid_at?: string
   description?: string
+  budget_id?: string
+  charge_kind: ChargeKind
+  charge_group_id?: string
+  installment_number?: number
+  installment_count?: number
+  provider_charge_id?: string
+  provider_installment_id?: string
+  provider_state?: 'creating' | 'active'
+  invoice_url?: string
+  net_amount?: number
+  alert?: 'chargeback' | 'refunded_with_invoice'
+  updated_at?: string
   created_at: string
   patient?: Patient
 }
+
+export type FiscalInvoiceStatus = 'scheduled' | 'authorized' | 'error' | 'cancelling' | 'cancelled'
+
+export interface FiscalInvoice {
+  id: string
+  clinic_id: string
+  payment_id: string
+  provider_invoice_id: string
+  status: FiscalInvoiceStatus
+  number?: string
+  value: number
+  description: string
+  pdf_url?: string
+  xml_url?: string
+  error?: string
+  created_at: string
+  updated_at: string
+}
+
+export type ExpenseCategory =
+  | 'aluguel' | 'contas' | 'material' | 'laboratorio' | 'servicos' | 'manutencao'
+  | 'marketing' | 'conselho' | 'iptu_taxas' | 'tarifas' | 'salarios' | 'emolumentos'
+  | 'equipamentos' | 'reformas' | 'cursos' | 'outras'
+
+export type DeductionGroup = 'custeio' | 'pessoal' | 'emolumentos'
 
 export interface Expense {
   id: string
   clinic_id: string
   description: string
   amount: number
-  category?: string
+  category: ExpenseCategory
+  deduction_group: DeductionGroup | null
+  payment_method?: PaymentMethod | null
+  professional_id?: string | null
+  notes?: string | null
+  receipt_path?: string | null
+  receipt_name?: string | null
+  receipt_size?: number | null
+  receipt_type?: string | null
   due_date?: string
   paid_at?: string
   status: 'pending' | 'paid' | 'overdue'
   created_at: string
+  updated_at: string
+}
+
+export interface HealthReceipt {
+  payment_id: string
+  clinic_id: string
+  issued_at: string
+  issued_by: string | null
 }
 
 export type ProstheticStatus = 'requested' | 'sent_to_lab' | 'returned' | 'installed'

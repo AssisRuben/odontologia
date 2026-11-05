@@ -1,0 +1,31 @@
+{
+  "_status": 200,
+  "id": "a70960be-0833-4352-a6f1-d3d3b3cdd493",
+  "name": "Paciente Teste",
+  "url": "https://example.com/api/webhooks/asaas",
+  "email": "paciente@exemplo.com",
+  "enabled": true,
+  "interrupted": false,
+  "apiVersion": 3,
+  "hasAuthToken": true,
+  "sendType": "SEQUENTIALLY",
+  "penalizedRequestsCount": 0,
+  "events": [
+    "INVOICE_ERROR",
+    "INVOICE_CANCELLATION_DENIED",
+    "INVOICE_CANCELED",
+    "INVOICE_PROCESSING_CANCELLATION",
+    "INVOICE_AUTHORIZED",
+    "INVOICE_SYNCHRONIZED",
+    "INVOICE_UPDATED",
+    "INVOICE_CREATED",
+    "PAYMENT_UPDATED",
+    "PAYMENT_REFUNDED",
+    "PAYMENT_DELETED",
+    "PAYMENT_OVERDUE",
+    "PAYMENT_RECEIVED",
+    "PAYMENT_CONFIRMED",
+    "PAYMENT_CREATED"
+  ],
+  "authToken": "[REDACTED]"
+}

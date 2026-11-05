@@ -5,6 +5,7 @@ import { Upload, Trash2, FileText, Image, File, X, Download, Plus, AlertCircle }
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { documentPath, signedUrls } from '@/lib/storage/documentos'
 
 interface Document {
   id: string
@@ -174,6 +175,7 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
   const [preview, setPreview]         = useState<Document | null>(null)
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [uploading, setUploading]     = useState(false)
+  const [links, setLinks]             = useState<Record<string, string>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadCat = category === 'todos' ? 'outros' : category
 
@@ -184,7 +186,10 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
       .select('*')
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
-    if (data) setDocs(data)
+    if (data) {
+      setDocs(data)
+      setLinks(await signedUrls(supabase, 'anneOdonto', data.map((d: Document) => documentPath(d.file_url))))
+    }
     setLoading(false)
   }
 
@@ -258,13 +263,11 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
       }
       if (!upload) continue
 
-      const { data: { publicUrl } } = supabase.storage.from('anneOdonto').getPublicUrl(path)
-
       const { error: insertErr } = await supabase.from('documents').insert({
         clinic_id: clinicId,
         patient_id: patientId,
         name: pending.file.name,
-        file_url: publicUrl,
+        file_url: path,
         file_type: pending.file.type || null,
         size_bytes: pending.file.size,
         category: uploadCat,
@@ -291,11 +294,7 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
   async function handleDelete(doc: Document) {
     setDeletingId(doc.id)
     const supabase = createClient()
-    const url = new URL(doc.file_url)
-    const storagePath = url.pathname.split('/storage/v1/object/public/anneOdonto/')[1]
-    if (storagePath) {
-      await supabase.storage.from('anneOdonto').remove([storagePath])
-    }
+    await supabase.storage.from('anneOdonto').remove([documentPath(doc.file_url)])
     await supabase.from('documents').delete().eq('id', doc.id)
     setDeletingId(null)
     load()
@@ -415,15 +414,18 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
             const isPdf   = doc.file_type === 'application/pdf'
             const isImage = doc.file_type?.startsWith('image/')
             const Icon    = getFileIcon(doc.file_type)
+            const url     = links[documentPath(doc.file_url)]
             return (
               <div key={doc.id} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden group">
                 <div
                   className="h-24 overflow-hidden flex items-center justify-center cursor-pointer relative bg-[#F9FAFB]"
                   onClick={() => setPreview(doc)}>
-                  {isPdf ? (
-                    <PdfThumb src={doc.file_url} />
+                  {!url && (isPdf || isImage) ? (
+                    <AlertCircle className="w-6 h-6 text-[#9CA3AF]" />
+                  ) : isPdf ? (
+                    <PdfThumb src={url} />
                   ) : isImage ? (
-                    <img src={doc.file_url} alt={doc.name} className="w-full h-full object-cover" />
+                    <img src={url} alt={doc.name} className="w-full h-full object-cover" />
                   ) : (
                     <Icon className="w-8 h-8 text-[#9CA3AF]" />
                   )}
@@ -436,10 +438,14 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
                     {doc.size_bytes ? ` · ${formatBytes(doc.size_bytes)}` : ''}
                   </p>
                   <div className="flex items-center gap-1 mt-1.5">
-                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1 h-6 rounded-md border border-[#E5E7EB] text-xs text-[#374151] hover:bg-[#F3F4F6] transition-colors">
-                      <Download className="w-3 h-3" /> Baixar
-                    </a>
+                    {url ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-1 h-6 rounded-md border border-[#E5E7EB] text-xs text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                        <Download className="w-3 h-3" /> Baixar
+                      </a>
+                    ) : (
+                      <span className="flex-1 text-center text-xs text-red-500 truncate">Não foi possível abrir o arquivo</span>
+                    )}
                     <button onClick={() => handleDelete(doc)} disabled={deletingId === doc.id}
                       className="p-1.5 rounded-md text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
                       <Trash2 className="w-3 h-3" />
@@ -467,13 +473,18 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
           <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20">
             <X className="w-5 h-5" />
           </button>
-          {preview.file_type?.startsWith('image/') ? (
-            <img src={preview.file_url} alt={preview.name}
+          {!links[documentPath(preview.file_url)] ? (
+            <div className="bg-white rounded-xl p-8 text-sm text-red-500"
+              onClick={e => e.stopPropagation()}>
+              Não foi possível abrir o arquivo
+            </div>
+          ) : preview.file_type?.startsWith('image/') ? (
+            <img src={links[documentPath(preview.file_url)]} alt={preview.name}
               className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
               onClick={e => e.stopPropagation()} />
           ) : preview.file_type === 'application/pdf' ? (
             <iframe
-              src={preview.file_url}
+              src={links[documentPath(preview.file_url)]}
               className="w-[90vw] h-[90vh] rounded-lg bg-white"
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             />
@@ -482,7 +493,7 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
               onClick={e => e.stopPropagation()}>
               <FileText className="w-16 h-16 text-[#6B7280]" />
               <p className="text-sm font-medium text-[#111827]">{preview.name}</p>
-              <a href={preview.file_url} target="_blank" rel="noopener noreferrer"
+              <a href={links[documentPath(preview.file_url)]} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 h-10 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB]">
                 <Download className="w-4 h-4" /> Abrir arquivo
               </a>

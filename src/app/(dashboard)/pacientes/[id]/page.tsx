@@ -1,10 +1,11 @@
 'use client'
 
+import { formatCpf } from '@/lib/payments/cpf'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, Phone, Edit2, Tag, Plus, ClipboardList,
-  Calendar, CheckCircle2, AlertCircle, Clock, User2,
+  Calendar, Clock, User2, MessageCircle,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,7 +14,7 @@ import { getInitials, formatPhone, formatCurrency } from '@/lib/utils'
 import {
   parsePatientNotes, serializePatientNotes,
 } from '@/types'
-import type { Patient, Appointment, Payment, Prosthetic } from '@/types'
+import type { Patient, Appointment, Payment, Prosthetic, FiscalInvoice } from '@/types'
 import { Odontograma } from '@/components/paciente/Odontograma'
 import { ModalCategoria, CATEGORIA_COLORS } from '@/components/paciente/ModalCategoria'
 import { ModalEditarPaciente } from '@/components/paciente/ModalEditarPaciente'
@@ -22,6 +23,10 @@ import { TabOrcamentos } from '@/components/paciente/TabOrcamentos'
 import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
 import { useClinicStore } from '@/store/clinicStore'
+import { ModalEnviarWhatsApp } from '@/components/mensagens/ModalEnviarWhatsApp'
+import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
+import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
+import { normalizePhone } from '@/lib/messaging/phone'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -49,14 +54,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'documentos',   label: 'Documentos' },
 ]
 
-const PAYMENT_METHOD_PT: Record<string, string> = {
-  credit_card: 'Cartão de Crédito',
-  health_plan: 'Convênio',
-  bank_slip:   'Boleto',
-  pix:         'PIX',
-  cash:        'Dinheiro',
-}
-
 const GENDER_PT: Record<string, string> = { M: 'Masculino', F: 'Feminino', O: 'Outro' }
 
 // ─── página ─────────────────────────────────────────────────────────────────
@@ -65,6 +62,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
   const [patient, setPatient]         = useState<Patient | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [payments, setPayments]       = useState<Payment[]>([])
+  const [invoices, setInvoices]       = useState<FiscalInvoice[]>([])
   const [prosthetics, setProsthetics] = useState<Prosthetic[]>([])
   const [loading, setLoading]         = useState(true)
   const [activeTab, setActiveTab]     = useState<Tab>('visao-geral')
@@ -72,6 +70,9 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [modalCatOpen, setModalCatOpen] = useState(false)
   const [modalEditOpen, setModalEditOpen] = useState(false)
+  const [modalWaOpen, setModalWaOpen] = useState(false)
+  const [waNotice, setWaNotice]       = useState(false)
+  const [modalCobrancaOpen, setModalCobrancaOpen] = useState(false)
   const [treatRefresh, setTreatRefresh] = useState(0)
   const { clinicId } = useClinicStore()
 
@@ -89,6 +90,10 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
       setPatient(p)
       setAppointments(aptsRes.data || [])
       setPayments(paymentsRes.data || [])
+      if (paymentsRes.data?.length) {
+        const { data: inv } = await supabase.from('fiscal_invoices').select('*').in('payment_id', paymentsRes.data.map((x: Payment) => x.id))
+        setInvoices((inv as FiscalInvoice[]) || [])
+      }
       setProsthetics(prostRes.data || [])
       if (p) {
         const parsed = parsePatientNotes(p.notes)
@@ -99,6 +104,20 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     }
     load()
   }, [params])
+
+  async function loadInvoices(list: Payment[]) {
+    if (list.length === 0) { setInvoices([]); return }
+    const { data } = await createClient().from('fiscal_invoices').select('*').in('payment_id', list.map(p => p.id))
+    setInvoices((data as FiscalInvoice[]) || [])
+  }
+
+  async function reloadPayments() {
+    if (!patient) return
+    const supabase = createClient()
+    const { data } = await supabase.from('payments').select('*').eq('patient_id', patient.id).order('due_date', { ascending: false })
+    setPayments(data || [])
+    await loadInvoices(data || [])
+  }
 
   async function handleSaveTags(newTags: string[]) {
     if (!patient) return
@@ -125,6 +144,9 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     : null
 
   const lastEvolutions = appointments.filter((a) => a.status === 'completed').slice(0, 5)
+  const waDisabledHint = patient.whatsapp_opt_out
+    ? 'Paciente optou por não receber WhatsApp'
+    : (normalizePhone(patient.whatsapp ?? null) ?? normalizePhone(patient.phone ?? null)) ? null : 'Sem WhatsApp válido'
   const patientCode = patient.id.replace(/-/g, '').slice(0, 6).toUpperCase()
 
   return (
@@ -189,13 +211,23 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                 </div>
               </div>
 
-              {/* Editar */}
-              <button
-                onClick={() => setModalEditOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors shrink-0">
-                <Edit2 className="w-4 h-4" />
-                Editar
-              </button>
+              {/* Ações */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setModalWaOpen(true)}
+                  disabled={!!waDisabledHint}
+                  title={waDisabledHint ?? undefined}
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                  <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                  <span className="hidden sm:inline">Enviar WhatsApp</span>
+                </button>
+                <button
+                  onClick={() => setModalEditOpen(true)}
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                  <Edit2 className="w-4 h-4" />
+                  Editar
+                </button>
+              </div>
             </div>
           </div>
 
@@ -272,6 +304,12 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                   />
                   {patient.cpf && (
                     <InfoRow label="CPF" value={patient.cpf} />
+                  )}
+                  {(patient.payer_name || patient.payer_cpf) && (
+                    <InfoRow
+                      label="Responsável pelo pagamento"
+                      value={[patient.payer_name, patient.payer_cpf ? formatCpf(patient.payer_cpf) : null].filter(Boolean).join(' · ')}
+                    />
                   )}
                   {patient.email && (
                     <InfoRow label="E-mail" value={patient.email} />
@@ -359,50 +397,15 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
           <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#111827]">Pagamentos</h3>
-              <span className="text-xs text-[#6B7280]">{payments.length} lançamento(s)</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-[#6B7280]">{payments.length} lançamento(s)</span>
+                <button onClick={() => setModalCobrancaOpen(true)}
+                  className="flex items-center gap-1.5 px-3 h-8 bg-[#3B82F6] text-white text-xs font-medium rounded-lg hover:bg-[#2563EB] transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Nova cobrança
+                </button>
+              </div>
             </div>
-            {payments.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-sm text-[#9CA3AF]">
-                Nenhum pagamento registrado.
-              </div>
-            ) : (
-              <div className="divide-y divide-[#F3F4F6]">
-                {payments.map((pay) => {
-                  const statusConfig = {
-                    paid:    { label: 'Pago',     color: '#10B981', icon: CheckCircle2 },
-                    pending: { label: 'Pendente', color: '#F59E0B', icon: Clock },
-                    overdue: { label: 'Atrasado', color: '#EF4444', icon: AlertCircle },
-                  }[pay.status] || { label: pay.status, color: '#6B7280', icon: Clock }
-                  const Icon = statusConfig.icon
-
-                  return (
-                    <div key={pay.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 hover:bg-[#F9FAFB] transition-colors">
-                      <Icon className="w-4 h-4 shrink-0" style={{ color: statusConfig.color }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#111827] truncate">
-                          {pay.description || 'Pagamento'}
-                        </p>
-                        <p className="text-xs text-[#6B7280]">
-                          {pay.due_date && `Venc. ${format(parseISO(pay.due_date), 'dd/MM/yyyy')}`}
-                          {pay.payment_method && ` · ${PAYMENT_METHOD_PT[pay.payment_method] || pay.payment_method}`}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-[#111827]">
-                          {formatCurrency(pay.amount)}
-                        </p>
-                        <span
-                          className="text-xs font-medium"
-                          style={{ color: statusConfig.color }}
-                        >
-                          {statusConfig.label}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <ListaPagamentos payments={payments} invoices={invoices} onChanged={reloadPayments} />
 
             {/* Totalizador */}
             {payments.length > 0 && (
@@ -438,7 +441,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
 
         {/* ── Orçamentos ──────────────────────────────────────────────────── */}
         {activeTab === 'orcamentos' && clinicId && (
-          <TabOrcamentos patientId={patient.id} clinicId={clinicId} />
+          <TabOrcamentos patientId={patient.id} clinicId={clinicId} patient={patient} />
         )}
 
         {/* ── Documentos ──────────────────────────────────────────────────── */}
@@ -454,6 +457,29 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
         onClose={() => setModalCatOpen(false)}
         onSave={handleSaveTags}
       />
+
+      {waNotice && (
+        <div role="status" className="fixed bottom-4 right-4 z-50 bg-[#111827] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          Mensagem enviada
+        </div>
+      )}
+
+      {modalWaOpen && (
+        <ModalEnviarWhatsApp
+          patient={patient}
+          appointments={appointments}
+          onClose={() => setModalWaOpen(false)}
+          onSent={() => { setWaNotice(true); setTimeout(() => setWaNotice(false), 4000) }}
+        />
+      )}
+
+      {modalCobrancaOpen && (
+        <ModalNovaCobranca
+          patient={patient}
+          onClose={() => setModalCobrancaOpen(false)}
+          onCreated={reloadPayments}
+        />
+      )}
 
       {/* Modal Editar Paciente */}
       {modalEditOpen && (

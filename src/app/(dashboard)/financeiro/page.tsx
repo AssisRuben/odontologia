@@ -1,44 +1,76 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { formatCurrency } from '@/lib/utils'
-import type { Payment, Expense } from '@/types'
+import type { Payment, Expense, FiscalInvoice } from '@/types'
+import AsaasBanner from '@/components/pagamentos/AsaasBanner'
+import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
+import ListaDespesas from '@/components/financeiro/ListaDespesas'
+import LivroCaixa from '@/components/financeiro/LivroCaixa'
+import { categoryLabel } from '@/lib/livro-caixa/categorias'
 
-type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes'
+type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes' | 'despesas' | 'livro'
 
 export default function FinanceiroPage() {
   const { clinicId, loading: clinicLoading } = useClinicStore()
   const [activeTab, setActiveTab] = useState<Tab>('painel')
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [payments, setPayments] = useState<Payment[]>([])
+  const [invoices, setInvoices] = useState<FiscalInvoice[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [reloadKey, setReloadKey] = useState(0)
+  const loadedMonth = useRef<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const [invoiceError, setInvoiceError] = useState(false)
 
   useEffect(() => {
     if (!clinicId) return
+    let stale = false
     async function load() {
-      setLoading(true)
       const supabase = createClient()
       const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+      // recarga após uma ação mantém a lista na tela (não perde avisos e janelas abertas)
+      if (loadedMonth.current !== start) setLoading(true)
       const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-
-      const [paymentsRes, expensesRes] = await Promise.all([
-        supabase.from('payments').select('*, patient:patients(name)').eq('clinic_id', clinicId!)
-          .gte('due_date', start).lte('due_date', end),
-        supabase.from('expenses').select('*').eq('clinic_id', clinicId!)
-          .gte('due_date', start).lte('due_date', end),
-      ])
-      setPayments(paymentsRes.data || [])
-      setExpenses(expensesRes.data || [])
-      setLoading(false)
+      try {
+        const [paymentsRes, expensesRes] = await Promise.all([
+          supabase.from('payments').select('*, patient:patients(name)').eq('clinic_id', clinicId!)
+            .gte('due_date', start).lte('due_date', end),
+          supabase.from('expenses').select('*').eq('clinic_id', clinicId!)
+            .gte('due_date', start).lte('due_date', end),
+        ])
+        const loaded: Payment[] = paymentsRes.data || []
+        let inv: FiscalInvoice[] = []
+        let invErr = false
+        if (loaded.length > 0) {
+          const r = await supabase.from('fiscal_invoices').select('*').in('payment_id', loaded.map(p => p.id))
+          if (r.error) invErr = true
+          else inv = (r.data as FiscalInvoice[]) || []
+        }
+        if (stale) return
+        setPayments(loaded)
+        setInvoices(inv)
+        setInvoiceError(invErr)
+        setExpenses(expensesRes.data || [])
+        loadedMonth.current = start
+      } finally {
+        if (!stale) setLoading(false)
+      }
     }
     load()
-  }, [clinicId, currentMonth])
+    return () => { stale = true }
+  }, [clinicId, currentMonth, reloadKey])
+
+  const sortedPayments = useMemo(
+    () => [...payments].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')),
+    [payments],
+  )
 
   const recebido    = payments.filter((p) => p.status === 'paid').reduce((s, p) => s + p.amount, 0)
   const aReceber    = payments.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0)
@@ -54,6 +86,8 @@ export default function FinanceiroPage() {
     { id: 'fluxo', label: 'Fluxo de caixa' },
     { id: 'boletos', label: 'Boletos' },
     { id: 'comissoes', label: 'Comissões' },
+    { id: 'despesas', label: 'Despesas' },
+    { id: 'livro', label: 'Livro-caixa' },
   ]
 
   if (clinicLoading) {
@@ -69,6 +103,7 @@ export default function FinanceiroPage() {
       <div className="bg-white border-b border-[#E5E7EB] px-4 sm:px-6 py-3 sm:py-4">
         <h1 className="text-lg sm:text-xl font-semibold text-[#111827]">Financeiro</h1>
       </div>
+      <AsaasBanner />
 
       <div className="bg-white border-b border-[#E5E7EB] px-2 sm:px-6 overflow-x-auto">
         <div className="flex min-w-max">
@@ -207,12 +242,25 @@ export default function FinanceiroPage() {
                         <div key={exp.id} className="flex items-center justify-between py-2 border-b border-[#F3F4F6] last:border-0">
                           <div>
                             <p className="text-sm font-medium text-[#111827]">{exp.description}</p>
-                            <p className="text-xs text-[#9CA3AF]">{exp.category} · Vence {exp.due_date ? format(new Date(exp.due_date), 'dd/MM/yyyy') : '—'}</p>
+                            <p className="text-xs text-[#9CA3AF]">{categoryLabel(exp.category)} · Vence {exp.due_date ? format(new Date(exp.due_date), 'dd/MM/yyyy') : '—'}</p>
                           </div>
                           <span className="text-sm font-semibold text-[#EF4444]">{formatCurrency(exp.amount)}</span>
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {payments.length > 0 && (
+                  <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+                    <h3 className="px-5 py-4 border-b border-[#E5E7EB] font-semibold text-[#111827]">Lançamentos do mês</h3>
+                    {invoiceError && <p className="px-5 py-2 text-xs text-red-600">Não foi possível carregar as notas fiscais.</p>}
+                    <ListaPagamentos
+                      payments={sortedPayments}
+                      invoices={invoices}
+                      showPatient
+                      onChanged={() => setReloadKey(k => k + 1)}
+                    />
                   </div>
                 )}
 
@@ -226,7 +274,11 @@ export default function FinanceiroPage() {
           </div>
         )}
 
-        {activeTab !== 'painel' && (
+        {activeTab === 'despesas' && <ListaDespesas />}
+
+        {activeTab === 'livro' && <LivroCaixa onOpenDespesas={() => setActiveTab('despesas')} />}
+
+        {activeTab !== 'painel' && activeTab !== 'despesas' && activeTab !== 'livro' && (
           <div className="flex items-center justify-center h-48 text-[#9CA3AF] text-sm">
             Em desenvolvimento...
           </div>
