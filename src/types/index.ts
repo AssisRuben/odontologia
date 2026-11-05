@@ -67,6 +67,8 @@ export interface Patient {
   insurance_plan?: InsurancePlan
   notes?: string
   whatsapp_opt_out?: boolean
+  payer_name?: string | null
+  payer_cpf?: string | null
   created_at: string
 }
 
@@ -171,16 +173,39 @@ export interface FiscalInvoice {
   updated_at: string
 }
 
+export type ExpenseCategory =
+  | 'aluguel' | 'contas' | 'material' | 'laboratorio' | 'servicos' | 'manutencao'
+  | 'marketing' | 'conselho' | 'iptu_taxas' | 'tarifas' | 'salarios' | 'emolumentos'
+  | 'equipamentos' | 'reformas' | 'cursos' | 'outras'
+
+export type DeductionGroup = 'custeio' | 'pessoal' | 'emolumentos'
+
 export interface Expense {
   id: string
   clinic_id: string
   description: string
   amount: number
-  category?: string
+  category: ExpenseCategory
+  deduction_group: DeductionGroup | null
+  payment_method?: PaymentMethod | null
+  professional_id?: string | null
+  notes?: string | null
+  receipt_path?: string | null
+  receipt_name?: string | null
+  receipt_size?: number | null
+  receipt_type?: string | null
   due_date?: string
   paid_at?: string
   status: 'pending' | 'paid' | 'overdue'
   created_at: string
+  updated_at: string
+}
+
+export interface HealthReceipt {
+  payment_id: string
+  clinic_id: string
+  issued_at: string
+  issued_by: string | null
 }
 
 export type ProstheticStatus = 'requested' | 'sent_to_lab' | 'returned' | 'installed'

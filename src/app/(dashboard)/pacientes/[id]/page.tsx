@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCpf } from '@/lib/payments/cpf'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -303,6 +304,12 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                   />
                   {patient.cpf && (
                     <InfoRow label="CPF" value={patient.cpf} />
+                  )}
+                  {(patient.payer_name || patient.payer_cpf) && (
+                    <InfoRow
+                      label="Responsável pelo pagamento"
+                      value={[patient.payer_name, patient.payer_cpf ? formatCpf(patient.payer_cpf) : null].filter(Boolean).join(' · ')}
+                    />
                   )}
                   {patient.email && (
                     <InfoRow label="E-mail" value={patient.email} />

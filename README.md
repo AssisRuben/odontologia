@@ -190,7 +190,7 @@ Sem túnel, os pagamentos ainda são atualizados pela conferência diária (ou d
 
 ### 4. Nota fiscal (NFS-e)
 
-Só para clínicas com **CNPJ**. A parte fiscal (inscrição municipal, certificado digital etc.) é configurada no **painel do Asaas**. No app, defina descrição, código do serviço (padrão 4.12), alíquota de ISS e, se quiser, **Emitir automaticamente ao receber**. Cada nota custa cerca de R$ 0,49 no Asaas. Dentista como pessoa física não é coberto (livro-caixa/Carnê-Leão fica para o futuro).
+Só para clínicas com **CNPJ**. A parte fiscal (inscrição municipal, certificado digital etc.) é configurada no **painel do Asaas**. No app, defina descrição, código do serviço (padrão 4.12), alíquota de ISS e, se quiser, **Emitir automaticamente ao receber**. Cada nota custa cerca de R$ 0,49 no Asaas. Dentista como pessoa física não é coberto (o livro-caixa e o Carnê-Leão têm seção própria, "Livro-caixa e Carnê-Leão", logo abaixo).
 
 ### Taxas e limites
 
@@ -199,6 +199,39 @@ Só para clínicas com **CNPJ**. A parte fiscal (inscrição municipal, certific
 - Parcelas de cartão não podem ser marcadas como recebidas em dinheiro.
 - Estornos são feitos no painel do Asaas.
 - Cobranças criadas direto no painel do Asaas não são importadas para o app.
+
+---
+
+## Livro-caixa e Carnê-Leão
+
+Controle de receitas e despesas do dentista que atende como pessoa física: despesas com comprovante, livro-caixa mensal, recibos do Receita Saúde e pacote para o contador.
+
+### 1. Banco
+
+No SQL Editor do Supabase, aplique [`supabase/2026-11-05-livro-caixa.sql`](supabase/2026-11-05-livro-caixa.sql) (pode rodar de novo sem problema). Ele cria as colunas novas de despesas e pacientes, a tabela de recibos e o bucket privado de comprovantes. Também torna privado o bucket `anneOdonto`: os documentos dos pacientes passam a abrir por link temporário.
+
+### O que o app faz
+
+- **Despesas** (Financeiro → Despesas): cadastro com categoria já classificada para o Carnê-Leão, data de pagamento e comprovante (foto pelo celular ou PDF, até 10 MB).
+- **Livro-caixa** (Financeiro → Livro-caixa): por mês, receitas de pacientes, despesas dedutíveis, resultado do mês e alertas.
+- **Recibos do Receita Saúde**: pagamentos de pacientes a emitir, com nome e CPF do pagador e do paciente, botões para copiar CPF e valor e marcação de "emitido" (com opção de desfazer).
+- **Pacote do contador**: o botão "Baixar pacote do contador" gera um `.zip` com `resumo.pdf`, `lancamentos.csv` e a pasta `comprovantes/`. Se os comprovantes somarem mais de 100 MB, o zip sai sem a pasta, com um `LEIA-ME.txt` explicando.
+
+### O que não faz
+
+- Não calcula imposto.
+- Não emite recibo no Receita Saúde. O recibo é emitido no app da Receita ou no Carnê-Leão Web; aqui você só marca como emitido.
+- Não transmite nada à Receita.
+
+> Valores para conferência. O cálculo oficial do imposto é feito no Carnê-Leão Web.
+
+### Regras
+
+- **Regime de caixa:** receita no mês em que foi recebida; despesa no mês em que foi paga.
+- **Convênios ficam fora do Carnê-Leão:** o imposto é retido pela fonte pagadora. Não têm recibo no Receita Saúde e aparecem só como informação no livro-caixa.
+- **Responsável pelo pagamento:** no cadastro do paciente, nome e CPF de quem paga (pai, mãe, responsável). Vazio = o próprio paciente. É esse CPF que vai no recibo.
+- **Tarifas do Asaas:** entram como despesa "Tarifas de cobrança" (valor bruto menos valor líquido de cada pagamento), sem lançamento manual.
+- **Confirmar com o contador** se as tarifas do Asaas podem ser deduzidas no Carnê-Leão.
 
 ---
 
