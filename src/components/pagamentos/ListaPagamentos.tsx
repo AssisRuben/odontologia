@@ -16,7 +16,7 @@ interface Props {
   onChanged: () => void | Promise<void>
 }
 
-interface NfseInfo { enabled: boolean; description: string }
+interface NfseInfo { enabled: boolean | null; description: string }
 
 type Dialog =
   | { kind: 'due'; p: Payment }
@@ -26,10 +26,10 @@ type Dialog =
   | { kind: 'note'; p: Payment }
 
 type ActionId = 'copy' | 'whatsapp' | 'due' | 'receive' | 'cancel' | 'note' | 'retry' | 'pdf' | 'sendNote' | 'cancelNote'
-interface MenuItem { id: ActionId; label: string; danger?: boolean }
+interface MenuItem { id: ActionId; label: string; danger?: boolean; disabled?: boolean; title?: string }
 
 /** Ações disponíveis para um pagamento; as indisponíveis ficam de fora. */
-function menuItems(p: Payment, inv: FiscalInvoice | undefined): MenuItem[] {
+function menuItems(p: Payment, inv: FiscalInvoice | undefined, noteBlocked = false): MenuItem[] {
   const items: MenuItem[] = []
   if (p.provider_state === 'creating') return items
   const open = p.status === 'pending' || p.status === 'overdue'
@@ -41,7 +41,11 @@ function menuItems(p: Payment, inv: FiscalInvoice | undefined): MenuItem[] {
   if (open && p.charge_kind !== 'cartao_parcelado') items.push({ id: 'receive', label: 'Marcar como pago' })
   if (open) items.push({ id: 'cancel', label: 'Cancelar', danger: true })
   const noteAllowed = p.charge_kind !== 'cartao_parcelado' || (p.installment_number ?? 1) === 1
-  if (p.status === 'paid' && !inv && noteAllowed) items.push({ id: 'note', label: 'Emitir nota' })
+  if (p.status === 'paid' && !inv && noteAllowed) {
+    items.push(noteBlocked
+      ? { id: 'note', label: 'Emitir nota', disabled: true, title: 'Configure a nota fiscal no painel do Asaas' }
+      : { id: 'note', label: 'Emitir nota' })
+  }
   if (inv?.status === 'error') items.push({ id: 'retry', label: 'Tentar novamente' })
   if (inv?.pdf_url) items.push({ id: 'pdf', label: 'Ver PDF' })
   if (inv?.status === 'authorized' && inv.pdf_url) items.push({ id: 'sendNote', label: 'Enviar nota pelo WhatsApp' })
@@ -85,6 +89,7 @@ function activeInvoiceOf(paymentId: string, invoices: FiscalInvoice[]): FiscalIn
 
 function errorText(status: number, data: { error?: string } | null): string {
   if (data?.error === 'asaas_invalid_key') return INVALID_KEY_MSG
+  if (data?.error && /^[a-z_]+$/.test(data.error)) return 'Não foi possível concluir a ação. Tente novamente.'
   return data?.error || (status >= 500 ? 'Erro interno. Tente novamente.' : 'Não foi possível concluir a ação.')
 }
 
@@ -96,7 +101,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [menu, setMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null)
-  const [nfse, setNfse] = useState<NfseInfo>({ enabled: false, description: DEFAULT_NFSE_DESC })
+  const [nfse, setNfse] = useState<NfseInfo>({ enabled: null, description: DEFAULT_NFSE_DESC })
   const [busy, setBusy] = useState(false)
   const [dialogError, setDialogError] = useState('')
   const inFlight = useRef(false)
@@ -149,14 +154,15 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) return errorText(res.status, data)
-      await onChanged()
-      return null
     } catch {
       return 'Falha de conexão. Tente novamente.'
     } finally {
       inFlight.current = false
       setBusy(false)
     }
+    // a ação já deu certo: falha ao recarregar não vira erro da ação
+    try { await onChanged() } catch (e) { console.error('[ListaPagamentos] falha ao recarregar:', e) }
+    return null
   }
 
   /** Ação direta (sem janela): mostra o resultado em um aviso. */
@@ -273,7 +279,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
               {(inv || p.alert) && (
                 <div className="mt-1.5 space-y-1">
                   {inv && <InvoiceBadge inv={inv} />}
-                  {p.alert && (
+                  {p.alert && ALERTS[p.alert] && (
                     <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 mt-px shrink-0" /> {ALERTS[p.alert]}
                     </p>
@@ -290,8 +296,8 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
           <div role="menu" style={{ top: menu.top, right: menu.right }}
             className="fixed z-50 w-60 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1">
-            {menuItems(menuPayment, invoiceByPayment.get(menuPayment.id)).map(it => (
-              <button key={it.id} role="menuitem" disabled={busy} onClick={() => perform(it.id, menuPayment, invoiceByPayment.get(menuPayment.id))}
+            {menuItems(menuPayment, invoiceByPayment.get(menuPayment.id), nfse.enabled === false).map(it => (
+              <button key={it.id} role="menuitem" disabled={busy || it.disabled} title={it.title} onClick={() => perform(it.id, menuPayment, invoiceByPayment.get(menuPayment.id))}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-[#F9FAFB] disabled:opacity-50 ${it.danger ? 'text-red-600' : 'text-[#374151]'}`}>
                 {it.label}
               </button>
@@ -332,9 +338,10 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
         <ModalEmitirNota
           paymentId={dialog.p.id}
           defaultAmount={groupSum(dialog.p)}
+          isGroup={dialog.p.charge_kind === 'cartao_parcelado'}
           defaultDescription={noteDescription(dialog.p)}
           onClose={() => setDialog(null)}
-          onDone={() => { setToast({ text: 'Nota enviada para emissão', error: false }); void onChanged() }}
+          onDone={() => { setToast({ text: 'Nota enviada para emissão', error: false }); Promise.resolve(onChanged()).catch(e => console.error('[ListaPagamentos] falha ao recarregar:', e)) }}
         />
       )}
     </>

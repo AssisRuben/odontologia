@@ -9,6 +9,8 @@ interface Props {
   paymentId: string
   /** Valor sugerido, em reais. */
   defaultAmount: number
+  /** Cartão parcelado: o valor é o total do parcelamento, calculado pelo servidor. */
+  isGroup?: boolean
   defaultDescription: string
   onClose: () => void
   onDone: () => void
@@ -17,9 +19,10 @@ interface Props {
 const INVALID_KEY_MSG = 'A chave do Asaas não é mais válida. Reconecte o Asaas em Configurações → Pagamentos.'
 const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
 
-export function ModalEmitirNota({ paymentId, defaultAmount, defaultDescription, onClose, onDone }: Props) {
+export function ModalEmitirNota({ paymentId, defaultAmount, isGroup, defaultDescription, onClose, onDone }: Props) {
   const [description, setDescription] = useState(defaultDescription)
-  const [value, setValue] = useState(() => fromCents(Math.round(defaultAmount * 100)).toFixed(2).replace('.', ','))
+  const initialValue = fromCents(Math.round(defaultAmount * 100)).toFixed(2).replace('.', ',')
+  const [value, setValue] = useState(initialValue)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const inFlight = useRef(false)
@@ -36,15 +39,15 @@ export function ModalEmitirNota({ paymentId, defaultAmount, defaultDescription, 
       const res = await fetch(`/api/payments/${paymentId}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: description.trim(), valueCents: cents }),
+        body: JSON.stringify(value.trim() === initialValue ? { description: description.trim() } : { description: description.trim(), valueCents: cents }),
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) {
         setError(data?.error === 'asaas_invalid_key' ? INVALID_KEY_MSG : (data?.error || 'Não foi possível emitir a nota.'))
         return
       }
-      onDone()
       onClose()
+      onDone()
     } catch {
       setError('Falha de conexão. Tente novamente.')
     } finally {
@@ -65,9 +68,9 @@ export function ModalEmitirNota({ paymentId, defaultAmount, defaultDescription, 
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label htmlFor="en-valor" className="block text-sm font-medium text-[#111827] mb-1">Valor da nota (R$)</label>
+            <label htmlFor="en-valor" className="block text-sm font-medium text-[#111827] mb-1">{isGroup ? 'Valor total do parcelamento (calculado pelo sistema)' : 'Valor da nota (R$)'}</label>
             <input id="en-valor" inputMode="decimal" className={inputCls} value={value} onChange={e => setValue(e.target.value)} />
-            <p className="text-xs text-[#6B7280] mt-1">Valor do pagamento: {formatCurrency(defaultAmount)}</p>
+            <p className="text-xs text-[#6B7280] mt-1">{isGroup ? 'Total estimado' : 'Valor do pagamento'}: {formatCurrency(defaultAmount)}</p>
           </div>
           <div>
             <label htmlFor="en-desc" className="block text-sm font-medium text-[#111827] mb-1">Descrição do serviço</label>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -24,35 +24,50 @@ export default function FinanceiroPage() {
   const loadedMonth = useRef<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [invoiceError, setInvoiceError] = useState(false)
+
   useEffect(() => {
     if (!clinicId) return
+    let stale = false
     async function load() {
       const supabase = createClient()
       const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
       // recarga após uma ação mantém a lista na tela (não perde avisos e janelas abertas)
       if (loadedMonth.current !== start) setLoading(true)
       const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-
-      const [paymentsRes, expensesRes] = await Promise.all([
-        supabase.from('payments').select('*, patient:patients(name)').eq('clinic_id', clinicId!)
-          .gte('due_date', start).lte('due_date', end),
-        supabase.from('expenses').select('*').eq('clinic_id', clinicId!)
-          .gte('due_date', start).lte('due_date', end),
-      ])
-      const loaded: Payment[] = paymentsRes.data || []
-      setPayments(loaded)
-      if (loaded.length > 0) {
-        const { data: inv } = await supabase.from('fiscal_invoices').select('*').in('payment_id', loaded.map(p => p.id))
-        setInvoices((inv as FiscalInvoice[]) || [])
-      } else {
-        setInvoices([])
+      try {
+        const [paymentsRes, expensesRes] = await Promise.all([
+          supabase.from('payments').select('*, patient:patients(name)').eq('clinic_id', clinicId!)
+            .gte('due_date', start).lte('due_date', end),
+          supabase.from('expenses').select('*').eq('clinic_id', clinicId!)
+            .gte('due_date', start).lte('due_date', end),
+        ])
+        const loaded: Payment[] = paymentsRes.data || []
+        let inv: FiscalInvoice[] = []
+        let invErr = false
+        if (loaded.length > 0) {
+          const r = await supabase.from('fiscal_invoices').select('*').in('payment_id', loaded.map(p => p.id))
+          if (r.error) invErr = true
+          else inv = (r.data as FiscalInvoice[]) || []
+        }
+        if (stale) return
+        setPayments(loaded)
+        setInvoices(inv)
+        setInvoiceError(invErr)
+        setExpenses(expensesRes.data || [])
+        loadedMonth.current = start
+      } finally {
+        if (!stale) setLoading(false)
       }
-      setExpenses(expensesRes.data || [])
-      loadedMonth.current = start
-      setLoading(false)
     }
     load()
+    return () => { stale = true }
   }, [clinicId, currentMonth, reloadKey])
+
+  const sortedPayments = useMemo(
+    () => [...payments].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')),
+    [payments],
+  )
 
   const recebido    = payments.filter((p) => p.status === 'paid').reduce((s, p) => s + p.amount, 0)
   const aReceber    = payments.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0)
@@ -234,8 +249,9 @@ export default function FinanceiroPage() {
                 {payments.length > 0 && (
                   <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
                     <h3 className="px-5 py-4 border-b border-[#E5E7EB] font-semibold text-[#111827]">Lançamentos do mês</h3>
+                    {invoiceError && <p className="px-5 py-2 text-xs text-red-600">Não foi possível carregar as notas fiscais.</p>}
                     <ListaPagamentos
-                      payments={[...payments].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))}
+                      payments={sortedPayments}
                       invoices={invoices}
                       showPatient
                       onChanged={() => setReloadKey(k => k + 1)}
