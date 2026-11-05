@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderTemplate, findUnknownVariables, buildContext } from '@/lib/messaging/templates'
+import { renderTemplate, findUnknownVariables, buildContext, DEFAULT_TEMPLATES } from '@/lib/messaging/templates'
 import { zonedDateTime, todayYmd } from '@/lib/messaging/time'
 import type { PatientRow } from '@/lib/messaging/types'
 
@@ -13,6 +13,15 @@ describe('renderTemplate', () => {
   })
   it('variável conhecida sem valor vira vazio', () => {
     expect(renderTemplate('{paciente}|{valor}', { paciente: 'A' })).toBe('A|')
+  })
+  it('renderTemplate fills {link}', () => {
+    expect(renderTemplate('Pague: {link}', { link: 'https://x.y/z' })).toBe('Pague: https://x.y/z')
+  })
+  it("charge default with empty link has no trailing 'Pague por aqui'", () => {
+    const out = renderTemplate(DEFAULT_TEMPLATES.charge, { paciente: 'Ana', valor: 'R$ 10,00', vencimento: '01/01/2026', clinica: 'X', link: '' })
+    expect(out).not.toContain('Pague por aqui')
+    expect(out).toBe(out.trimEnd())
+    expect(out.endsWith('mensagem.')).toBe(true)
   })
   it('variável desconhecida fica literal', () => {
     expect(renderTemplate('Oi {pacinete}', {})).toBe('Oi {pacinete}')
@@ -36,7 +45,7 @@ describe('buildContext', () => {
   it('monta contexto do pagamento', () => {
     const ctx = buildContext({
       patient, clinicName: 'C', tz: 'America/Sao_Paulo',
-      payment: { id: 'x', patient_id: 'p1', amount: 150, due_date: '2026-11-04', status: 'pending' },
+      payment: { id: 'x', patient_id: 'p1', amount: 150, due_date: '2026-11-04', status: 'pending', invoice_url: null, provider_state: null },
     })
     expect(ctx.valor).toBe('R$ 150,00')
     expect(ctx.vencimento).toBe('04/11/2026')

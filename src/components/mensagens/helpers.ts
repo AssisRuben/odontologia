@@ -5,6 +5,11 @@ import type { MessageKind, MessageSetting, MessageStatus, MessageType, TemplateC
 export const DEFAULT_TZ = 'America/Sao_Paulo'
 export const PAGE_SIZE = 50
 
+/** Variáveis que o editor oferece como atalho para cada tipo. */
+export function variablesFor(type: MessageType, all: readonly string[]): string[] {
+  return all.filter((v) => v !== 'link' || type === 'charge' || type === 'payment_due')
+}
+
 /** Devolve o fuso informado se for válido; senão o padrão. */
 export function resolveTz(tz: unknown): string {
   if (typeof tz !== 'string' || !tz) return DEFAULT_TZ
@@ -16,7 +21,7 @@ export function resolveTz(tz: unknown): string {
   }
 }
 
-export const SETTING_ORDER: MessageType[] = ['confirmation', 'reminder', 'recall', 'birthday', 'charge']
+export const SETTING_ORDER: MessageType[] = ['confirmation', 'reminder', 'recall', 'birthday', 'charge', 'payment_due']
 
 export const SETTING_META: Record<MessageType, { title: string; description: string }> = {
   confirmation: { title: 'Confirmação de consulta', description: 'Pede ao paciente que confirme ou desmarque a consulta antes do horário.' },
@@ -24,6 +29,7 @@ export const SETTING_META: Record<MessageType, { title: string; description: str
   recall: { title: 'Retorno semestral', description: 'Lembre seus pacientes de marcar o retorno após a última consulta.' },
   birthday: { title: 'Aniversariantes', description: 'Envie felicitações automáticas no dia do aniversário dos seus pacientes.' },
   charge: { title: 'Inadimplentes', description: 'Notifique pacientes com pagamentos em atraso.' },
+  payment_due: { title: 'Lembrete de vencimento', description: 'Avisa o paciente antes do vencimento de uma cobrança.' },
 }
 
 export const KIND_LABELS: Record<MessageKind, string> = {
@@ -32,6 +38,7 @@ export const KIND_LABELS: Record<MessageKind, string> = {
   recall: 'Retorno',
   birthday: 'Aniversário',
   charge: 'Cobrança',
+  payment_due: 'Lembrete de vencimento',
   manual: 'Manual',
   auto_reply: 'Resposta automática',
   incoming: 'Recebida',
@@ -125,6 +132,14 @@ export function validateConfig(type: MessageType, form: ConfigForm): ConfigResul
       const unique = [...new Set(nums as number[])].sort((a, b) => a - b)
       return { ok: true, config: { offset_days: unique } }
     }
+    case 'payment_due': {
+      const nums = form.days.map((d) => parseIntInRange(d, 1, 60))
+      if (nums.length === 0 || nums.some((n) => n === null)) {
+        return { ok: false, error: 'Informe os dias antes do vencimento como números inteiros de 1 a 60.' }
+      }
+      const unique = [...new Set(nums as number[])].sort((a, b) => a - b)
+      return { ok: true, config: { offset_days: unique } }
+    }
     case 'birthday':
       return { ok: true, config: {} }
   }
@@ -133,6 +148,9 @@ export function validateConfig(type: MessageType, form: ConfigForm): ConfigResul
 /** Valores iniciais dos campos do formulário a partir da config salva. */
 export function configToForm(type: MessageType, config: MessageSetting['config']): ConfigForm {
   if (type === 'recall') return { offset: String(config.offset_months ?? 6), days: [] }
+  if (type === 'payment_due') {
+    return { offset: '', days: [String(config.offset_days?.[0] ?? 3)] }
+  }
   if (type === 'charge') {
     const d = config.offset_days?.length ? config.offset_days : [1, 7]
     return { offset: '', days: [String(d[0] ?? 1), String(d[1] ?? 7)] }
@@ -156,7 +174,7 @@ export function buildPreviewContext(clinicName: string, tz: string = DEFAULT_TZ,
     clinicName,
     tz,
     appointment: { id: 'preview', patient_id: 'preview', professional_name: 'Dra. Ana Ferreira', start_time: start.toISOString(), status: 'scheduled' },
-    payment: { id: 'preview', patient_id: 'preview', amount: 150, due_date: addDaysYmd(today, -3), status: 'pending' },
+    payment: { id: 'preview', patient_id: 'preview', amount: 150, due_date: addDaysYmd(today, -3), status: 'pending', invoice_url: 'https://pagamento.exemplo/abc123', provider_state: 'active' },
   })
 }
 

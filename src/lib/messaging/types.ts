@@ -1,4 +1,4 @@
-export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge'
+export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge' | 'payment_due'
 export type MessageKind = MessageType | 'manual' | 'auto_reply' | 'incoming'
 export type MessageStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'received'
 
@@ -39,6 +39,8 @@ export interface PaymentRow {
   amount: number
   due_date: string | null
   status: string
+  invoice_url: string | null
+  provider_state: string | null
 }
 
 export interface QueueItem {
@@ -63,4 +65,5 @@ export interface TemplateContext {
   clinica?: string
   valor?: string
   vencimento?: string
+  link?: string
 }

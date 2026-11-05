@@ -1,18 +1,10 @@
-import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { runCycle } from '@/lib/messaging/cycle'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getProvider } from '@/lib/whatsapp'
+import { authorized } from '@/lib/auth/cronAuth'
 
 export const maxDuration = 60
-
-function authorized(header: string | null): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret || !header) return false
-  const a = Buffer.from(header)
-  const b = Buffer.from(`Bearer ${secret}`)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
 
 export async function POST(request: Request) {
   if (!authorized(request.headers.get('authorization'))) {

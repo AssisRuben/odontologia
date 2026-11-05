@@ -1,0 +1,9 @@
+{
+  "_status": 400,
+  "errors": [
+    {
+      "code": "invalid_value",
+      "description": "O valor mínimo para cobranças com a forma de pagamento Pergunte ao Cliente é R$ 5,00."
+    }
+  ]
+}
