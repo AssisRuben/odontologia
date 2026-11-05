@@ -235,6 +235,41 @@ No SQL Editor do Supabase, aplique [`supabase/2026-11-05-livro-caixa.sql`](supab
 
 ---
 
+## Funil de orçamentos e assinatura
+
+Envio do orçamento pelo WhatsApp, aprovação e assinatura pelo paciente no celular, lembretes automáticos e acompanhamento do que foi fechado ou perdido.
+
+### 1. Banco e endereço do app
+
+1. No SQL Editor do Supabase, aplique [`supabase/2026-11-05-funil-orcamentos.sql`](supabase/2026-11-05-funil-orcamentos.sql) (pode rodar de novo sem problema).
+2. `APP_URL` precisa ser um endereço que o celular do paciente alcance. Em produção, o endereço público do app. Em teste local, use um túnel, por exemplo `cloudflared tunnel --url http://localhost:3001`, e coloque o endereço gerado em `APP_URL`.
+3. Os lembretes rodam na rotina de mensagens que já existe (`/api/cron/messages`). A mesma rotina marca como vencidos os orçamentos fora da validade.
+
+### O que o app faz
+
+- **Envio pelo WhatsApp** com um link para o paciente.
+- **Página do paciente:** ele escolhe os itens que quer, assina com nome e CPF, ou recusa.
+- **Lembretes** nos dias 3 e 7 depois do envio (configuráveis em Mensagens).
+- **Para ligar:** lista de orçamentos parados, com registro de cada contato.
+- **Aprovação pela recepção**, quando o paciente decide fora do link.
+- **Comprovante em PDF** da aprovação. O paciente pode baixar por 30 dias.
+- **Página Orçamentos** com indicadores por período e por dentista.
+- **Validade padrão** em Configurações → Clínica.
+- **Gerar cobrança** com o valor aprovado.
+
+### O que não faz
+
+- Não usa provedor de assinatura. É assinatura eletrônica simples, aceita em contratos entre particulares (Lei 14.063/2020). Para prova mais forte, dá para adicionar depois um provedor como ZapSign ou Clicksign (não está nesta versão).
+- Não conta orçamentos antigos nos números do funil: eles não têm data de envio.
+
+### Regras
+
+- **Orçamento aprovado fica travado.** Para mudar, crie outro.
+- **Editar um orçamento enviado desativa o link.** Reenvie para o paciente.
+- **5 CPFs errados** bloqueiam a assinatura daquele link por 1 hora.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`
@@ -250,6 +285,7 @@ src/
   app/(dashboard)/     telas do sistema (agenda, pacientes, financeiro, ...)
   components/          componentes por área (agenda, paciente, layout, ui)
   lib/supabase/        conexão com o Supabase (navegador e servidor)
+  lib/orcamentos/      regras do funil de orçamentos e assinatura
   store/               estado global (clínica atual)
   types/               tipos das tabelas
   proxy.ts             redireciona para /login quem não está logado
