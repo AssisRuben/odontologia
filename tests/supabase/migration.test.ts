@@ -153,3 +153,123 @@ describe('2026-11-05-livro-caixa.sql migração de dados', () => {
     expect(sql).toContain('/storage/v1/object/public/anneOdonto/')
   })
 })
+
+describe.each(['2026-11-05-funil-orcamentos.sql', 'schema.sql'])('%s funil-orcamentos', (file) => {
+  const sql = read(file)
+
+  it('clinics tem a validade padrão de 1 a 180 dias', () => {
+    expect(sql).toContain('budget_validity_days INTEGER NOT NULL DEFAULT 30')
+    expect(sql).toContain('CHECK (budget_validity_days BETWEEN 1 AND 180)')
+  })
+
+  it.each([
+    'professional_id', 'sent_at', 'viewed_at', 'decided_at', 'valid_until',
+    'approved_total', 'lost_reason', 'followup_at', 'approval_seen_at', 'updated_at',
+  ])('budgets ganha a coluna %s', (col) => {
+    expect(sql).toMatch(new RegExp(`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS ${col}\\s`))
+  })
+
+  it('budget_items ganha approved', () => {
+    expect(sql).toContain('ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS approved BOOLEAN;')
+  })
+
+  it('status de budgets com os 6 valores', () => {
+    expect(sql).toContain("CHECK (status IN ('draft','sent','approved','rejected','expired','completed'))")
+  })
+
+  it('lost_reason com os 7 códigos', () => {
+    expect(sql).toContain(
+      "CHECK (lost_reason IN ('preco','pensar','outro_lugar','tempo','medo','sem_resposta','outro'))",
+    )
+  })
+
+  it('budget_links sem policy e com um link ativo por orçamento', () => {
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS budget_links')
+    expect(sql).toContain('ALTER TABLE budget_links ENABLE ROW LEVEL SECURITY;')
+    expect(sql).not.toMatch(/CREATE POLICY[^;]*ON budget_links/)
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS budget_links_active_uidx ON budget_links (budget_id) WHERE revoked_at IS NULL;',
+    )
+  })
+
+  it('budget_signatures com RLS e só select', () => {
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS budget_signatures')
+    expect(sql).toContain("CHECK (provider IN ('app','reception'))")
+    expect(sql).toContain('ALTER TABLE budget_signatures ENABLE ROW LEVEL SECURITY;')
+    expect(sql).toMatch(/CREATE POLICY "clinic_member_select" ON budget_signatures FOR SELECT/)
+    expect(sql).not.toMatch(/CREATE POLICY[^;]*ON budget_signatures FOR (INSERT|UPDATE|DELETE|ALL)/)
+  })
+
+  it('budget_events: insert só de contato do próprio usuário', () => {
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS budget_events')
+    expect(sql).toContain(
+      "CHECK (type IN ('sent','resent','reminder','viewed','contact','approved','rejected','expired','reopened','edited'))",
+    )
+    expect(sql).toContain("CHECK (outcome IN ('nao_atendeu','pensar','aprovou','perdido'))")
+    expect(sql).toMatch(
+      /ON budget_events FOR INSERT TO authenticated\s+WITH CHECK \([^;]*type = 'contact' AND created_by = auth\.uid\(\)\)/,
+    )
+  })
+
+  it('mensagens aceitam budget e budget_reminder', () => {
+    expect(sql).toContain(
+      "CHECK (type IN ('confirmation','reminder','recall','birthday','charge','payment_due','budget','budget_reminder','manual','auto_reply','incoming'))",
+    )
+    expect(sql).toContain(
+      "CHECK (type IN ('confirmation','reminder','recall','birthday','charge','payment_due','budget','budget_reminder'))",
+    )
+    if (file === 'schema.sql') {
+      expect(sql).toContain('budget_id           UUID REFERENCES budgets(id) ON DELETE SET NULL')
+    } else {
+      expect(sql).toContain('ALTER TABLE messages ADD COLUMN IF NOT EXISTS budget_id UUID REFERENCES budgets(id) ON DELETE SET NULL;')
+    }
+  })
+
+  it('seed_message_settings inclui os modelos de orçamento', () => {
+    expect(sql).toContain(
+      "'Olá, {paciente}! Segue seu orçamento da {clinica}, no valor de {valor}. Para ver os detalhes e aprovar: {link}'",
+    )
+    expect(sql).toContain(
+      "'Olá, {paciente}! Seu orçamento na {clinica} ainda está disponível até {vencimento}. Para ver e aprovar: {link}'",
+    )
+    expect(sql).toContain('\'{"offset_days":[3,7]}\'')
+  })
+
+  it.each(['send_budget', 'approve_budget', 'reject_budget'])('função %s só para o servidor', (fn) => {
+    expect(sql).toContain(`CREATE OR REPLACE FUNCTION public.${fn}(`)
+    expect(sql).toMatch(
+      new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\) FROM PUBLIC, anon, authenticated;`),
+    )
+  })
+
+  it('gatilhos de edição e trava, ignorados no modo sistema', () => {
+    expect(sql).toContain('CREATE TRIGGER budgets_guard_trg BEFORE UPDATE ON budgets')
+    expect(sql).toContain('CREATE TRIGGER budget_items_guard_trg BEFORE INSERT OR UPDATE OR DELETE ON budget_items')
+    expect(sql).toContain("current_setting('app.budget_system', true) = 'on'")
+    expect(sql).toContain("PERFORM set_config('app.budget_system', 'on', true);")
+    expect(sql).toContain("RAISE EXCEPTION 'Orçamento aprovado não pode ser alterado. Reabra-o ou crie um novo.';")
+  })
+
+  it('send_budget usa a data de São Paulo', () => {
+    expect(sql).toContain("(NOW() AT TIME ZONE 'America/Sao_Paulo')::date + p_validity_days")
+  })
+
+  it('preenche os dados antigos antes dos gatilhos', () => {
+    const backfill = sql.indexOf('UPDATE budgets SET approved_total = total, decided_at = created_at')
+    const trigger = sql.indexOf('CREATE TRIGGER budgets_guard_trg')
+    expect(backfill).toBeGreaterThan(-1)
+    expect(trigger).toBeGreaterThan(backfill)
+    expect(sql).toContain('UPDATE budget_items SET approved = TRUE')
+    expect(sql).toContain("UPDATE budgets SET lost_reason = 'outro', decided_at = created_at")
+    expect(sql).toContain('approved_total IS NULL')
+    expect(sql).toContain('lost_reason IS NULL')
+  })
+})
+
+describe('2026-11-05-funil-orcamentos.sql clínicas existentes', () => {
+  const sql = read('2026-11-05-funil-orcamentos.sql')
+  it('cria as duas configurações para clínicas já cadastradas', () => {
+    expect(sql).toMatch(/SELECT c\.id, 'budget', TRUE[^;]*FROM clinics c\s+ON CONFLICT \(clinic_id, type\) DO NOTHING;/)
+    expect(sql).toMatch(/SELECT c\.id, 'budget_reminder', TRUE[^;]*FROM clinics c\s+ON CONFLICT \(clinic_id, type\) DO NOTHING;/)
+  })
+})
