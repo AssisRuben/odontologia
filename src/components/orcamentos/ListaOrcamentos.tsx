@@ -164,7 +164,7 @@ export function ListaOrcamentos({ tab, rows, onChanged }: Props) {
       )}
       {charge && (
         <ModalNovaCobranca
-          patient={{ id: charge.patient.id, name: charge.patient.name }}
+          patient={{ id: charge.patient.id, name: charge.patient.name, cpf: charge.patient.cpf, whatsapp_opt_out: charge.patient.whatsapp_opt_out }}
           budget={{
             id: charge.id,
             total: Math.round((charge.approved_total - charge.charged) * 100) / 100,

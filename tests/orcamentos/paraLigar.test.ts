@@ -19,9 +19,13 @@ describe('needsCall', () => {
     const b = { ...base, sent_at: '2026-11-07T10:00:00-03:00', viewed_at: '2026-11-06T10:00:00-03:00' }
     expect(needsCall(b, now, TZ, [3, 7])).toBe(true)
   })
+  it('followup_at só-data: amanhã adia, hoje liga', () => {
+    expect(needsCall({ ...base, followup_at: '2026-11-09' }, now, TZ, [3, 7])).toBe(false)
+    expect(needsCall({ ...base, followup_at: '2026-11-08' }, now, TZ, [3, 7])).toBe(true)
+  })
   it('followup_at', () => {
-    expect(needsCall({ ...base, followup_at: '2026-11-09T10:00:00-03:00' }, now, TZ, [3, 7])).toBe(false)
-    expect(needsCall({ ...base, followup_at: '2026-11-08T08:00:00-03:00' }, now, TZ, [3, 7])).toBe(true)
+    expect(needsCall({ ...base, followup_at: '2026-11-09' }, now, TZ, [3, 7])).toBe(false)
+    expect(needsCall({ ...base, followup_at: '2026-11-08' }, now, TZ, [3, 7])).toBe(true)
   })
   it('status approved false', () => {
     expect(needsCall({ ...base, status: 'approved' }, now, TZ, [3, 7])).toBe(false)

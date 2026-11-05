@@ -190,7 +190,7 @@ export function createSendDeps(admin: SupabaseClient): SendDeps {
 
 export interface FunnelListRow {
   id: string
-  patient: { id: string; name: string; phone: string | null }
+  patient: { id: string; name: string; phone: string | null; cpf: string | null; whatsapp_opt_out: boolean }
   professional_name: string | null
   total: number
   approved_total: number
@@ -220,13 +220,13 @@ export async function loadFunnelSources(admin: SupabaseClient, clinicId: string)
     .from('budgets')
     .select(
       'id, status, total, approved_total, sent_at, viewed_at, valid_until, decided_at, lost_reason, followup_at, approval_seen_at, professional_id, ' +
-        'patients(id, name, phone), professionals(name), budget_links(created_at, revoked_at), payments(amount, status), ' +
+        'patients(id, name, phone, cpf, whatsapp_opt_out), professionals(name), budget_links(created_at, revoked_at), payments(amount, status), ' +
         'budget_events(id, budget_id, clinic_id, type, outcome, reason, note, created_by, created_at)',
     )
     .eq('clinic_id', clinicId)
     .or('sent_at.not.is.null,decided_at.not.is.null')
   check(error)
-  type P = { id: string; name: string; phone: string | null }
+  type P = { id: string; name: string; phone: string | null; cpf: string | null; whatsapp_opt_out: boolean | null }
   type Raw = {
     id: string; status: BudgetStatus; total: number; approved_total: number | null; sent_at: string | null
     viewed_at: string | null; valid_until: string | null; decided_at: string | null; lost_reason: LostReason | null
@@ -238,7 +238,10 @@ export async function loadFunnelSources(admin: SupabaseClient, clinicId: string)
     budget_events: BudgetEvent[] | null
   }
   return ((data ?? []) as unknown as Raw[]).map((r) => {
-    const patient = first(r.patients) ?? { id: '', name: '', phone: null }
+    const rawP = first(r.patients)
+    const patient = rawP
+      ? { ...rawP, whatsapp_opt_out: rawP.whatsapp_opt_out === true }
+      : { id: '', name: '', phone: null, cpf: null, whatsapp_opt_out: false }
     const profName = first(r.professionals)?.name ?? null
     const link = (r.budget_links ?? []).filter((l) => !l.revoked_at).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
     const charged = (r.payments ?? [])

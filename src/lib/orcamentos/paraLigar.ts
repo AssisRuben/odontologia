@@ -23,7 +23,7 @@ export function needsCall(
 ): boolean {
   if (b.status !== 'sent') return false
   const today = todayYmd(now, tz)
-  if (b.followup_at && ymd(b.followup_at, tz) > today) return false
+  if (b.followup_at && b.followup_at.slice(0, 10) > today) return false
 
   const baseIso = b.link_created_at ?? b.sent_at
   if (baseIso) {
