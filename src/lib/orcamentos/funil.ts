@@ -44,7 +44,7 @@ export function buildFunnel(
     if (!r.sent_at) return false
     const d = ymd(r.sent_at)
     if (d < filter.from || d > filter.to) return false
-    if (filter.professionalId && r.professional_id !== filter.professionalId) return false
+    if (filter.professionalId !== undefined && r.professional_id !== filter.professionalId) return false
     return true
   })
 

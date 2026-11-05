@@ -65,4 +65,10 @@ describe('buildFunnel', () => {
     expect(r.rateCount).toBeNull()
     expect(r.avgDaysToApprove).toBeNull()
   })
+  it('professionalId null filtra só sem dentista; undefined = todos', () => {
+    const rows = [row({ id: 'a' }), row({ id: 'b', professional_id: null, professional_name: '' })]
+    expect(buildFunnel(rows, { ...f, professionalId: null }).presented.count).toBe(1)
+    expect(buildFunnel(rows, { ...f, professionalId: undefined }).presented.count).toBe(2)
+    expect(buildFunnel(rows, { ...f, professionalId: 'p1' }).presented.count).toBe(1)
+  })
 })

@@ -157,7 +157,7 @@ export function createSendDeps(admin: SupabaseClient): SendDeps {
         .eq('clinic_id', clinicId)
         .is('revoked_at', null)
         .maybeSingle()
-      check(error)
+      if (checkId(error)) return null
       return (data as { id: string; token: string } | null) ?? null
     },
     rpcSend: (budgetId, token, validityDays, actorId) =>
@@ -230,7 +230,7 @@ export async function loadFunnelSources(admin: SupabaseClient, clinicId: string)
         'budget_events(id, budget_id, clinic_id, type, outcome, reason, note, created_by, created_at)',
     )
     .eq('clinic_id', clinicId)
-    .not('sent_at', 'is', null)
+    .or('sent_at.not.is.null,decided_at.not.is.null')
   check(error)
   type P = { id: string; name: string; phone: string | null }
   type Raw = {
