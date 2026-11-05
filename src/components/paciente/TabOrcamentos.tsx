@@ -1,34 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, X, Trash2, FileText, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, X, Trash2, FileText, CheckCircle2, XCircle, Clock, Send } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils'
 import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
 import type { NovaCobrancaPatient } from '@/components/pagamentos/ModalNovaCobranca'
-
-interface BudgetItem {
-  id: string
-  budget_id: string
-  procedure: string
-  tooth: string | null
-  quantity: number
-  unit_price: number
-  status: 'pending' | 'in_progress' | 'completed'
-}
-
-interface Budget {
-  id: string
-  patient_id: string
-  clinic_id: string
-  status: 'draft' | 'approved' | 'rejected' | 'completed'
-  notes: string | null
-  total: number
-  created_at: string
-  items?: BudgetItem[]
-}
+import { ModalDecisao } from '@/components/orcamentos/ModalDecisao'
+import { STAGE_LABEL } from '@/lib/orcamentos/etapas'
+import { actionsFor, eventLabel } from '@/lib/orcamentos/aba'
+import type { Budget, BudgetEvent, BudgetItem, BudgetStatus } from '@/types'
 
 interface Props {
   patientId: string
@@ -36,11 +19,17 @@ interface Props {
   patient?: NovaCobrancaPatient
 }
 
-const BUDGET_STATUS = {
-  draft:     { label: 'Rascunho',  color: '#6B7280', bg: '#F3F4F6', icon: Clock },
-  approved:  { label: 'Aprovado',  color: '#10B981', bg: '#ECFDF5', icon: CheckCircle2 },
-  rejected:  { label: 'Recusado', color: '#EF4444', bg: '#FEF2F2', icon: XCircle },
-  completed: { label: 'Concluído', color: '#3B82F6', bg: '#EFF6FF', icon: CheckCircle2 },
+interface Prof { id: string; name: string; user_id: string | null }
+
+type Msg = { kind: 'ok' | 'err'; text: string; link?: string }
+
+const BUDGET_STATUS: Record<BudgetStatus, { color: string; bg: string; icon: typeof Clock }> = {
+  draft:     { color: '#6B7280', bg: '#F3F4F6', icon: Clock },
+  sent:      { color: '#B45309', bg: '#FFFBEB', icon: Send },
+  approved:  { color: '#10B981', bg: '#ECFDF5', icon: CheckCircle2 },
+  rejected:  { color: '#EF4444', bg: '#FEF2F2', icon: XCircle },
+  expired:   { color: '#EF4444', bg: '#FEF2F2', icon: XCircle },
+  completed: { color: '#3B82F6', bg: '#EFF6FF', icon: CheckCircle2 },
 }
 
 const ITEM_STATUS = {
@@ -49,15 +38,32 @@ const ITEM_STATUS = {
   completed:   { label: 'Concluído',   color: '#10B981' },
 }
 
+const SENT_EDIT_NOTICE = 'Ao alterar um orçamento enviado, o link atual deixa de funcionar e será preciso reenviar.'
+
+const btn = 'px-3 h-7 rounded-lg text-xs font-medium transition-colors disabled:opacity-50'
+
 export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
   const [budgets, setBudgets]   = useState<Budget[]>([])
+  const [events, setEvents]     = useState<Record<string, BudgetEvent[]>>({})
+  const [profs, setProfs]       = useState<Prof[]>([])
+  const [userId, setUserId]     = useState<string | null>(null)
   const [loading, setLoading]   = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [charged, setCharged] = useState<Record<string, number>>({})
   const [chargeBudget, setChargeBudget] = useState<{ id: string; total: number; label: string } | null>(null)
+  const [decisao, setDecisao] = useState<{ budget: Budget; mode: 'approve' | 'lose' } | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msgs, setMsgs] = useState<Record<string, Msg>>({})
 
-  async function load() {
+  const setMsg = (id: string, m?: Msg) =>
+    setMsgs(prev => {
+      const next = { ...prev }
+      if (m) next[id] = m; else delete next[id]
+      return next
+    })
+
+  const load = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
       .from('budgets')
@@ -65,44 +71,117 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
     if (data) {
-      setBudgets(data)
+      setBudgets(data as Budget[])
       const ids = data.map((b: Budget) => b.id)
       if (ids.length > 0) {
-        const { data: pays } = await supabase
-          .from('payments')
-          .select('budget_id, amount, status')
-          .in('budget_id', ids)
+        const [{ data: pays }, { data: evs }] = await Promise.all([
+          supabase.from('payments').select('budget_id, amount, status').in('budget_id', ids),
+          supabase.from('budget_events').select('*').in('budget_id', ids).order('created_at', { ascending: true }),
+        ])
         const sums: Record<string, number> = {}
         for (const p of (pays ?? []) as { budget_id: string; amount: number; status: string }[]) {
           if (p.status === 'cancelled' || p.status === 'refunded') continue
           sums[p.budget_id] = (sums[p.budget_id] ?? 0) + Number(p.amount)
         }
         setCharged(sums)
+        const byBudget: Record<string, BudgetEvent[]> = {}
+        for (const e of (evs ?? []) as BudgetEvent[]) (byBudget[e.budget_id] ??= []).push(e)
+        setEvents(byBudget)
       } else {
         setCharged({})
+        setEvents({})
       }
     }
     setLoading(false)
-  }
+  }, [patientId])
+
+  useEffect(() => {
+    load() // eslint-disable-line react-hooks/set-state-in-effect
+    const supabase = createClient()
+    supabase.from('professionals').select('id, name, user_id').eq('clinic_id', clinicId).order('name')
+      .then(({ data }) => setProfs((data ?? []) as Prof[]))
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+  }, [load, clinicId])
 
   function openCharge(b: Budget, total: number) {
     setChargeBudget({ id: b.id, total, label: `Orçamento #${b.id.replace(/-/g, '').slice(0, 6).toUpperCase()}` })
   }
 
-  useEffect(() => { load() }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function updateStatus(id: string, status: Budget['status'], total = 0) {
-    const supabase = createClient()
-    await supabase.from('budgets').update({ status }).eq('id', id)
+  async function updateBudget(b: Budget, patch: Partial<Pick<Budget, 'status' | 'valid_until' | 'professional_id'>>) {
+    setBusy(b.id)
+    setMsg(b.id)
+    const { error } = await createClient().from('budgets').update(patch).eq('id', b.id)
+    if (error) setMsg(b.id, { kind: 'err', text: error.message })
     await load()
-    if (status === 'approved' && patient && total > 0) {
-      setChargeBudget({ id, total, label: `Orçamento #${id.replace(/-/g, '').slice(0, 6).toUpperCase()}` })
+    setBusy(null)
+  }
+
+  function changeValidity(b: Budget, value: string) {
+    if (value === (b.valid_until ?? '')) return
+    if (b.status === 'sent' && !window.confirm(SENT_EDIT_NOTICE)) { load(); return }
+    updateBudget(b, { valid_until: value || null })
+  }
+
+  async function send(b: Budget, resend: boolean) {
+    setBusy(b.id)
+    setMsg(b.id)
+    try {
+      const res = await fetch(`/api/orcamentos/${b.id}/enviar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resend }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) setMsg(b.id, { kind: 'err', text: json.error ?? 'Não foi possível enviar.' })
+      else if (json.sent === false) setMsg(b.id, { kind: 'err', text: json.warning ?? 'Orçamento não enviado por WhatsApp. Copie o link e envie manualmente.', link: json.link })
+      else setMsg(b.id, { kind: 'ok', text: resend ? 'Orçamento reenviado.' : 'Orçamento enviado.', link: json.link })
+    } catch {
+      setMsg(b.id, { kind: 'err', text: 'Não foi possível enviar.' })
+    }
+    await load()
+    setBusy(null)
+  }
+
+  async function copyLink(b: Budget, known?: string) {
+    try {
+      let link = known
+      if (!link) {
+        const res = await fetch(`/api/orcamentos/${b.id}/link`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) { setMsg(b.id, { kind: 'err', text: json.error ?? 'Link não encontrado. Reenvie o orçamento.' }); return }
+        link = json.link as string
+      }
+      await navigator.clipboard.writeText(link)
+      setMsg(b.id, { kind: 'ok', text: 'Link copiado' })
+    } catch {
+      setMsg(b.id, { kind: 'err', text: 'Não foi possível copiar o link.' })
     }
   }
 
-  async function updateItemStatus(id: string, status: BudgetItem['status']) {
-    const supabase = createClient()
-    await supabase.from('budget_items').update({ status }).eq('id', id)
+  async function reopen(b: Budget) {
+    setBusy(b.id)
+    setMsg(b.id)
+    const res = await fetch(`/api/orcamentos/${b.id}/decisao`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reopen' }),
+    })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setMsg(b.id, { kind: 'err', text: json.error ?? 'Não foi possível reabrir.' })
+    }
+    await load()
+    setBusy(null)
+  }
+
+  async function openReceipt(b: Budget) {
+    setMsg(b.id)
+    const res = await fetch(`/api/orcamentos/${b.id}/comprovante`)
+    if (!res.ok) { setMsg(b.id, { kind: 'err', text: 'Comprovante não encontrado' }); return }
+    const blob = await res.blob()
+    window.open(URL.createObjectURL(blob), '_blank')
+  }
+
+  async function updateItemStatus(budgetId: string, id: string, status: BudgetItem['status']) {
+    setMsg(budgetId)
+    const { error } = await createClient().from('budget_items').update({ status }).eq('id', id)
+    if (error) setMsg(budgetId, { kind: 'err', text: error.message })
     load()
   }
 
@@ -134,7 +213,13 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
             const Icon = cfg.icon
             const expanded = expandedId === b.id
             const items = b.items || []
-            const total = items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+            const itemsTotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+            const won = b.status === 'approved' || b.status === 'completed'
+            const total = won ? Number(b.approved_total ?? itemsTotal) : itemsTotal
+            const remaining = total - (charged[b.id] ?? 0)
+            const act = actionsFor(b.status, remaining)
+            const msg = msgs[b.id]
+            const disabled = busy === b.id
 
             return (
               <div key={b.id} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
@@ -147,14 +232,14 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
                         style={{ backgroundColor: cfg.bg, color: cfg.color }}>
                         <Icon className="w-3 h-3" />
-                        {cfg.label}
+                        {STAGE_LABEL[b.status]}
                       </span>
                       <span className="text-xs text-[#9CA3AF]">
                         {format(parseISO(b.created_at), "d MMM yyyy", { locale: ptBR })}
                       </span>
                     </div>
                     <p className="text-xs text-[#6B7280]">{items.length} procedimento(s)</p>
-                    {(b.status === 'approved' || b.status === 'completed') && (
+                    {won && (
                       <p className="text-xs text-[#6B7280] mt-0.5">
                         Cobrado {formatCurrency(charged[b.id] ?? 0)} de {formatCurrency(total)}
                       </p>
@@ -165,14 +250,47 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
 
                 {expanded && (
                   <div className="border-t border-[#F3F4F6]">
-                    {/* Itens */}
+                    <div className="flex flex-wrap items-center gap-4 px-5 py-3 bg-[#FAFAFA] border-b border-[#F3F4F6]">
+                      <label className="flex items-center gap-2 text-xs text-[#6B7280]">
+                        Dentista
+                        <select
+                          value={b.professional_id ?? ''}
+                          disabled={!act.editProfessional || disabled}
+                          onChange={e => updateBudget(b, { professional_id: e.target.value || null })}
+                          className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white disabled:bg-[#F3F4F6]"
+                        >
+                          <option value="">Sem dentista</option>
+                          {profs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-[#6B7280]">
+                        Validade
+                        <input
+                          type="date"
+                          defaultValue={b.valid_until ?? ''}
+                          key={`${b.id}-${b.valid_until ?? ''}`}
+                          disabled={!act.editValidity || disabled}
+                          onBlur={e => changeValidity(b, e.target.value)}
+                          className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white disabled:bg-[#F3F4F6]"
+                        />
+                      </label>
+                      {b.status === 'sent' && <span className="text-[11px] text-[#B45309]">{SENT_EDIT_NOTICE}</span>}
+                    </div>
+
                     <div className="divide-y divide-[#F9FAFB]">
                       {items.map((item) => {
                         const ist = ITEM_STATUS[item.status]
                         return (
                           <div key={item.id} className="flex items-center gap-3 px-5 py-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-[#111827]">{item.procedure}</p>
+                              <p className="text-sm font-medium text-[#111827]">
+                                {item.procedure}
+                                {won && (
+                                  <span className={`ml-2 text-[11px] font-semibold ${item.approved ? 'text-[#10B981]' : 'text-[#9CA3AF]'}`}>
+                                    {item.approved ? 'Aprovado' : 'Não aprovado'}
+                                  </span>
+                                )}
+                              </p>
                               <p className="text-xs text-[#6B7280]">
                                 {item.tooth ? `Dente ${item.tooth} · ` : ''}
                                 Qtd {item.quantity} · {formatCurrency(item.unit_price)} un.
@@ -180,7 +298,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                             </div>
                             <select
                               value={item.status}
-                              onChange={e => updateItemStatus(item.id, e.target.value as BudgetItem['status'])}
+                              onChange={e => updateItemStatus(b.id, item.id, e.target.value as BudgetItem['status'])}
                               className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white focus:outline-none"
                               style={{ color: ist.color }}
                             >
@@ -200,37 +318,62 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                       <p className="px-5 py-3 text-xs text-[#6B7280] italic border-t border-[#F9FAFB]">{b.notes}</p>
                     )}
 
-                    {/* Ações de status do orçamento */}
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-[#F3F4F6] bg-[#FAFAFA]">
-                      <span className="text-xs text-[#6B7280]">Alterar status:</span>
-                      <div className="flex gap-2">
-                        {b.status !== 'approved' && (
-                          <button onClick={() => updateStatus(b.id, 'approved', total)}
-                            className="px-3 h-7 rounded-lg bg-[#ECFDF5] text-[#10B981] text-xs font-medium hover:bg-[#D1FAE5] transition-colors">
-                            Aprovar
-                          </button>
-                        )}
-                        {b.status !== 'rejected' && (
-                          <button onClick={() => updateStatus(b.id, 'rejected')}
-                            className="px-3 h-7 rounded-lg bg-[#FEF2F2] text-[#EF4444] text-xs font-medium hover:bg-[#FEE2E2] transition-colors">
-                            Recusar
-                          </button>
-                        )}
-                        {patient && (b.status === 'approved' || b.status === 'completed') && (total - (charged[b.id] ?? 0) <= 0.004 ? (
-                          <span className="px-3 h-7 inline-flex items-center text-xs text-[#6B7280]">Cobrado integralmente</span>
-                        ) : (
-                          <button onClick={() => openCharge(b, Math.max(0, total - (charged[b.id] ?? 0)))}
-                            className="px-3 h-7 rounded-lg bg-[#FFFBEB] text-[#B45309] text-xs font-medium hover:bg-[#FEF3C7] transition-colors">
-                            Cobrar
-                          </button>
-                        ))}
-                        {b.status === 'approved' && (
-                          <button onClick={() => updateStatus(b.id, 'completed')}
-                            className="px-3 h-7 rounded-lg bg-[#EFF6FF] text-[#3B82F6] text-xs font-medium hover:bg-[#DBEAFE] transition-colors">
-                            Concluir
-                          </button>
+                    {msg && (
+                      <div className={`px-5 py-2 text-xs border-t border-[#F3F4F6] flex items-center gap-3 ${msg.kind === 'err' ? 'text-red-600 bg-red-50' : 'text-[#047857] bg-[#ECFDF5]'}`}>
+                        <span>{msg.text}</span>
+                        {msg.link && (
+                          <button onClick={() => copyLink(b, msg.link)} className="underline font-medium">Copiar link</button>
                         )}
                       </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-[#F3F4F6] bg-[#FAFAFA]">
+                      {act.send && (
+                        <button disabled={disabled} onClick={() => send(b, false)} className={`${btn} bg-[#3B82F6] text-white hover:bg-[#2563EB]`}>Enviar</button>
+                      )}
+                      {act.resend && (
+                        <button disabled={disabled} onClick={() => send(b, true)} className={`${btn} bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]`}>Reenviar</button>
+                      )}
+                      {act.copyLink && (
+                        <button disabled={disabled} onClick={() => copyLink(b)} className={`${btn} bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB]`}>Copiar link</button>
+                      )}
+                      {act.decide && (
+                        <>
+                          <button disabled={disabled} onClick={() => setDecisao({ budget: b, mode: 'approve' })} className={`${btn} bg-[#ECFDF5] text-[#10B981] hover:bg-[#D1FAE5]`}>Aprovou</button>
+                          <button disabled={disabled} onClick={() => setDecisao({ budget: b, mode: 'lose' })} className={`${btn} bg-[#FEF2F2] text-[#EF4444] hover:bg-[#FEE2E2]`}>Perdido</button>
+                        </>
+                      )}
+                      {act.reopen && (
+                        <button disabled={disabled} onClick={() => reopen(b)} className={`${btn} bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]`}>Reabrir</button>
+                      )}
+                      {act.receipt && (
+                        <button onClick={() => openReceipt(b)} className={`${btn} bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB]`}>Comprovante</button>
+                      )}
+                      {patient && act.charge && (
+                        <button onClick={() => openCharge(b, remaining)} className={`${btn} bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7]`}>Gerar cobrança</button>
+                      )}
+                      {patient && won && !act.charge && (
+                        <span className="px-3 h-7 inline-flex items-center text-xs text-[#6B7280]">Cobrado integralmente</span>
+                      )}
+                      {act.complete && (
+                        <button disabled={disabled} onClick={() => updateBudget(b, { status: 'completed' })} className={`${btn} bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]`}>Concluído</button>
+                      )}
+                    </div>
+
+                    <div className="px-5 py-3 border-t border-[#F3F4F6]">
+                      <p className="text-xs font-semibold text-[#6B7280] mb-2">Histórico</p>
+                      {(events[b.id] ?? []).length === 0 ? (
+                        <p className="text-xs text-[#9CA3AF]">Sem eventos.</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {(events[b.id] ?? []).map(e => (
+                            <li key={e.id} className="text-xs text-[#374151]">
+                              <span className="text-[#9CA3AF]">{format(parseISO(e.created_at), "d MMM yyyy HH:mm", { locale: ptBR })}</span>
+                              {' · '}{eventLabel(e)}{e.note ? ` — ${e.note}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
                 )}
@@ -238,6 +381,15 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
             )
           })}
         </div>
+      )}
+
+      {decisao && (
+        <ModalDecisao
+          budget={{ id: decisao.budget.id, items: decisao.budget.items }}
+          mode={decisao.mode}
+          onClose={() => setDecisao(null)}
+          onDone={() => { setDecisao(null); load() }}
+        />
       )}
 
       {chargeBudget && patient && (
@@ -253,6 +405,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
         <ModalNovoOrcamento
           patientId={patientId}
           clinicId={clinicId}
+          professionalId={profs.find(p => p.user_id && p.user_id === userId)?.id ?? null}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); load() }}
         />
@@ -260,6 +413,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
     </div>
   )
 }
+
 
 // ─── Modal novo orçamento ─────────────────────────────────────────────────────
 
@@ -269,8 +423,8 @@ function newItem(): ItemForm {
   return { id: crypto.randomUUID(), procedure: '', tooth: '', quantity: '1', unit_price: '' }
 }
 
-function ModalNovoOrcamento({ patientId, clinicId, onClose, onSaved }: {
-  patientId: string; clinicId: string; onClose: () => void; onSaved: () => void
+function ModalNovoOrcamento({ patientId, clinicId, professionalId, onClose, onSaved }: {
+  patientId: string; clinicId: string; professionalId: string | null; onClose: () => void; onSaved: () => void
 }) {
   const [items, setItems] = useState<ItemForm[]>([newItem()])
   const [notes, setNotes] = useState('')
@@ -294,23 +448,23 @@ function ModalNovoOrcamento({ patientId, clinicId, onClose, onSaved }: {
     setSaving(true)
     const supabase = createClient()
 
-    const { data: budget } = await supabase.from('budgets').insert({
-      clinic_id: clinicId, patient_id: patientId,
+    const { data: budget, error: bErr } = await supabase.from('budgets').insert({
+      clinic_id: clinicId, patient_id: patientId, professional_id: professionalId,
       status: 'draft', notes: notes || null, total,
     }).select().single()
+    if (bErr || !budget) { setSaving(false); setError(bErr?.message ?? 'Não foi possível criar o orçamento.'); return }
 
-    if (budget) {
-      await supabase.from('budget_items').insert(
-        valid.map(i => ({
-          budget_id: budget.id,
-          procedure: i.procedure.trim(),
-          tooth: i.tooth || null,
-          quantity: parseInt(i.quantity) || 1,
-          unit_price: parseFloat(i.unit_price),
-          status: 'pending',
-        }))
-      )
-    }
+    const { error: iErr } = await supabase.from('budget_items').insert(
+      valid.map(i => ({
+        budget_id: budget.id,
+        procedure: i.procedure.trim(),
+        tooth: i.tooth || null,
+        quantity: parseInt(i.quantity) || 1,
+        unit_price: parseFloat(i.unit_price),
+        status: 'pending',
+      }))
+    )
+    if (iErr) { setSaving(false); setError(iErr.message); return }
     setSaving(false)
     onSaved()
   }
