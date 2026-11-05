@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { LOST_REASONS } from '@/lib/orcamentos/etapas'
 import type { OpenBudget } from '@/lib/orcamentos/publico'
+import { brDateFromInstant } from '@/lib/orcamentos/datas'
 
 function brl(value: number): string {
   return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -115,7 +116,7 @@ export default function AprovacaoPaciente({ token, budget }: { token: string; bu
         )}
         <h1 className="text-lg font-semibold text-[#111827]">{budget.clinic.name}</h1>
         <p className="text-sm text-[#6B7280]">
-          Orçamento #{budget.number} · {brDate(budget.createdAt)}
+          Orçamento #{budget.number} · {brDateFromInstant(budget.createdAt)}
           {budget.professional ? ` · ${budget.professional}` : ''}
         </p>
         {budget.validUntil && <p className="text-sm text-[#6B7280]">Válido até {brDate(budget.validUntil)}</p>}

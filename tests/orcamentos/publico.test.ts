@@ -51,12 +51,12 @@ describe('publicView', () => {
     expect(await publicView(tok, NOW, mk(rec({ budget_status: 'expired' })))).toEqual({ kind: 'unavailable' })
     expect(await publicView(tok, NOW, mk(rec({ valid_until: '2026-11-01' })))).toEqual({ kind: 'unavailable' })
   })
-  it('aprovado há 29 dias baixa; há 31 não', async () => {
+  it('aprovado há 29 dias baixa; há 31 fica indisponível', async () => {
     const at = (days: number) => new Date(NOW.getTime() - days * DAY).toISOString()
     const a = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', revoked_at: 'x', signed_at: at(29), signature_link_id: 'l1' })))
     expect(a).toMatchObject({ kind: 'approved', canDownload: true })
     const b = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', signed_at: at(31), signature_link_id: 'l1' })))
-    expect(b).toMatchObject({ kind: 'approved', canDownload: false })
+    expect(b).toEqual({ kind: 'unavailable' })
     const c = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', signed_at: at(30), signature_link_id: 'l1' })))
     expect(c).toMatchObject({ canDownload: true })
   })

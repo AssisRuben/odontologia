@@ -74,6 +74,11 @@ describe('approveBudget', () => {
     expect(args[4].snapshot.assinante).toEqual({ nome: 'Recepcionista Ana', cpf: '' })
     expect(args[5]).toBe('u1')
   })
+  it('recepção sem cadastro de profissional assina como Recepção', async () => {
+    const d = deps({ actorName: vi.fn(async () => null) })
+    await approveBudget({ ...base, linkId: null, signer: null, actorId: 'u1' }, d)
+    expect(d.rpcApprove.mock.calls[0][4]).toMatchObject({ signer_name: 'Recepção' })
+  })
   it('second approval is rejected', async () => {
     const d = deps({ rpcApprove: vi.fn(async () => 'already_decided' as const) })
     expect(await approveBudget(base, d)).toEqual({ ok: false, status: 409, error: 'Este orçamento já foi respondido.' })
@@ -126,6 +131,11 @@ describe('expireBudgets', () => {
     expect(n).toBe(1)
     expect(d.rpcReject).toHaveBeenCalledTimes(1)
     expect(d.rpcReject).toHaveBeenCalledWith('a', null, 'sem_resposta', null, null, 'expired')
+  })
+  it('pede só os vencidos antes de hoje em São Paulo', async () => {
+    const d = deps()
+    await expireBudgets(new Date('2026-11-06T01:00:00Z'), d)
+    expect(d.listSent).toHaveBeenCalledWith('2026-11-05')
   })
   it('não conta quem já foi decidido', async () => {
     const d = deps({

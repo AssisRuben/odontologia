@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib'
 import { fit, safeText } from '@/lib/pdf/texto'
 import { formatCpf } from '@/lib/payments/cpf'
 import type { Snapshot } from './assinatura'
+import { brDateFromInstant, maskCpfMiddle } from './datas'
 
 function brl(text: string): string {
   const [int, dec] = text.split('.')
@@ -19,7 +20,7 @@ function brDateTime(iso: string): string {
 
 export async function buildReceiptPdf(
   s: Snapshot,
-  meta: { hash: string; ip: string | null; userAgent: string | null; provider: 'app' | 'reception' },
+  meta: { hash: string; ip: string | null; userAgent: string | null; provider: 'app' | 'reception'; maskCpf?: boolean },
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
   const font = await doc.embedFont(StandardFonts.Helvetica)
@@ -81,7 +82,7 @@ export async function buildReceiptPdf(
   line(s.clinica, 12, font, gray, 22)
   line(`Paciente: ${s.paciente}`)
   if (s.dentista) line(`Dentista: ${s.dentista}`)
-  line(`Orçamento: ${s.orcamento}   Data: ${brDate(s.data)}   Validade: ${s.validade ? brDate(s.validade) : 'não informada'}`)
+  line(`Orçamento: ${s.orcamento}   Data: ${brDateFromInstant(s.data)}   Validade: ${s.validade ? brDate(s.validade) : 'não informada'}`)
   y -= 8
 
   const cols = { proc: M, tooth: M + 240, qty: M + 290, unitRight: M + 420, subRight: W - M }
@@ -122,7 +123,7 @@ export async function buildReceiptPdf(
   }
 
   line(`Assinante: ${s.assinante.nome}`)
-  if (s.assinante.cpf) line(`CPF: ${formatCpf(s.assinante.cpf)}`)
+  if (s.assinante.cpf) line(`CPF: ${meta.maskCpf ? maskCpfMiddle(s.assinante.cpf) : formatCpf(s.assinante.cpf)}`)
   line(`Data e hora: ${brDateTime(s.assinado_em)} (horário de Brasília)`)
   line(`IP: ${meta.ip ?? 'não informado'}`)
   line(`Dispositivo: ${meta.userAgent ?? 'não informado'}`)

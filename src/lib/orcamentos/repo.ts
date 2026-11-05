@@ -4,6 +4,7 @@ import type { FunnelRow } from './funil'
 import type { PatientRow } from '@/lib/messaging/types'
 import { sendManual } from '@/lib/messaging/manual'
 import { createManualDeps } from '@/lib/messaging/manualDeps'
+import { fetchAll } from '@/lib/messaging/cycleData'
 import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import type { LinkDeps } from './links'
 import type { ApprovalDeps } from './aprovacao'
@@ -116,11 +117,17 @@ export function createApprovalDeps(admin: SupabaseClient): ApprovalDeps {
         p_budget_id: budgetId, p_link_id: linkId, p_reason: reason, p_note: note,
         p_actor: actorId, p_status: status,
       }) as Promise<'ok' | 'already_decided' | 'not_found'>,
-    async listSent() {
-      const { data, error } = await admin.from('budgets').select('id, status, valid_until').eq('status', 'sent').not('valid_until', 'is', null)
-      check(error)
-      return (data ?? []) as { id: string; status: string; valid_until: string | null }[]
-    },
+    listSent: (today) =>
+      fetchAll<{ id: string; status: string; valid_until: string | null }>((a, b) =>
+        admin
+          .from('budgets')
+          .select('id, status, valid_until')
+          .eq('status', 'sent')
+          .not('valid_until', 'is', null)
+          .lt('valid_until', today)
+          .order('id')
+          .range(a, b),
+      ),
   }
 }
 
@@ -216,7 +223,7 @@ const first = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v)
 
 /** Orçamentos já enviados da clínica, com tudo que o funil e as abas precisam. */
 export async function loadFunnelSources(admin: SupabaseClient, clinicId: string): Promise<FunnelSource[]> {
-  const { data, error } = await admin
+  const data = await fetchAll<unknown>((a, b) => admin
     .from('budgets')
     .select(
       'id, status, total, approved_total, sent_at, viewed_at, valid_until, decided_at, lost_reason, followup_at, approval_seen_at, professional_id, ' +
@@ -225,7 +232,8 @@ export async function loadFunnelSources(admin: SupabaseClient, clinicId: string)
     )
     .eq('clinic_id', clinicId)
     .or('sent_at.not.is.null,decided_at.not.is.null')
-  check(error)
+    .order('id')
+    .range(a, b))
   type P = { id: string; name: string; phone: string | null; cpf: string | null; whatsapp_opt_out: boolean | null }
   type Raw = {
     id: string; status: BudgetStatus; total: number; approved_total: number | null; sent_at: string | null
@@ -237,7 +245,7 @@ export async function loadFunnelSources(admin: SupabaseClient, clinicId: string)
     payments: { amount: number; status: string }[] | null
     budget_events: BudgetEvent[] | null
   }
-  return ((data ?? []) as unknown as Raw[]).map((r) => {
+  return (data as unknown as Raw[]).map((r) => {
     const rawP = first(r.patients)
     const patient = rawP
       ? { ...rawP, whatsapp_opt_out: rawP.whatsapp_opt_out === true }

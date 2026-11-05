@@ -99,6 +99,13 @@ export async function processQueue(args: {
     } catch {
       await repo.markSent(item.id, providerMessageId, deps.now())
     }
+    if (item.type === 'budget_reminder' && item.budget_id) {
+      try {
+        await repo.recordBudgetReminder(clinicId, item.budget_id)
+      } catch (err) {
+        console.error('[messaging] falha ao registrar lembrete no histórico do orçamento:', (err as Error).message)
+      }
+    }
     result.sent++
     quota--
   }

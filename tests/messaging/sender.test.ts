@@ -227,6 +227,33 @@ describe('processQueue', () => {
     expect(repo.get('stuck').error).toContain('confira no WhatsApp')
   })
 
+  it('lembrete de orçamento enviado grava evento reminder; outros tipos não', async () => {
+    const { repo, run } = setup()
+    repo.add({ id: 'r', type: 'budget_reminder', budget_id: 'b1' })
+    repo.add({ id: 'o', type: 'budget', budget_id: 'b2' })
+    const { provider } = makeProvider()
+    await run(provider)
+    expect(repo.reminderEvents).toEqual([{ clinicId: 'c1', budgetId: 'b1' }])
+  })
+
+  it('lembrete que falhou no envio não grava evento', async () => {
+    const { repo, run } = setup()
+    repo.add({ id: 'r', type: 'budget_reminder', budget_id: 'b1' })
+    const { provider } = makeProvider(() => { throw new PermanentSendError('x') })
+    await run(provider)
+    expect(repo.reminderEvents).toEqual([])
+  })
+
+  it('falha ao gravar o evento é não fatal', async () => {
+    const { repo, run } = setup()
+    repo.add({ id: 'r', type: 'budget_reminder', budget_id: 'b1' })
+    repo.reminderFailures = 1
+    const { provider } = makeProvider()
+    const res = await run(provider)
+    expect(res.sent).toBe(1)
+    expect(repo.get('r').status).toBe('sent')
+  })
+
   it('markSent falha uma vez após envio ok: tenta de novo, envia uma só vez e fica sent', async () => {
     const { repo, run } = setup()
     repo.add({ id: 'a' })

@@ -68,10 +68,9 @@ export default function OrcamentosPage() {
   // Abrir a aba Aprovados marca os aprovados novos como vistos (zera a bolinha do menu).
   useEffect(() => {
     if (tab !== 'aprovados' || !clinicId || !data) return
-    const unseen = data.tabs.aprovados.filter(r => !r.approval_seen).map(r => r.id)
-    if (unseen.length === 0) return
+    // marca todos os aprovados não vistos da clínica (o selo do menu conta todos, não só os filtrados)
     createClient().from('budgets').update({ approval_seen_at: new Date().toISOString() })
-      .eq('clinic_id', clinicId).in('id', unseen).is('approval_seen_at', null)
+      .eq('clinic_id', clinicId).eq('status', 'approved').is('approval_seen_at', null)
       .then(({ error: err }) => { if (!err) window.dispatchEvent(new Event('orcamentos:seen')) })
   }, [tab, clinicId, data])
 

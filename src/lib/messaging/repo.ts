@@ -5,6 +5,8 @@ export interface QueuedMessage {
   phone: string
   body: string
   attempts: number
+  type?: string | null
+  budget_id?: string | null
 }
 
 export interface QueueRepo {
@@ -17,6 +19,8 @@ export interface QueueRepo {
   markFailed(id: string, error: string): Promise<void>
   requeue(id: string, attempts: number, at: Date, error: string): Promise<void>
   countSentSince(clinicId: string, since: Date): Promise<number>
+  /** Registra no histórico do orçamento que o lembrete foi enviado. */
+  recordBudgetReminder(clinicId: string, budgetId: string): Promise<void>
 }
 
 const STUCK_ERROR = 'Envio interrompido — confira no WhatsApp antes de reenviar'
@@ -41,7 +45,7 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
       const iso = now.toISOString()
       const { data, error } = await admin
         .from('messages')
-        .select('id, phone, body, attempts')
+        .select('id, phone, body, attempts, type, budget_id')
         .eq('clinic_id', clinicId)
         .eq('direction', 'out')
         .eq('status', 'queued')
@@ -92,6 +96,13 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
         .update({ status: 'queued', attempts, scheduled_for: at.toISOString(), error: errorText })
         .eq('id', id)
         .eq('status', 'sending')
+      check(error)
+    },
+
+    async recordBudgetReminder(clinicId, budgetId) {
+      const { error } = await admin
+        .from('budget_events')
+        .insert({ budget_id: budgetId, clinic_id: clinicId, type: 'reminder', created_by: null })
       check(error)
     },
 

@@ -44,8 +44,8 @@ export interface ApprovalDeps {
     budgetId: string, linkId: string | null, reason: LostReason | null, note: string | null,
     actorId: string | null, status: 'rejected' | 'expired',
   ): Promise<RpcResult>
-  /** Orçamentos enviados (a função filtra vencidos). */
-  listSent(): Promise<{ id: string; status: string; valid_until: string | null }[]>
+  /** Orçamentos enviados com validade anterior a `today` (YYYY-MM-DD). */
+  listSent(today: string): Promise<{ id: string; status: string; valid_until: string | null }[]>
 }
 
 const fail = (status: number, error: string): Result => ({ ok: false, status, error })
@@ -76,7 +76,7 @@ export async function approveBudget(
   if (!signer) {
     provider = 'reception'
     const name = input.actorId ? await deps.actorName(input.clinicId, input.actorId) : null
-    signer = { name: name ?? '', cpf: '' }
+    signer = { name: name || 'Recepção', cpf: '' }
   }
 
   const snapshot = buildSnapshot({
@@ -123,7 +123,7 @@ export async function rejectBudget(
 export async function expireBudgets(now: Date, deps: ApprovalDeps): Promise<number> {
   const today = todayYmd(now, BUDGET_TZ)
   let n = 0
-  for (const b of await deps.listSent()) {
+  for (const b of await deps.listSent(today)) {
     if (b.status !== 'sent' || !b.valid_until || b.valid_until >= today) continue
     const r = await deps.rpcReject(b.id, null, 'sem_resposta', null, null, 'expired')
     if (r === 'ok') n++

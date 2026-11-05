@@ -793,6 +793,10 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  IF TG_OP = 'UPDATE' AND OLD.budget_id IS DISTINCT FROM NEW.budget_id THEN
+    RAISE EXCEPTION 'Não é possível mover itens entre orçamentos.';
+  END IF;
+
   IF TG_OP = 'UPDATE' THEN
     v_changed := NEW.procedure  IS DISTINCT FROM OLD.procedure
               OR NEW.tooth      IS DISTINCT FROM OLD.tooth
@@ -853,7 +857,12 @@ BEGIN
   UPDATE budgets SET
     status      = 'sent',
     sent_at     = COALESCE(sent_at, NOW()),
-    valid_until = COALESCE(valid_until, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + p_validity_days),
+    valid_until = CASE
+      WHEN valid_until IS NULL OR valid_until < (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+        THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + p_validity_days
+      ELSE valid_until
+    END,
+    viewed_at   = NULL,
     updated_at  = NOW()
   WHERE id = p_budget_id;
 
@@ -887,6 +896,7 @@ BEGIN
     IF v_status <> 'sent' OR NOT EXISTS (
       SELECT 1 FROM budget_links
       WHERE id = p_link_id AND budget_id = p_budget_id AND revoked_at IS NULL
+        AND (locked_until IS NULL OR locked_until <= NOW())
     ) THEN
       RETURN 'already_decided';
     END IF;

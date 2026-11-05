@@ -59,11 +59,9 @@ export async function publicView(token: string, now: Date, deps: PublicDeps): Pr
   if (view.status === 'approved' || view.status === 'completed') {
     // só o link que assinou (nunca um link revogado por reenvio) mostra a aprovação
     if (view.signatureLinkId !== view.linkId) return { kind: 'unavailable' }
-    return {
-      kind: 'approved',
-      signedAt: view.signedAt ? view.signedAt.toISOString() : null,
-      canDownload: canDownloadReceipt(view.signedAt, now),
-    }
+    // a exceção do link encerrado dura 30 dias após a assinatura
+    if (!view.signedAt || !canDownloadReceipt(view.signedAt, now)) return { kind: 'unavailable' }
+    return { kind: 'approved', signedAt: view.signedAt.toISOString(), canDownload: true }
   }
   if (!view.active) return { kind: 'unavailable' }
   const open = await deps.loadOpen(view.budgetId, view.clinicId)

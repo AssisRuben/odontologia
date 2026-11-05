@@ -21,7 +21,7 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/public/orcament
     const sig = await loadSignature(admin, view.budgetId, view.clinicId)
     if (!sig) return publicJson({ error: NOT_FOUND }, 404)
     const pdf = await buildReceiptPdf(sig.snapshot, {
-      hash: sig.document_hash, ip: sig.ip, userAgent: sig.user_agent, provider: sig.provider,
+      hash: sig.document_hash, ip: sig.ip, userAgent: sig.user_agent, provider: sig.provider, maskCpf: true,
     })
     return new Response(pdf as BodyInit, {
       status: 200,

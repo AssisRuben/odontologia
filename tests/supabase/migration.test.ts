@@ -303,3 +303,18 @@ describe.each(['2026-11-05-funil-orcamentos.sql', 'schema.sql'])('%s link da ass
     expect(sql).toContain("NOW() + INTERVAL '1 hour'")
   })
 })
+
+describe.each(['2026-11-05-funil-orcamentos.sql', 'schema.sql'])('%s ajustes da revisão final', (file) => {
+  const sql = read(file)
+  it('send_budget renova a validade vencida e zera viewed_at', () => {
+    expect(sql).toContain("WHEN valid_until IS NULL OR valid_until < (NOW() AT TIME ZONE 'America/Sao_Paulo')::date")
+    expect(sql).toContain('viewed_at   = NULL,')
+  })
+  it('budget_items_guard bloqueia mover item entre orçamentos', () => {
+    expect(sql).toContain("IF TG_OP = 'UPDATE' AND OLD.budget_id IS DISTINCT FROM NEW.budget_id THEN")
+    expect(sql).toContain("RAISE EXCEPTION 'Não é possível mover itens entre orçamentos.'")
+  })
+  it('approve_budget exige link não bloqueado', () => {
+    expect(sql).toContain('AND (locked_until IS NULL OR locked_until <= NOW())')
+  })
+})
