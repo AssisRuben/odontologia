@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { BudgetStatus } from '@/types'
+import { todayYmd } from '@/lib/messaging/time'
 
 export const MAX_FAILED_ATTEMPTS = 5
 export const LOCK_MS = 60 * 60 * 1000
@@ -12,6 +13,8 @@ export interface LinkRecord {
   revoked_at: string | null
   locked_until: string | null
   budget_status: BudgetStatus
+  /** budgets.valid_until (YYYY-MM-DD). */
+  valid_until: string | null
   /** decided_at da assinatura (quando o orçamento foi aprovado), se houver. */
   signed_at: string | null
 }
@@ -22,6 +25,7 @@ export interface LinkView {
   clinicId: string
   status: BudgetStatus
   active: boolean
+  validUntil: string | null
   lockedUntil: Date | null
   signedAt: Date | null
 }
@@ -29,9 +33,9 @@ export interface LinkView {
 export interface LinkDeps {
   findByToken(token: string): Promise<LinkRecord | null>
   /** Soma 1 em failed_attempts e devolve o novo valor. */
-  incrementFailed(linkId: string): Promise<number>
+  incrementFailed(linkId: string, clinicId: string): Promise<number>
   /** Grava locked_until e zera failed_attempts. */
-  lock(linkId: string, until: Date): Promise<void>
+  lock(linkId: string, clinicId: string, until: Date): Promise<void>
 }
 
 export function newToken(): string {
@@ -42,7 +46,7 @@ export function linkUrl(token: string): string {
   return `${process.env.APP_URL ?? ''}/orcamento/${token}`
 }
 
-export async function resolveLink(token: string, deps: LinkDeps): Promise<LinkView | null> {
+export async function resolveLink(token: string, deps: LinkDeps, now: Date = new Date()): Promise<LinkView | null> {
   if (!TOKEN_RE.test(token)) return null
   const r = await deps.findByToken(token)
   if (!r) return null
@@ -51,16 +55,20 @@ export async function resolveLink(token: string, deps: LinkDeps): Promise<LinkVi
     budgetId: r.budget_id,
     clinicId: r.clinic_id,
     status: r.budget_status,
-    active: r.revoked_at === null && r.budget_status === 'sent',
+    active:
+      r.revoked_at === null &&
+      r.budget_status === 'sent' &&
+      (r.valid_until === null || r.valid_until >= todayYmd(now, 'America/Sao_Paulo')),
+    validUntil: r.valid_until,
     lockedUntil: r.locked_until ? new Date(r.locked_until) : null,
     signedAt: r.signed_at ? new Date(r.signed_at) : null,
   }
 }
 
-export async function registerFailedAttempt(linkId: string, now: Date, deps: LinkDeps): Promise<{ locked: boolean }> {
-  const count = await deps.incrementFailed(linkId)
+export async function registerFailedAttempt(linkId: string, clinicId: string, now: Date, deps: LinkDeps): Promise<{ locked: boolean }> {
+  const count = await deps.incrementFailed(linkId, clinicId)
   if (count < MAX_FAILED_ATTEMPTS) return { locked: false }
-  await deps.lock(linkId, new Date(now.getTime() + LOCK_MS))
+  await deps.lock(linkId, clinicId, new Date(now.getTime() + LOCK_MS))
   return { locked: true }
 }
 

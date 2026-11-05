@@ -100,8 +100,8 @@ export async function approveBudget(
     signer_cpf: signer.cpf,
     snapshot,
     document_hash: hashSnapshot(snapshot),
-    ip: input.ip,
-    user_agent: input.userAgent,
+    ip: input.ip?.slice(0, 300) ?? null,
+    user_agent: input.userAgent?.slice(0, 300) ?? null,
     signed_at: input.now.toISOString(),
     approved_by: provider === 'reception' ? input.actorId : null,
   }

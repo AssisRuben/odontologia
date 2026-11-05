@@ -20,7 +20,7 @@ export interface SendDeps {
     { id: string; patient_id: string; status: BudgetStatus; total: number; itemCount: number } | null
   >
   getValidityDays(clinicId: string): Promise<number>
-  getActiveLink(budgetId: string): Promise<{ id: string; token: string } | null>
+  getActiveLink(budgetId: string, clinicId: string): Promise<{ id: string; token: string } | null>
   rpcSend(budgetId: string, token: string, validityDays: number, actorId: string | null): Promise<'ok' | 'not_found' | 'not_sendable'>
   insertResent(budgetId: string, clinicId: string, actorId: string | null): Promise<void>
   /** Lido depois do envio: valid_until já preenchido pelo banco. */
@@ -56,7 +56,7 @@ export async function sendBudget(
   if (!can.ok) return fail(422, can.error)
 
   let token: string
-  const active = input.resend && budget.status === 'sent' ? await deps.getActiveLink(budgetId) : null
+  const active = input.resend && budget.status === 'sent' ? await deps.getActiveLink(budgetId, clinicId) : null
   if (active) {
     token = active.token
     await deps.insertResent(budgetId, clinicId, actorId)

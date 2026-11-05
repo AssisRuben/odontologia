@@ -32,14 +32,14 @@ export function createLinkDeps(admin: SupabaseClient): LinkDeps {
     async findByToken(token) {
       const { data, error } = await admin
         .from('budget_links')
-        .select('id, budget_id, clinic_id, revoked_at, locked_until, budgets(status)')
+        .select('id, budget_id, clinic_id, revoked_at, locked_until, budgets(status, valid_until)')
         .eq('token', token)
         .maybeSingle()
       check(error)
       if (!data) return null
       const row = data as unknown as {
         id: string; budget_id: string; clinic_id: string; revoked_at: string | null
-        locked_until: string | null; budgets: { status: BudgetStatus } | { status: BudgetStatus }[] | null
+        locked_until: string | null; budgets: { status: BudgetStatus; valid_until: string | null } | { status: BudgetStatus; valid_until: string | null }[] | null
       }
       const b = Array.isArray(row.budgets) ? row.budgets[0] : row.budgets
       if (!b) return null
@@ -51,22 +51,23 @@ export function createLinkDeps(admin: SupabaseClient): LinkDeps {
       }
       return {
         id: row.id, budget_id: row.budget_id, clinic_id: row.clinic_id, revoked_at: row.revoked_at,
-        locked_until: row.locked_until, budget_status: b.status, signed_at: signedAt,
+        locked_until: row.locked_until, budget_status: b.status, valid_until: b.valid_until, signed_at: signedAt,
       }
     },
-    async incrementFailed(linkId) {
-      const cur = await admin.from('budget_links').select('failed_attempts').eq('id', linkId).single()
+    async incrementFailed(linkId, clinicId) {
+      const cur = await admin.from('budget_links').select('failed_attempts').eq('id', linkId).eq('clinic_id', clinicId).single()
       check(cur.error)
       const next = ((cur.data as { failed_attempts: number }).failed_attempts ?? 0) + 1
-      const { error } = await admin.from('budget_links').update({ failed_attempts: next }).eq('id', linkId)
+      const { error } = await admin.from('budget_links').update({ failed_attempts: next }).eq('id', linkId).eq('clinic_id', clinicId)
       check(error)
       return next
     },
-    async lock(linkId, until) {
+    async lock(linkId, clinicId, until) {
       const { error } = await admin
         .from('budget_links')
         .update({ locked_until: until.toISOString(), failed_attempts: 0 })
         .eq('id', linkId)
+        .eq('clinic_id', clinicId)
       check(error)
     },
   }
@@ -146,11 +147,12 @@ export function createSendDeps(admin: SupabaseClient): SendDeps {
       check(error)
       return (data as { budget_validity_days: number }).budget_validity_days
     },
-    async getActiveLink(budgetId) {
+    async getActiveLink(budgetId, clinicId) {
       const { data, error } = await admin
         .from('budget_links')
         .select('id, token')
         .eq('budget_id', budgetId)
+        .eq('clinic_id', clinicId)
         .is('revoked_at', null)
         .maybeSingle()
       check(error)

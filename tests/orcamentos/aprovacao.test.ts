@@ -58,6 +58,13 @@ describe('approveBudget', () => {
     expect(sig.snapshot.total_aprovado).toBe('389.90')
     expect(args[5]).toBeNull()
   })
+  it('corta ip e user agent em 300 caracteres', async () => {
+    const d = deps()
+    await approveBudget({ ...base, ip: 'i'.repeat(400), userAgent: 'u'.repeat(400) }, d)
+    const sig = d.rpcApprove.mock.calls[0][4]
+    expect(sig.ip).toHaveLength(300)
+    expect(sig.user_agent).toHaveLength(300)
+  })
   it('recepção grava provider reception e nome do usuário', async () => {
     const d = deps()
     await approveBudget({ ...base, linkId: null, signer: null, actorId: 'u1' }, d)

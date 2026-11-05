@@ -3,7 +3,7 @@ import { newToken, linkUrl, resolveLink, registerFailedAttempt, isLocked, type L
 
 const rec = (o: Partial<LinkRecord> = {}): LinkRecord => ({
   id: 'l1', budget_id: 'b1', clinic_id: 'c1', revoked_at: null, locked_until: null,
-  budget_status: 'sent', signed_at: null, ...o,
+  budget_status: 'sent', valid_until: null, signed_at: null, ...o,
 })
 
 function deps(over: Partial<LinkDeps> = {}) {
@@ -39,7 +39,14 @@ describe('resolveLink', () => {
   })
   it('link ativo de orçamento enviado', async () => {
     const v = await resolveLink(newToken(), deps())
-    expect(v).toEqual({ linkId: 'l1', budgetId: 'b1', clinicId: 'c1', status: 'sent', active: true, lockedUntil: null, signedAt: null })
+    expect(v).toEqual({ linkId: 'l1', budgetId: 'b1', clinicId: 'c1', status: 'sent', active: true, lockedUntil: null, signedAt: null, validUntil: null })
+  })
+  it('validade: ontem inativo, hoje ativo (fuso São Paulo)', async () => {
+    const now = new Date('2026-11-06T01:00:00Z') // 05/11 22:00 em São Paulo
+    const t = newToken()
+    const mk = (v: string) => deps({ findByToken: vi.fn(async () => rec({ valid_until: v })) })
+    expect((await resolveLink(t, mk('2026-11-04'), now))!.active).toBe(false)
+    expect((await resolveLink(t, mk('2026-11-05'), now))!.active).toBe(true)
   })
   it('revogado ou orçamento decidido -> inativo', async () => {
     const t = newToken()
@@ -55,19 +62,24 @@ describe('resolveLink', () => {
 
 describe('tentativas', () => {
   const now = new Date('2026-11-05T12:00:00Z')
+  it('passa a clínica ao incrementar', async () => {
+    const d = deps()
+    await registerFailedAttempt('l1', 'c1', now, d)
+    expect(d.incrementFailed).toHaveBeenCalledWith('l1', 'c1')
+  })
   it('4ª tentativa não bloqueia', async () => {
     const d = deps({ incrementFailed: vi.fn(async () => 4) })
-    expect(await registerFailedAttempt('l1', now, d)).toEqual({ locked: false })
+    expect(await registerFailedAttempt('l1', 'c1', now, d)).toEqual({ locked: false })
     expect(d.lock).not.toHaveBeenCalled()
   })
   it('5ª bloqueia por 1 hora', async () => {
     const d = deps({ incrementFailed: vi.fn(async () => 5) })
-    const r = await registerFailedAttempt('l1', now, d)
+    const r = await registerFailedAttempt('l1', 'c1', now, d)
     expect(r).toEqual({ locked: true })
-    expect(d.lock).toHaveBeenCalledWith('l1', new Date('2026-11-05T13:00:00Z'))
+    expect(d.lock).toHaveBeenCalledWith('l1', 'c1', new Date('2026-11-05T13:00:00Z'))
   })
   it('isLocked', () => {
-    const view = (lockedUntil: Date | null) => ({ linkId: 'l1', budgetId: 'b', clinicId: 'c', status: 'sent' as const, active: true, lockedUntil, signedAt: null })
+    const view = (lockedUntil: Date | null) => ({ linkId: 'l1', budgetId: 'b', clinicId: 'c', status: 'sent' as const, active: true, lockedUntil, signedAt: null, validUntil: null })
     expect(isLocked(view(null), now)).toBe(false)
     expect(isLocked(view(new Date('2026-11-05T12:30:00Z')), now)).toBe(true)
     expect(isLocked(view(new Date('2026-11-05T11:59:00Z')), now)).toBe(false)

@@ -87,6 +87,7 @@ describe('sendBudget', () => {
     const r = await sendBudget({ ...input, resend: true }, d)
     expect(d.rpcSend).not.toHaveBeenCalled()
     expect(d.insertResent).toHaveBeenCalledWith('b1', 'c1', 'u1')
+    expect(d.getActiveLink).toHaveBeenCalledWith('b1', 'c1')
     expect((r.body as { link: string }).link).toBe(`https://x.app/orcamento/${'T'.repeat(43)}`)
     expect(d.sendMessage).toHaveBeenCalledTimes(1)
   })
