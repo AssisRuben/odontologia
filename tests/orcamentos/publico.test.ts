@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { newToken, type LinkRecord } from '@/lib/orcamentos/links'
-import { publicView, recordView, signPublic, declinePublic, clientIp, type PublicDeps } from '@/lib/orcamentos/publico'
+import { publicView, recordView, signPublic, declinePublic, clientIp, receiptAvailable, type PublicDeps } from '@/lib/orcamentos/publico'
 import type { ApprovalDeps } from '@/lib/orcamentos/aprovacao'
 
 const NOW = new Date('2026-11-05T15:00:00Z')
@@ -10,14 +10,13 @@ const LOCK_MSG = 'Muitas tentativas. Tente de novo em 1 hora ou fale com a clín
 
 const rec = (o: Partial<LinkRecord> = {}): LinkRecord => ({
   id: 'l1', budget_id: 'b1', clinic_id: 'c1', revoked_at: null, locked_until: null,
-  budget_status: 'sent', valid_until: null, signed_at: null, ...o,
+  budget_status: 'sent', valid_until: null, signed_at: null, signature_link_id: null, ...o,
 })
 
 function mk(r: LinkRecord | null = rec(), over: Partial<PublicDeps> = {}) {
   const d = {
     findByToken: vi.fn(async () => r),
-    incrementFailed: vi.fn(async () => 1),
-    lock: vi.fn(async () => undefined),
+    registerFailed: vi.fn(async () => false),
     loadOpen: vi.fn(async () => ({
       clinic: { name: 'Clínica X', logoUrl: null }, professional: 'Dra. Ana', number: 'ABCD1234',
       createdAt: '2026-11-01T10:00:00Z', validUntil: '2026-12-01',
@@ -54,12 +53,20 @@ describe('publicView', () => {
   })
   it('aprovado há 29 dias baixa; há 31 não', async () => {
     const at = (days: number) => new Date(NOW.getTime() - days * DAY).toISOString()
-    const a = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', revoked_at: 'x', signed_at: at(29) })))
+    const a = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', revoked_at: 'x', signed_at: at(29), signature_link_id: 'l1' })))
     expect(a).toMatchObject({ kind: 'approved', canDownload: true })
-    const b = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', signed_at: at(31) })))
+    const b = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', signed_at: at(31), signature_link_id: 'l1' })))
     expect(b).toMatchObject({ kind: 'approved', canDownload: false })
-    const c = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', signed_at: at(30) })))
+    const c = await publicView(tok, NOW, mk(rec({ budget_status: 'approved', signed_at: at(30), signature_link_id: 'l1' })))
     expect(c).toMatchObject({ canDownload: true })
+  })
+  it('link revogado antes da assinatura (outro link assinou) -> unavailable', async () => {
+    const r = rec({ budget_status: 'approved', revoked_at: 'x', signed_at: new Date(NOW.getTime() - DAY).toISOString(), signature_link_id: 'outro' })
+    expect(await publicView(tok, NOW, mk(r))).toEqual({ kind: 'unavailable' })
+  })
+  it('aprovação pela recepção (sem link) -> unavailable', async () => {
+    const r = rec({ budget_status: 'approved', signed_at: new Date(NOW.getTime() - DAY).toISOString(), signature_link_id: null })
+    expect(await publicView(tok, NOW, mk(r))).toEqual({ kind: 'unavailable' })
   })
   it('open não vaza CPF, telefone nem e-mail', async () => {
     const v = await publicView(tok, NOW, mk())
@@ -73,6 +80,17 @@ describe('publicView', () => {
     expect(d.bumpView).not.toHaveBeenCalled()
     expect(d.markViewed).not.toHaveBeenCalled()
     expect(d.addViewedEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('receiptAvailable', () => {
+  const v = (o = {}) => ({ status: 'approved', linkId: 'l1', signatureLinkId: 'l1', signedAt: new Date(NOW.getTime() - DAY), ...o })
+  it('só no link que assinou, aprovado e dentro de 30 dias', () => {
+    expect(receiptAvailable(v(), NOW)).toBe(true)
+    expect(receiptAvailable(v({ signatureLinkId: 'outro' }), NOW)).toBe(false)
+    expect(receiptAvailable(v({ signatureLinkId: null }), NOW)).toBe(false)
+    expect(receiptAvailable(v({ status: 'sent' }), NOW)).toBe(false)
+    expect(receiptAvailable(v({ signedAt: new Date(NOW.getTime() - 31 * DAY) }), NOW)).toBe(false)
   })
 })
 
@@ -112,17 +130,16 @@ describe('signPublic', () => {
     const d = mk()
     const r = await signPublic(tok, { ...body, cpf: '111.444.777-35' }, ctx, d)
     expect(r.status).toBe(422)
-    expect(d.incrementFailed).toHaveBeenCalledWith('l1', 'c1')
-    const d2 = mk(rec(), { incrementFailed: vi.fn(async () => 5) })
+    expect(d.registerFailed).toHaveBeenCalledWith('l1', 'c1')
+    const d2 = mk(rec(), { registerFailed: vi.fn(async () => true) })
     const r2 = await signPublic(tok, { ...body, cpf: '111.444.777-35' }, ctx, d2)
     expect(r2).toEqual({ status: 429, body: { error: LOCK_MSG } })
-    expect(d2.lock).toHaveBeenCalled()
   })
   it('CPF inválido não conta tentativa', async () => {
     const d = mk()
     const r = await signPublic(tok, { ...body, cpf: '123' }, ctx, d)
     expect(r).toEqual({ status: 422, body: { error: 'CPF inválido' } })
-    expect(d.incrementFailed).not.toHaveBeenCalled()
+    expect(d.registerFailed).not.toHaveBeenCalled()
   })
   it('nome curto -> 422', async () => {
     const r = await signPublic(tok, { ...body, name: ' ab ' }, ctx, mk())

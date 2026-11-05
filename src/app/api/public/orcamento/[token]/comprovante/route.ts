@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPublicDeps, loadSignature } from '@/lib/orcamentos/repo'
 import { resolveLink } from '@/lib/orcamentos/links'
-import { canDownloadReceipt } from '@/lib/orcamentos/publico'
+import { receiptAvailable } from '@/lib/orcamentos/publico'
 import { buildReceiptPdf } from '@/lib/orcamentos/comprovante'
 import { PUBLIC_HEADERS, publicJson, INTERNAL_ERROR } from '@/lib/orcamentos/publicoHttp'
 
@@ -15,7 +15,7 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/public/orcament
     const admin = createAdminClient()
     const now = new Date()
     const view = await resolveLink(token, createPublicDeps(admin), now)
-    if (!view || (view.status !== 'approved' && view.status !== 'completed') || !canDownloadReceipt(view.signedAt, now)) {
+    if (!view || !receiptAvailable(view, now)) {
       return publicJson({ error: NOT_FOUND }, 404)
     }
     const sig = await loadSignature(admin, view.budgetId, view.clinicId)

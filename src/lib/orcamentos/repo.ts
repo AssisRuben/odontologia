@@ -47,31 +47,24 @@ export function createLinkDeps(admin: SupabaseClient): LinkDeps {
       const b = Array.isArray(row.budgets) ? row.budgets[0] : row.budgets
       if (!b) return null
       let signedAt: string | null = null
+      let signatureLinkId: string | null = null
       if (b.status === 'approved' || b.status === 'completed') {
-        const sig = await admin.from('budget_signatures').select('signed_at').eq('budget_id', row.budget_id).maybeSingle()
+        const sig = await admin.from('budget_signatures').select('signed_at, link_id').eq('budget_id', row.budget_id).eq('clinic_id', row.clinic_id).maybeSingle()
         check(sig.error)
-        signedAt = (sig.data as { signed_at: string } | null)?.signed_at ?? null
+        const sd = sig.data as { signed_at: string; link_id: string | null } | null
+        signedAt = sd?.signed_at ?? null
+        signatureLinkId = sd?.link_id ?? null
       }
       return {
         id: row.id, budget_id: row.budget_id, clinic_id: row.clinic_id, revoked_at: row.revoked_at,
         locked_until: row.locked_until, budget_status: b.status, valid_until: b.valid_until, signed_at: signedAt,
+        signature_link_id: signatureLinkId,
       }
     },
-    async incrementFailed(linkId, clinicId) {
-      const cur = await admin.from('budget_links').select('failed_attempts').eq('id', linkId).eq('clinic_id', clinicId).single()
-      check(cur.error)
-      const next = ((cur.data as { failed_attempts: number }).failed_attempts ?? 0) + 1
-      const { error } = await admin.from('budget_links').update({ failed_attempts: next }).eq('id', linkId).eq('clinic_id', clinicId)
+    async registerFailed(linkId, clinicId) {
+      const { data, error } = await admin.rpc('register_failed_attempt', { p_link_id: linkId, p_clinic_id: clinicId })
       check(error)
-      return next
-    },
-    async lock(linkId, clinicId, until) {
-      const { error } = await admin
-        .from('budget_links')
-        .update({ locked_until: until.toISOString(), failed_attempts: 0 })
-        .eq('id', linkId)
-        .eq('clinic_id', clinicId)
-      check(error)
+      return data === true
     },
   }
 }

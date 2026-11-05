@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS budget_signatures (
   signed_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   approved_by   UUID REFERENCES auth.users(id) ON DELETE SET NULL      -- aprovação pela recepção
 );
+ALTER TABLE budget_signatures ADD COLUMN IF NOT EXISTS link_id UUID REFERENCES budget_links(id) ON DELETE SET NULL;  -- link usado na assinatura (null = recepção)
 ALTER TABLE budget_signatures ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "clinic_member_select" ON budget_signatures;
 CREATE POLICY "clinic_member_select" ON budget_signatures FOR SELECT TO authenticated
@@ -357,7 +358,7 @@ BEGIN
 
   INSERT INTO budget_signatures (
     budget_id, clinic_id, provider, provider_ref, signer_name, signer_cpf,
-    snapshot, document_hash, ip, user_agent, signed_at, approved_by
+    snapshot, document_hash, ip, user_agent, signed_at, approved_by, link_id
   ) VALUES (
     p_budget_id, v_clinic,
     p_signature->>'provider',
@@ -369,7 +370,8 @@ BEGIN
     p_signature->>'ip',
     p_signature->>'user_agent',
     COALESCE((p_signature->>'signed_at')::timestamptz, NOW()),
-    NULLIF(p_signature->>'approved_by', '')::uuid
+    NULLIF(p_signature->>'approved_by', '')::uuid,
+    p_link_id
   )
   ON CONFLICT (budget_id) DO UPDATE SET
     clinic_id     = EXCLUDED.clinic_id,
@@ -382,7 +384,8 @@ BEGIN
     ip            = EXCLUDED.ip,
     user_agent    = EXCLUDED.user_agent,
     signed_at     = EXCLUDED.signed_at,
-    approved_by   = EXCLUDED.approved_by;
+    approved_by   = EXCLUDED.approved_by,
+    link_id       = EXCLUDED.link_id;
 
   UPDATE budget_links SET revoked_at = NOW() WHERE budget_id = p_budget_id AND revoked_at IS NULL;
 
@@ -450,6 +453,35 @@ $fn$;
 REVOKE ALL ON FUNCTION public.send_budget(UUID, TEXT, INT, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.approve_budget(UUID, UUID, UUID[], NUMERIC, JSONB, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.reject_budget(UUID, UUID, TEXT, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+-- Conta uma tentativa errada de CPF de forma atômica (uma única UPDATE).
+-- Devolve true se o link está (ou acabou de ficar) bloqueado por 1 hora.
+CREATE OR REPLACE FUNCTION public.register_failed_attempt(p_link_id UUID, p_clinic_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_locked BOOLEAN;
+BEGIN
+  UPDATE budget_links SET
+    failed_attempts = CASE
+      WHEN locked_until IS NOT NULL AND locked_until > NOW() THEN failed_attempts
+      WHEN failed_attempts + 1 >= 5 THEN 0
+      ELSE failed_attempts + 1
+    END,
+    locked_until = CASE
+      WHEN locked_until IS NOT NULL AND locked_until > NOW() THEN locked_until
+      WHEN failed_attempts + 1 >= 5 THEN NOW() + INTERVAL '1 hour'
+      ELSE locked_until
+    END
+  WHERE id = p_link_id AND clinic_id = p_clinic_id
+  RETURNING (locked_until IS NOT NULL AND locked_until > NOW()) INTO v_locked;
+  RETURN COALESCE(v_locked, FALSE);
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public.register_failed_attempt(UUID, UUID) FROM PUBLIC, anon, authenticated;
 
 -- ── Mensagens: tipos 'budget' e 'budget_reminder' ───────────
 

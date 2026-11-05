@@ -287,3 +287,19 @@ describe('2026-11-05-funil-orcamentos.sql clínicas existentes', () => {
     expect(sql).toMatch(/SELECT c\.id, 'budget_reminder', TRUE[^;]*FROM clinics c\s+ON CONFLICT \(clinic_id, type\) DO NOTHING;/)
   })
 })
+
+describe.each(['2026-11-05-funil-orcamentos.sql', 'schema.sql'])('%s link da assinatura e tentativas atômicas', (file) => {
+  const sql = read(file)
+  it('budget_signatures guarda o link usado e approve_budget o grava', () => {
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS link_id UUID REFERENCES budget_links(id) ON DELETE SET NULL')
+    expect(sql).toContain('signed_at, approved_by, link_id')
+    expect(sql).toContain('    p_link_id\n  )')
+    expect(sql).toContain('link_id       = EXCLUDED.link_id;')
+  })
+  it('register_failed_attempt é uma função só do servidor', () => {
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.register_failed_attempt(p_link_id UUID, p_clinic_id UUID)')
+    expect(sql).toMatch(/register_failed_attempt[\s\S]*SECURITY DEFINER[\s\S]*SET search_path = public/)
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.register_failed_attempt(UUID, UUID) FROM PUBLIC, anon, authenticated;')
+    expect(sql).toContain("NOW() + INTERVAL '1 hour'")
+  })
+})

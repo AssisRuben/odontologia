@@ -37,6 +37,18 @@ export interface PublicDeps extends LinkDeps {
 
 export type PublicResponse = { status: number; body: Record<string, unknown> }
 
+/** Comprovante público: orçamento aprovado por este link, até 30 dias após a assinatura. */
+export function receiptAvailable(
+  view: { status: string; linkId: string; signatureLinkId: string | null; signedAt: Date | null },
+  now: Date,
+): boolean {
+  return (
+    (view.status === 'approved' || view.status === 'completed') &&
+    view.signatureLinkId === view.linkId &&
+    canDownloadReceipt(view.signedAt, now)
+  )
+}
+
 export function canDownloadReceipt(signedAt: Date | null, now: Date): boolean {
   return signedAt !== null && now.getTime() - signedAt.getTime() <= DOWNLOAD_WINDOW_MS
 }
@@ -45,6 +57,8 @@ export async function publicView(token: string, now: Date, deps: PublicDeps): Pr
   const view = await resolveLink(token, deps, now)
   if (!view) return { kind: 'unavailable' }
   if (view.status === 'approved' || view.status === 'completed') {
+    // só o link que assinou (nunca um link revogado por reenvio) mostra a aprovação
+    if (view.signatureLinkId !== view.linkId) return { kind: 'unavailable' }
     return {
       kind: 'approved',
       signedAt: view.signedAt ? view.signedAt.toISOString() : null,

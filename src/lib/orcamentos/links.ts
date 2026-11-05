@@ -17,6 +17,8 @@ export interface LinkRecord {
   valid_until: string | null
   /** decided_at da assinatura (quando o orçamento foi aprovado), se houver. */
   signed_at: string | null
+  /** budget_signatures.link_id: link usado na assinatura (null = recepção ou sem assinatura). */
+  signature_link_id: string | null
 }
 
 export interface LinkView {
@@ -28,14 +30,13 @@ export interface LinkView {
   validUntil: string | null
   lockedUntil: Date | null
   signedAt: Date | null
+  signatureLinkId: string | null
 }
 
 export interface LinkDeps {
   findByToken(token: string): Promise<LinkRecord | null>
-  /** Soma 1 em failed_attempts e devolve o novo valor. */
-  incrementFailed(linkId: string, clinicId: string): Promise<number>
-  /** Grava locked_until e zera failed_attempts. */
-  lock(linkId: string, clinicId: string, until: Date): Promise<void>
+  /** Conta uma tentativa errada de forma atômica (RPC); true se o link ficou/estava bloqueado. */
+  registerFailed(linkId: string, clinicId: string): Promise<boolean>
 }
 
 export function newToken(): string {
@@ -62,14 +63,12 @@ export async function resolveLink(token: string, deps: LinkDeps, now: Date = new
     validUntil: r.valid_until,
     lockedUntil: r.locked_until ? new Date(r.locked_until) : null,
     signedAt: r.signed_at ? new Date(r.signed_at) : null,
+    signatureLinkId: r.signature_link_id,
   }
 }
 
-export async function registerFailedAttempt(linkId: string, clinicId: string, now: Date, deps: LinkDeps): Promise<{ locked: boolean }> {
-  const count = await deps.incrementFailed(linkId, clinicId)
-  if (count < MAX_FAILED_ATTEMPTS) return { locked: false }
-  await deps.lock(linkId, clinicId, new Date(now.getTime() + LOCK_MS))
-  return { locked: true }
+export async function registerFailedAttempt(linkId: string, clinicId: string, _now: Date, deps: LinkDeps): Promise<{ locked: boolean }> {
+  return { locked: await deps.registerFailed(linkId, clinicId) }
 }
 
 export function isLocked(view: Pick<LinkView, 'lockedUntil'>, now: Date): boolean {
