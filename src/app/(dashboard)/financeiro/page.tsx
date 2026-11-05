@@ -10,8 +10,9 @@ import { formatCurrency } from '@/lib/utils'
 import type { Payment, Expense, FiscalInvoice } from '@/types'
 import AsaasBanner from '@/components/pagamentos/AsaasBanner'
 import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
+import ListaDespesas from '@/components/financeiro/ListaDespesas'
 
-type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes'
+type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes' | 'despesas'
 
 export default function FinanceiroPage() {
   const { clinicId, loading: clinicLoading } = useClinicStore()
@@ -83,6 +84,7 @@ export default function FinanceiroPage() {
     { id: 'fluxo', label: 'Fluxo de caixa' },
     { id: 'boletos', label: 'Boletos' },
     { id: 'comissoes', label: 'Comissões' },
+    { id: 'despesas', label: 'Despesas' },
   ]
 
   if (clinicLoading) {
@@ -269,7 +271,9 @@ export default function FinanceiroPage() {
           </div>
         )}
 
-        {activeTab !== 'painel' && (
+        {activeTab === 'despesas' && <ListaDespesas />}
+
+        {activeTab !== 'painel' && activeTab !== 'despesas' && (
           <div className="flex items-center justify-center h-48 text-[#9CA3AF] text-sm">
             Em desenvolvimento...
           </div>
