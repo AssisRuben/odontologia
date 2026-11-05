@@ -529,6 +529,19 @@ export function createInvoiceDeps(admin: SupabaseClient): InvoiceDeps {
       check(error)
       return { id: (data as { id: string }).id }
     },
+    async findActiveInvoice(clinicId, paymentId) {
+      const { data, error } = await admin
+        .from('fiscal_invoices')
+        .select('id, provider_invoice_id')
+        .eq('clinic_id', clinicId)
+        .eq('payment_id', paymentId)
+        .in('status', ['scheduled', 'authorized', 'cancelling'])
+        .limit(1)
+        .maybeSingle()
+      check(error)
+      const r = data as { id: string; provider_invoice_id: string } | null
+      return r ? { id: r.id, providerInvoiceId: r.provider_invoice_id } : null
+    },
     async getInvoice(clinicId, invoiceId) {
       const { data, error } = await admin
         .from('fiscal_invoices')

@@ -43,13 +43,15 @@ export interface InvoiceDeps {
     clinicId: string
     paymentId: string
     providerInvoiceId: string
-    status: 'scheduled' | 'authorized'
+    status: 'scheduled' | 'authorized' | 'cancelling'
     valueCents: number
     description: string
     number?: string | null
     pdfUrl?: string | null
     xmlUrl?: string | null
   }): Promise<{ id: string } | null>
+  /** Nota ativa (scheduled/authorized/cancelling) do lançamento, se houver. */
+  findActiveInvoice(clinicId: string, paymentId: string): Promise<{ id: string; providerInvoiceId: string } | null>
   getInvoice(clinicId: string, invoiceId: string): Promise<{ id: string; providerInvoiceId: string; status: InvoiceStatus } | null>
   /** authorized → cancelling; false se o status mudou. */
   markCancelling(clinicId: string, invoiceId: string): Promise<boolean>
@@ -70,6 +72,18 @@ async function providerFailure(clinicId: string, e: unknown, deps: InvoiceDeps, 
   if (err.status === 409) await deps.markInvalidKey(clinicId).catch(() => {})
   else if (err.status === 500) console.error(`[payments/${tag}] falha no Asaas:`, (e as Error).message)
   return fail(err.status, err.error)
+}
+
+function localStatusOf(providerStatus: string): 'scheduled' | 'authorized' | 'cancelling' {
+  switch (providerStatus) {
+    case 'AUTHORIZED':
+    case 'CANCELLATION_DENIED':
+      return 'authorized'
+    case 'PROCESSING_CANCELLATION':
+      return 'cancelling'
+    default:
+      return 'scheduled'
+  }
 }
 
 export async function scheduleInvoiceForPayment(
@@ -156,7 +170,8 @@ export async function scheduleInvoiceForPayment(
   }
 
   let providerInvoiceId: string
-  let existing: { status: 'scheduled' | 'authorized'; number: string | null; pdfUrl: string | null; xmlUrl: string | null } = {
+  let reused = false
+  let existing: { status: 'scheduled' | 'authorized' | 'cancelling'; number: string | null; pdfUrl: string | null; xmlUrl: string | null } = {
     status: 'scheduled', number: null, pdfUrl: null, xmlUrl: null,
   }
   try {
@@ -164,9 +179,11 @@ export async function scheduleInvoiceForPayment(
     const found = await provider.findInvoiceByReference(target.id)
     if (found) {
       providerInvoiceId = found.id
-      if (found.status === 'AUTHORIZED') {
-        existing = { status: 'authorized', number: found.number, pdfUrl: found.pdfUrl, xmlUrl: found.xmlUrl }
-      }
+      reused = true
+      const local = localStatusOf(found.status)
+      existing = local === 'scheduled'
+        ? existing
+        : { status: local, number: found.number, pdfUrl: found.pdfUrl, xmlUrl: found.xmlUrl }
     } else {
     const inv = await provider.scheduleInvoice({
       chargeId,
@@ -184,10 +201,13 @@ export async function scheduleInvoiceForPayment(
     return providerFailure(clinicId, e, deps, 'invoice')
   }
 
-  const cancelProvider = () =>
-    provider.cancelInvoice(providerInvoiceId).catch((e) =>
+  // Nunca cancela uma nota que veio de findInvoiceByReference: pode ser a de outra requisição.
+  const cancelProvider = async () => {
+    if (reused) return
+    await provider.cancelInvoice(providerInvoiceId).catch((e) =>
       console.error('[payments/invoice] falha ao cancelar a nota órfã:', (e as Error).message),
     )
+  }
   let inserted: { id: string } | null
   try {
     inserted = await deps.insertInvoice({
@@ -198,6 +218,11 @@ export async function scheduleInvoiceForPayment(
     throw e
   }
   if (!inserted) {
+    // Corrida: a nota ativa pode ser a mesma nota do provedor (outra requisição a gravou antes).
+    const active = await deps.findActiveInvoice(clinicId, target.id)
+    if (active && active.providerInvoiceId === providerInvoiceId) {
+      return { status: 200, body: { ok: true, invoiceId: active.id } }
+    }
     await cancelProvider()
     return fail(409, 'Já existe uma nota ativa para este pagamento')
   }

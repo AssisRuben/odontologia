@@ -36,6 +36,7 @@ function makeDeps(payment: Partial<InvoicePayment> | null = {}, over: { group?: 
     getCustomerId: vi.fn<InvoiceDeps['getCustomerId']>(async () => null),
     saveCustomerId: vi.fn<InvoiceDeps['saveCustomerId']>(async () => {}),
     insertInvoice: vi.fn<InvoiceDeps['insertInvoice']>(async () => ({ id: 'fi1' })),
+    findActiveInvoice: vi.fn<InvoiceDeps['findActiveInvoice']>(async () => ({ id: 'fi0', providerInvoiceId: 'other' })),
     getInvoice: vi.fn<InvoiceDeps['getInvoice']>(async () => ({ id: 'fi1', providerInvoiceId: 'inv_1', status: 'authorized' })),
     markCancelling: vi.fn<InvoiceDeps['markCancelling']>(async () => true),
     markInvalidKey: vi.fn<InvoiceDeps['markInvalidKey']>(async () => {}),
@@ -76,6 +77,35 @@ describe('scheduleInvoiceForPayment', () => {
     const r = await scheduleInvoiceForPayment('c1', 'p1', {}, deps)
     expect(r.status).toBe(409)
     expect(provider.cancelInvoice).toHaveBeenCalledWith('inv_1')
+  })
+  it('conflict with same provider invoice does not cancel', async () => {
+    const { deps, provider } = makeDeps()
+    deps.insertInvoice.mockResolvedValue(null)
+    deps.findActiveInvoice.mockResolvedValue({ id: 'fi7', providerInvoiceId: 'inv_1' })
+    const r = await scheduleInvoiceForPayment('c1', 'p1', {}, deps)
+    expect(r).toEqual({ status: 200, body: { ok: true, invoiceId: 'fi7' } })
+    expect(provider.cancelInvoice).not.toHaveBeenCalled()
+  })
+  it('reused invoice is never cancelled on conflict', async () => {
+    const { deps, provider } = makeDeps()
+    provider.findInvoiceByReference.mockResolvedValue({
+      id: 'inv_9', status: 'SCHEDULED', number: null, pdfUrl: null, xmlUrl: null, error: null, externalReference: 'p1',
+    })
+    deps.insertInvoice.mockResolvedValue(null)
+    const r = await scheduleInvoiceForPayment('c1', 'p1', {}, deps)
+    expect(r.status).toBe(409)
+    expect(provider.cancelInvoice).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['AUTHORIZED', 'authorized'], ['CANCELLATION_DENIED', 'authorized'], ['PROCESSING_CANCELLATION', 'cancelling'],
+    ['SCHEDULED', 'scheduled'], ['SYNCHRONIZED', 'scheduled'],
+  ])('reused provider status %s maps to local %s', async (provStatus, local) => {
+    const { deps, provider } = makeDeps()
+    provider.findInvoiceByReference.mockResolvedValue({
+      id: 'inv_9', status: provStatus, number: '7', pdfUrl: null, xmlUrl: null, error: null, externalReference: 'p1',
+    })
+    await scheduleInvoiceForPayment('c1', 'p1', {}, deps)
+    expect(deps.insertInvoice).toHaveBeenCalledWith(expect.objectContaining({ providerInvoiceId: 'inv_9', status: local }))
   })
   it('retry after error creates a new row and keeps the old', async () => {
     // hasActiveInvoice só conta scheduled/authorized/cancelling: uma nota antiga em 'error' não bloqueia
