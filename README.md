@@ -190,7 +190,7 @@ Sem túnel, os pagamentos ainda são atualizados pela conferência diária (ou d
 
 ### 4. Nota fiscal (NFS-e)
 
-Só para clínicas com **CNPJ**. A parte fiscal (inscrição municipal, certificado digital etc.) é configurada no **painel do Asaas**. No app, defina descrição, código do serviço (padrão 4.12), alíquota de ISS e, se quiser, **Emitir automaticamente ao receber**. Cada nota custa cerca de R$ 0,49 no Asaas. Dentista como pessoa física não é coberto (livro-caixa/Carnê-Leão fica para o futuro).
+Só para clínicas com **CNPJ**. A parte fiscal (inscrição municipal, certificado digital etc.) é configurada no **painel do Asaas**. No app, defina descrição, código do serviço (padrão 4.12), alíquota de ISS e, se quiser, **Emitir automaticamente ao receber**. Cada nota custa cerca de R$ 0,49 no Asaas. Dentista como pessoa física não é coberto (o livro-caixa e o Carnê-Leão têm seção própria, "Livro-caixa e Carnê-Leão", logo abaixo).
 
 ### Taxas e limites
 
