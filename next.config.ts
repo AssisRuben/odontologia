@@ -6,6 +6,10 @@ const publicHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  // Só no `npm run dev`: deixa o celular abrir o app pelo túnel do Cloudflare
+  // (sem isso o Next bloqueia os arquivos de desenvolvimento e a página não funciona).
+  allowedDevOrigins: ['*.trycloudflare.com'],
+
   // Página e API públicas do orçamento: nunca em cache nem indexadas
   async headers() {
     return [
