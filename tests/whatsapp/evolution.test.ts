@@ -13,6 +13,9 @@ import msgExtended from './fixtures/webhook-message-extended.json'
 import connOpen from './fixtures/webhook-connection-open.json'
 import msgLidAlt from './fixtures/webhook-message-lid-alt.json'
 import msgLidSenderPn from './fixtures/webhook-message-lid-senderpn.json'
+import msgAudio from './fixtures/webhook-message-audio.json'
+import msgFromMe from './fixtures/webhook-message-fromme.json'
+import mediaB64 from './fixtures/media-base64-response.json'
 
 const res = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -195,20 +198,62 @@ describe('EvolutionProvider.parseWebhook', () => {
     const ev = provider.parseWebhook(b)
     expect(ev?.kind === 'incoming' && Math.abs(ev.at.getTime() - Date.now()) < 5000).toBe(true)
   })
-  it('fromMe, grupo, status@broadcast, áudio, fixo e corpo inválido -> null', () => {
-    const fromMe = clone(msgText)
-    fromMe.data.key.fromMe = true
+  it('áudio -> incoming com text vazio e seconds', () => {
+    expect(provider.parseWebhook(msgAudio)).toEqual({
+      kind: 'incoming',
+      instance: 'clinic-abc',
+      from: '5511987654321',
+      text: '',
+      audio: { seconds: 12 },
+      providerMessageId: 'MSGAUD1',
+      at: new Date(1762080000 * 1000),
+    })
+  })
+  it('áudio sem seconds -> seconds 0', () => {
+    const b = clone(msgAudio)
+    delete b.data.message.audioMessage.seconds
+    expect(provider.parseWebhook(b)).toMatchObject({ audio: { seconds: 0 } })
+  })
+  it('fromMe de texto -> outgoing com to normalizado', () => {
+    expect(provider.parseWebhook(msgFromMe)).toEqual({
+      kind: 'outgoing',
+      instance: 'clinic-abc',
+      to: '5511987654321',
+      text: 'Olá, confirmado!',
+      providerMessageId: 'MSGOUT1',
+      at: new Date(1762080100 * 1000),
+    })
+  })
+  it('fromMe de áudio -> outgoing "[áudio]"', () => {
+    const b = clone(msgAudio)
+    b.data.key.fromMe = true
+    expect(provider.parseWebhook(b)).toMatchObject({ kind: 'outgoing', text: '[áudio]', to: '5511987654321' })
+  })
+  it('fromMe com @lid usa o telefone do alt', () => {
+    const b = clone(msgLidAlt)
+    b.data.key.fromMe = true
+    expect(provider.parseWebhook(b)).toMatchObject({ kind: 'outgoing', to: '5511987654321' })
+  })
+  it('fromMe em grupo, broadcast, newsletter ou sem conteúdo -> null', () => {
+    for (const jid of ['120363000000@g.us', 'status@broadcast', '123@newsletter']) {
+      const b = clone(msgFromMe)
+      b.data.key.remoteJid = jid
+      expect(provider.parseWebhook(b)).toBeNull()
+    }
+    const empty = clone(msgFromMe)
+    empty.data.message = { reactionMessage: {} }
+    expect(provider.parseWebhook(empty)).toBeNull()
+  })
+  it('grupo, status@broadcast, fixo e corpo inválido -> null', () => {
     const group = clone(msgText)
     group.data.key.remoteJid = '120363000000@g.us'
     const status = clone(msgText)
     status.data.key.remoteJid = 'status@broadcast'
-    const audio = clone(msgText)
-    audio.data.message = { audioMessage: { url: 'x' } }
     const landline = clone(msgText)
     landline.data.key.remoteJid = '551133334444@s.whatsapp.net'
     const other = clone(msgText)
     other.event = 'qrcode.updated'
-    for (const b of [fromMe, group, status, audio, landline, other, null, 'x', 42, {}, { event: 'messages.upsert' }]) {
+    for (const b of [group, status, landline, other, null, 'x', 42, {}, { event: 'messages.upsert' }]) {
       expect(provider.parseWebhook(b)).toBeNull()
     }
   })
@@ -239,6 +284,28 @@ describe('EvolutionProvider.parseWebhook', () => {
       status: 'disconnected',
       phone: null,
     })
+  })
+})
+
+describe('EvolutionProvider.getAudio', () => {
+  it('monta URL e corpo, envia apikey da instância e decodifica base64', async () => {
+    const { provider, fetchImpl } = make(() => res(200, mediaB64))
+    const out = await provider.getAudio('clinic-abc', 'TOK', 'MSGAUD1')
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('http://evo.test/chat/getBase64FromMediaMessage/clinic-abc')
+    expect(init.method).toBe('POST')
+    expect(hdr(init, 'apikey')).toBe('TOK')
+    expect(JSON.parse(String(init.body))).toEqual({ message: { key: { id: 'MSGAUD1' } }, convertToMp4: false })
+    expect(Buffer.from(out.bytes).toString()).toBe('hello')
+    expect(out.mimetype).toBe('audio/ogg; codecs=opus')
+  })
+  it('HTTP 500 -> TransientSendError', async () => {
+    const { provider } = make(() => res(500, {}))
+    await expect(provider.getAudio('i', 't', 'x')).rejects.toBeInstanceOf(TransientSendError)
+  })
+  it('resposta sem base64 -> TransientSendError', async () => {
+    const { provider } = make(() => res(200, { mimetype: 'audio/ogg' }))
+    await expect(provider.getAudio('i', 't', 'x')).rejects.toBeInstanceOf(TransientSendError)
   })
 })
 

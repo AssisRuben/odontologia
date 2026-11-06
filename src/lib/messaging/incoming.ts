@@ -40,6 +40,9 @@ export async function handleIncoming(
     return 'connection'
   }
 
+  // Mensagens da clínica e áudios só passam a ser tratados nas próximas tarefas (agente); por ora, ignorados.
+  if (event.kind === 'outgoing' || event.audio) return 'ignored'
+
   const clinic = await deps.findClinicByInstance(event.instance)
   if (!clinic) return 'ignored'
   const { clinicId, cfg } = clinic
