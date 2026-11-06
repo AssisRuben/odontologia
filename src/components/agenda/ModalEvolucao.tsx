@@ -39,6 +39,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [organizando, setOrganizando] = useState(false)
+  const [vozOcupada, setVozOcupada] = useState(false)
   const [textoOriginal, setTextoOriginal] = useState<string | null>(null)
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [marcadas, setMarcadas] = useState<boolean[]>([])
@@ -297,10 +298,12 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                 gravarDisponivel={conectado}
                 onTexto={(t) => setDescription((d) => appendText(d, t))}
                 disabled={loading || organizando}
+                onOcupado={setVozOcupada}
               />
             </div>
             <textarea
               value={description}
+              readOnly={organizando}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Paciente compareceu para limpeza. Foram realizados procedimentos de profilaxia e aplicação de flúor. Sem intercorrências..."
               rows={5}
@@ -312,7 +315,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                   <button
                     type="button"
                     onClick={handleOrganizar}
-                    disabled={organizando || loading}
+                    disabled={organizando || loading || vozOcupada}
                     className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#3B82F6] bg-[#EFF6FF] text-sm font-medium text-[#3B82F6] hover:bg-[#DBEAFE] disabled:opacity-50"
                   >
                     {organizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
@@ -386,7 +389,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
           <button
             type="button"
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || organizando || vozOcupada}
             className="w-full h-11 rounded-xl bg-[#3B82F6] text-white text-sm font-semibold hover:bg-[#2563EB] transition-colors disabled:opacity-50"
           >
             {loading ? 'Salvando...' : nMarcadas > 0 ? `Salvar e aplicar ${nMarcadas} ${nMarcadas === 1 ? 'sugestão' : 'sugestões'}` : 'Salvar'}

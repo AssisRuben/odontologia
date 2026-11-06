@@ -47,6 +47,15 @@ export default function AgendaPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [popover, setPopover] = useState<{ apt: Appointment; rect: DOMRect } | null>(null)
   const [editingApt, setEditingApt] = useState<Appointment | null>(null)
+  function abrirNovaConsulta(o: { date?: Date; hour?: string; patientId?: string; professionalId?: string; notes?: string } = {}) {
+    setModalDate(o.date)
+    setModalHour(o.hour)
+    setModalPatientId(o.patientId)
+    setModalProfessionalId(o.professionalId)
+    setModalNotes(o.notes)
+    setModalOpen(true)
+  }
+
   const [evolutionApt, setEvolutionApt] = useState<Appointment | null>(null)
 
   const [reloadKey, setReloadKey] = useState(0)
@@ -282,7 +291,7 @@ export default function AgendaPage() {
           </div>
 
           <button
-            onClick={() => { setModalDate(new Date()); setModalOpen(true) }}
+            onClick={() => abrirNovaConsulta({ date: new Date() })}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3B82F6] text-white rounded-lg text-xs font-medium hover:bg-[#2563EB] transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -328,11 +337,7 @@ export default function AgendaPage() {
             currentDate={currentDate}
             appointments={filteredAppointments}
             indicators={indicators}
-            onDateClick={(date, hour) => {
-              setModalDate(date); setModalHour(hour)
-              setModalPatientId(undefined); setModalProfessionalId(undefined); setModalNotes(undefined)
-              setModalOpen(true)
-            }}
+            onDateClick={(date, hour) => abrirNovaConsulta({ date, hour })}
             onEventClick={openPopover}
           />
         </div>
@@ -389,12 +394,12 @@ export default function AgendaPage() {
             setEvolutionApt(null)
             if (retorno) {
               const [y, m, d] = retorno.data.split('-').map(Number)
-              setModalDate(new Date(y, m - 1, d))
-              setModalHour(undefined)
-              setModalPatientId(apt.patient_id)
-              setModalProfessionalId(apt.professional_id)
-              setModalNotes(`Retorno: ${retorno.motivo}`)
-              setModalOpen(true)
+              abrirNovaConsulta({
+                date: new Date(y, m - 1, d),
+                patientId: apt.patient_id,
+                professionalId: apt.professional_id,
+                notes: `Retorno: ${retorno.motivo}`,
+              })
             }
           }}
         />

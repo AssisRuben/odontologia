@@ -17,6 +17,7 @@ interface BarraVozProps {
   gravarDisponivel: boolean
   onTexto: (t: string) => void
   disabled?: boolean
+  onOcupado?: (ocupado: boolean) => void
 }
 
 type Modo = 'parado' | 'ditando' | 'gravando' | 'transcrevendo'
@@ -32,7 +33,7 @@ function mmss(s: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function BarraVoz({ gravarDisponivel, onTexto, disabled }: BarraVozProps) {
+export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: BarraVozProps) {
   const [modo, setModo] = useState<Modo>('parado')
   const [parcial, setParcial] = useState('')
   const [erro, setErro] = useState('')
@@ -52,6 +53,10 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled }: BarraVozProps)
   useEffect(() => {
     onTextoRef.current = onTexto
   }, [onTexto])
+
+  useEffect(() => {
+    onOcupado?.(modo !== 'parado')
+  }, [modo, onOcupado])
 
   const liberarMicrofone = useCallback(() => {
     if (timer.current) clearInterval(timer.current)
