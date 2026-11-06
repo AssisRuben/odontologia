@@ -54,6 +54,15 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'documentos',   label: 'Documentos' },
 ]
 
+interface PatientEvolution {
+  id: string
+  date: string
+  description: string
+  images: string[] | null
+  ai_used: boolean
+  professional?: { name: string; color: string | null } | null
+}
+
 const GENDER_PT: Record<string, string> = { M: 'Masculino', F: 'Feminino', O: 'Outro' }
 
 // ─── página ─────────────────────────────────────────────────────────────────
@@ -61,6 +70,7 @@ const GENDER_PT: Record<string, string> = { M: 'Masculino', F: 'Feminino', O: 'O
 export default function PacienteDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const [patient, setPatient]         = useState<Patient | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [evolutions, setEvolutions]   = useState<PatientEvolution[]>([])
   const [payments, setPayments]       = useState<Payment[]>([])
   const [invoices, setInvoices]       = useState<FiscalInvoice[]>([])
   const [prosthetics, setProsthetics] = useState<Prosthetic[]>([])
@@ -80,11 +90,16 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     async function load() {
       const { id } = await params
       const supabase = createClient()
-      const [patRes, aptsRes, paymentsRes, prostRes] = await Promise.all([
+      const [patRes, aptsRes, paymentsRes, prostRes, evoRes] = await Promise.all([
         supabase.from('patients').select('*, insurance_plan:insurance_plans(*)').eq('id', id).single(),
         supabase.from('appointments').select('*, professional:professionals(*)').eq('patient_id', id).order('start_time', { ascending: false }),
         supabase.from('payments').select('*').eq('patient_id', id).order('due_date', { ascending: false }),
         supabase.from('prosthetics').select('*, professional:professionals(*)').eq('patient_id', id),
+        supabase.from('evolutions')
+          .select('id, date, description, images, ai_used, professional:professionals(name, color)')
+          .eq('patient_id', id)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false }),
       ])
       const p = patRes.data as Patient | null
       setPatient(p)
@@ -95,6 +110,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
         setInvoices((inv as FiscalInvoice[]) || [])
       }
       setProsthetics(prostRes.data || [])
+      setEvolutions((evoRes.data as unknown as PatientEvolution[]) || [])
       if (p) {
         const parsed = parsePatientNotes(p.notes)
         setTags(parsed.tags)
@@ -143,7 +159,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     ? appointments[appointments.length - 1]
     : null
 
-  const lastEvolutions = appointments.filter((a) => a.status === 'completed').slice(0, 5)
+  const lastEvolutions = evolutions.slice(0, 5)
   const waDisabledHint = patient.whatsapp_opt_out
     ? 'Paciente optou por não receber WhatsApp'
     : (normalizePhone(patient.whatsapp ?? null) ?? normalizePhone(patient.phone ?? null)) ? null : 'Sem WhatsApp válido'
@@ -373,8 +389,8 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                   <p className="text-sm text-[#9CA3AF]">Nenhuma evolução registrada.</p>
                 ) : (
                   <div className="space-y-3">
-                    {lastEvolutions.map((apt) => (
-                      <EvolutionCard key={apt.id} apt={apt} />
+                    {lastEvolutions.map((ev) => (
+                      <EvolutionCard key={ev.id} ev={ev} />
                     ))}
                   </div>
                 )}
@@ -422,13 +438,13 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
         {/* ── Evoluções ───────────────────────────────────────────────────── */}
         {activeTab === 'evolucoes' && (
           <div className="space-y-3">
-            {appointments.filter(a => a.status === 'completed').length === 0 ? (
+            {evolutions.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#E5E7EB] flex items-center justify-center h-40 text-sm text-[#9CA3AF]">
                 Nenhuma evolução registrada.
               </div>
             ) : (
-              appointments.filter(a => a.status === 'completed').map((apt) => (
-                <EvolutionCard key={apt.id} apt={apt} full />
+              evolutions.map((ev) => (
+                <EvolutionCard key={ev.id} ev={ev} full />
               ))
             )}
           </div>
@@ -505,33 +521,47 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function EvolutionCard({ apt, full = false }: { apt: Appointment; full?: boolean }) {
-  const initials = apt.professional ? getInitials(apt.professional.name) : 'D'
+function EvolutionCard({ ev, full = false }: { ev: PatientEvolution; full?: boolean }) {
+  const name = ev.professional?.name || 'Profissional'
+  const initials = ev.professional ? getInitials(ev.professional.name) : 'D'
+  const fotos = (ev.images ?? []).filter((u) => /^https?:\/\//.test(u))
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
       <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-full bg-[#3B82F6] flex items-center justify-center text-white text-xs font-bold shrink-0">
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+          style={{ backgroundColor: ev.professional?.color || '#3B82F6' }}
+        >
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-[#111827] leading-snug">
-            {apt.procedure || 'Consulta'} foi finalizado
-          </p>
-          <p className="text-xs text-[#6B7280] mt-0.5">
-            {apt.professional?.name || 'Profissional'} ·{' '}
-            <span className="inline-flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {format(parseISO(apt.start_time), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-            </span>
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3B82F6] text-xs font-medium">
-              {apt.procedure || 'Consulta'}
-            </span>
-            {apt.notes && full && (
-              <p className="w-full text-xs text-[#6B7280] mt-1 italic">{apt.notes}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-[#6B7280]">
+              {name} ·{' '}
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {format(parseISO(ev.date), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </span>
+            </p>
+            {ev.ai_used && (
+              <span className="px-1.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#7C3AED] text-[10px] font-semibold">
+                IA
+              </span>
             )}
           </div>
+          <p className={`mt-1.5 text-sm text-[#111827] leading-relaxed whitespace-pre-line ${full ? '' : 'line-clamp-3'}`}>
+            {ev.description}
+          </p>
+          {full && fotos.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {fotos.map((url) => (
+                <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="Foto da evolução" className="w-20 h-20 object-cover rounded-lg border border-[#E5E7EB]" />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
