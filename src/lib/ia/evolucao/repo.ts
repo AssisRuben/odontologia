@@ -48,7 +48,8 @@ export async function loadFichaInput(
       .eq('budgets.status', 'approved')
       .eq('approved', true)
       .in('status', ['pending', 'in_progress'])
-      .order('created_at', { referencedTable: 'budgets', ascending: false })
+      .order('budgets(created_at)', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(LIMITE),
   ])
   check(tr.error)

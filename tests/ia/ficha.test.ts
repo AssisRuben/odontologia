@@ -52,22 +52,32 @@ describe('buildFicha', () => {
   })
 })
 
-function fakeAdmin(patientRows: unknown[]) {
-  const result = (data: unknown[]) => {
+function fakeAdmin(patientRows: unknown[], orders: [string, string][] = []) {
+  const result = (t: string, data: unknown[]) => {
     const q: Record<string, unknown> = {}
     const chain = () => q
-    for (const m of ['select', 'eq', 'in', 'order', 'limit', 'range']) q[m] = chain
+    for (const m of ['select', 'eq', 'in', 'limit', 'range']) q[m] = chain
+    q.order = (col: string, opts?: { referencedTable?: string }) => {
+      orders.push([t, opts?.referencedTable ? `${opts.referencedTable}.${col}` : col])
+      return q
+    }
     q.maybeSingle = () => Promise.resolve({ data: data[0] ?? null, error: null })
     q.then = (res: (v: unknown) => unknown) => Promise.resolve({ data, error: null }).then(res)
     return q
   }
-  return { from: (t: string) => result(t === 'patients' ? patientRows : []) }
+  return { from: (t: string) => result(t, t === 'patients' ? patientRows : []) }
 }
 
 describe('loadFichaInput', () => {
   it('ficha null para paciente de outra clínica', async () => {
     const r = await loadFichaInput(fakeAdmin([]) as never, 'clinic-1', 'pat-1')
     expect(r).toBeNull()
+  })
+  it('ordena os itens pelo orçamento no pai, não só no embutido', async () => {
+    const orders: [string, string][] = []
+    await loadFichaInput(fakeAdmin([{ id: 'pat-1' }], orders) as never, 'clinic-1', 'pat-1')
+    expect(orders).toContainEqual(['budget_items', 'budgets(created_at)'])
+    expect(orders.some(([t, c]) => t === 'budget_items' && c.startsWith('budgets.'))).toBe(false)
   })
   it('ficha vazia para paciente da clínica sem itens', async () => {
     const r = await loadFichaInput(fakeAdmin([{ id: 'pat-1' }]) as never, 'clinic-1', 'pat-1')
