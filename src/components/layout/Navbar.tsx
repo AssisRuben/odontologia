@@ -32,6 +32,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { clinicId } = useClinicStore()
   const [approvedBadge, setApprovedBadge] = useState(0)
+  const [pendingChats, setPendingChats] = useState(0)
 
   // Orçamentos aprovados nos últimos 30 dias que a recepção ainda não viu.
   const refreshBadge = useCallback(async () => {
@@ -50,7 +51,26 @@ export function Navbar() {
     return () => window.removeEventListener('orcamentos:seen', refreshBadge)
   }, [refreshBadge])
 
-  const badgeFor = (href: string) => (href === '/orcamentos' ? approvedBadge : 0)
+  // Conversas do WhatsApp aguardando a recepção.
+  const refreshChats = useCallback(async () => {
+    if (!clinicId) return
+    try {
+      const res = await fetch('/api/conversas/pendentes', { cache: 'no-store' })
+      if (!res.ok) return
+      const json = await res.json()
+      setPendingChats(typeof json.total === 'number' ? json.total : 0)
+    } catch { /* mantém o valor anterior */ }
+  }, [clinicId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshChats()
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refreshChats() }, 30_000)
+    window.addEventListener('conversas:seen', refreshChats)
+    return () => { clearInterval(t); window.removeEventListener('conversas:seen', refreshChats) }
+  }, [refreshChats, pathname])
+
+  const badgeFor = (href: string) => (href === '/orcamentos' ? approvedBadge : href === '/mensagens' ? pendingChats : 0)
 
   return (
     <>
