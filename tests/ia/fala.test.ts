@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
+  MAX_REINICIOS_SEM_TEXTO,
+  deveReiniciar,
   getSpeechRecognition,
   mensagemErroDitado,
   modoReconhecimento,
-  pedirProcessamentoLocal,
   pickRecorderMime,
   problemaGravacao,
 } from '@/components/ia/fala'
@@ -47,27 +48,29 @@ describe('modoReconhecimento', () => {
   })
 })
 
-describe('pedirProcessamentoLocal', () => {
-  it('liga processLocally quando existe', () => {
-    const rec = { processLocally: false }
-    pedirProcessamentoLocal(rec)
-    expect(rec.processLocally).toBe(true)
+describe('deveReiniciar', () => {
+  it('reinicia no Android enquanto o usuário quer ouvir e abaixo do limite', () => {
+    expect(deveReiniciar(true, true, 0)).toBe(true)
+    expect(deveReiniciar(true, true, MAX_REINICIOS_SEM_TEXTO - 1)).toBe(true)
   })
-  it('não cria a propriedade quando não existe', () => {
-    const rec = {}
-    pedirProcessamentoLocal(rec)
-    expect('processLocally' in rec).toBe(false)
+  it('para após 3 reinícios sem texto final', () => {
+    expect(MAX_REINICIOS_SEM_TEXTO).toBe(3)
+    expect(deveReiniciar(true, true, 3)).toBe(false)
   })
-  it('não lança se a propriedade for somente leitura', () => {
-    const rec = Object.freeze({ processLocally: false })
-    expect(() => pedirProcessamentoLocal(rec)).not.toThrow()
+  it('não reinicia fora do Android nem depois de Parar/erro', () => {
+    expect(deveReiniciar(false, true, 0)).toBe(false)
+    expect(deveReiniciar(true, false, 0)).toBe(false)
   })
 })
 
 describe('mensagemErroDitado', () => {
   it('microfone negado', () => {
     expect(mensagemErroDitado('not-allowed')).toBe('Permita o uso do microfone no navegador.')
-    expect(mensagemErroDitado('service-not-allowed')).toBe('Permita o uso do microfone no navegador.')
+  })
+  it('ditado indisponível no navegador', () => {
+    const msg = 'O ditado não está disponível neste navegador. Use o Gravar ou o microfone do teclado.'
+    expect(mensagemErroDitado('language-not-supported')).toBe(msg)
+    expect(mensagemErroDitado('service-not-allowed')).toBe(msg)
   })
   it('sem microfone e sem rede', () => {
     expect(mensagemErroDitado('audio-capture')).toBe('Nenhum microfone encontrado.')

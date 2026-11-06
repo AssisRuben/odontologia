@@ -299,7 +299,7 @@ Grave ou dite a evolução do atendimento e a anamnese; a IA organiza o texto e 
 
 - São dados de saúde. Por padrão, segundo a política da OpenAI para a API, os dados não são usados para treinar modelos.
 - A clínica deve aceitar o DPA (acordo de processamento de dados) na conta dela na OpenAI.
-- **Ditar** usa o serviço de voz do navegador ou do celular (Google no Chrome/Android, Apple no Safari/iPhone) e pode enviar o áudio a eles. Quando o navegador oferece, o app pede o reconhecimento no próprio aparelho, mas isso não é garantido. Para mais controle, prefira **Gravar** (OpenAI, coberta pelo DPA da clínica).
+- **Ditar** usa o serviço de voz do navegador ou do celular (Google no Chrome/Android, Apple no Safari/iPhone) e pode enviar o áudio a eles. Para mais controle, prefira **Gravar** (OpenAI, coberta pelo DPA da clínica).
 - Recomendamos mencionar o uso de IA no termo de consentimento ou na política de privacidade da clínica.
 - A ficha enviada à IA não leva nome, CPF, telefone, e-mail, endereço, data de nascimento, idade nem sexo.
 

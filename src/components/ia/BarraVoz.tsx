@@ -6,7 +6,7 @@ import {
   getSpeechRecognition,
   mensagemErroDitado,
   modoReconhecimento,
-  pedirProcessamentoLocal,
+  deveReiniciar,
   pickRecorderMime,
   problemaGravacao,
   type SpeechRecognitionLike,
@@ -104,13 +104,16 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
     rec.lang = 'pt-BR'
     rec.continuous = continuous
     rec.interimResults = true
-    pedirProcessamentoLocal(rec)
+    // Reinícios seguidos sem texto final: evita laço start→end→start se o navegador não entrega nada.
+    let reiniciosSemTexto = 0
     rec.onresult = (e: SpeechResultEvent) => {
       let interino = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i]
-        if (r.isFinal) onTextoRef.current(r[0].transcript)
-        else interino += r[0].transcript
+        if (r.isFinal) {
+          reiniciosSemTexto = 0
+          onTextoRef.current(r[0].transcript)
+        } else interino += r[0].transcript
       }
       setParcial(interino)
     }
@@ -123,7 +126,8 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
     }
     rec.onend = () => {
       setParcial('')
-      if (reiniciar && querOuvir.current && montado.current) {
+      if (montado.current && deveReiniciar(reiniciar, querOuvir.current, reiniciosSemTexto)) {
+        reiniciosSemTexto++
         try {
           rec.start()
           return

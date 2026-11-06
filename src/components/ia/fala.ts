@@ -38,23 +38,22 @@ export function modoReconhecimento(userAgent: string): { continuous: boolean; re
   return /Android/i.test(userAgent) ? { continuous: false, reiniciar: true } : { continuous: true, reiniciar: false }
 }
 
-/** Pede reconhecimento no próprio aparelho quando o navegador oferece (sem erro se não houver). */
-export function pedirProcessamentoLocal(rec: object): void {
-  if ('processLocally' in rec) {
-    try {
-      ;(rec as { processLocally: boolean }).processLocally = true
-    } catch {
-      // propriedade somente leitura em algum navegador: segue com o padrão
-    }
-  }
+/** Reinícios seguidos sem texto final, no Android, antes de desistir do ditado. */
+export const MAX_REINICIOS_SEM_TEXTO = 3
+
+/** Reinicia o ditado (Android) só se o usuário ainda quer ouvir e não houve reinícios demais sem texto. */
+export function deveReiniciar(reiniciar: boolean, querOuvir: boolean, reiniciosSemTexto: number): boolean {
+  return reiniciar && querOuvir && reiniciosSemTexto < MAX_REINICIOS_SEM_TEXTO
 }
 
 /** Mensagem para erros do ditado; null quando o erro deve passar em silêncio. */
 export function mensagemErroDitado(erro: string | undefined): string | null {
   switch (erro) {
     case 'not-allowed':
-    case 'service-not-allowed':
       return 'Permita o uso do microfone no navegador.'
+    case 'language-not-supported':
+    case 'service-not-allowed':
+      return 'O ditado não está disponível neste navegador. Use o Gravar ou o microfone do teclado.'
     case 'audio-capture':
       return 'Nenhum microfone encontrado.'
     case 'network':
