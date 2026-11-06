@@ -50,7 +50,7 @@ export function createAiDeps(admin: SupabaseClient): AiDeps {
 export async function recordUsage(
   admin: SupabaseClient,
   clinicId: string,
-  userId: string,
+  userId: string | null,
   row: UsageRow,
 ): Promise<void> {
   try {

@@ -7,7 +7,7 @@ describe('summarizeUsage', () => {
       { kind: 'transcricao', model: 'gpt-transcribe', audio_seconds: 120, input_tokens: null, output_tokens: null, ok: true },
       { kind: 'evolucao', model: 'gpt-6-luna', audio_seconds: null, input_tokens: 4000, output_tokens: 1500, ok: true },
     ]
-    expect(summarizeUsage(rows)).toEqual({ audioMinutes: 2, transcricoes: 1, evolucoes: 1, anamneses: 0, estimatedUsd: 0.01 })
+    expect(summarizeUsage(rows)).toEqual({ audioMinutes: 2, transcricoes: 1, evolucoes: 1, anamneses: 0, agente: 0, transcricoesWhatsapp: 0, estimatedUsd: 0.01 })
   })
 
   it('linhas com falha não entram na contagem, mas entram no custo', () => {
@@ -25,6 +25,20 @@ describe('summarizeUsage', () => {
       { kind: 'transcricao', model: 'gpt-transcribe', audio_seconds: 100, input_tokens: null, output_tokens: null, ok: true },
     ])
     expect(s.audioMinutes).toBe(1.7)
+  })
+})
+
+describe('summarizeUsage agente', () => {
+  it('conta agente e transcrição do WhatsApp', () => {
+    const s = summarizeUsage([
+      { kind: 'agente', model: 'gpt-6-luna', audio_seconds: null, input_tokens: 1000, output_tokens: 500, ok: true },
+      { kind: 'transcricao_whatsapp', model: 'gpt-transcribe', audio_seconds: 60, input_tokens: null, output_tokens: null, ok: true },
+    ])
+    expect(s.agente).toBe(1)
+    expect(s.transcricoesWhatsapp).toBe(1)
+    expect(s.audioMinutes).toBe(1)
+    // 0.0045 + 0.0001 + 0.00025 = 0.00485, arredondado a 2 casas
+    expect(s.estimatedUsd).toBe(0)
   })
 })
 

@@ -379,3 +379,17 @@ export interface BudgetSignature {
   signed_at: string
   approved_by: string | null
 }
+
+export interface Conversation {
+  id: string
+  clinic_id: string
+  phone: string
+  patient_id: string | null
+  contact_name: string | null
+  handler: 'agent' | 'human'
+  handoff_reason: string | null
+  handler_since: string
+  last_message_at: string
+  unread: boolean
+  created_at: string
+}
