@@ -64,6 +64,26 @@ export function mesclarAnamnese(
   return { answers, notes, preenchidas }
 }
 
+/**
+ * Respostas sim/não e de opções que já estavam marcadas e que a fala contradiz.
+ * A ficha não muda; o aviso vai para Observações. Perguntas de texto não entram.
+ */
+export function conflitosAnamnese(
+  atual: Record<string, string>,
+  ia: IaAnamnese,
+  perguntas: Pergunta[],
+): string[] {
+  const avisos: string[] = []
+  for (const p of perguntas) {
+    if (p.type === 'text') continue
+    const marcada = (atual[p.id] ?? '').trim()
+    const falada = ia.respostas[p.id]
+    if (!marcada || !falada || norm(marcada) === norm(falada)) continue
+    avisos.push(`Atenção: na fala, "${p.text}" = ${falada}; a ficha mantém ${marcada}.`)
+  }
+  return avisos
+}
+
 export function parsePreencher(
   body: unknown,
 ): { ok: true; templateId: string; texto: string } | { ok: false; status: 422; error: string } {

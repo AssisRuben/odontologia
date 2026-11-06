@@ -30,7 +30,7 @@ export const EVOLUCAO_SYSTEM = `Você organiza o ditado de um dentista em uma ev
 Regras:
 - Escreva em português do Brasil, em linguagem clínica objetiva.
 - Não invente nada que não foi dito. Se uma seção não foi mencionada, use null.
-- Seções: motivo (queixa ou motivo da consulta), procedimentos (o que foi realizado, sempre com dente e faces), observacoes, proximos_passos.
+- Seções: motivo (queixa ou motivo da consulta), procedimentos (o que foi realizado, com dente e faces quando ditados; nunca escreva que faces ou dentes não foram informados, não especificados ou não se aplicam), observacoes, proximos_passos.
 - Numeração de dentes FDI (11 a 48 permanentes; 51 a 85 decíduos). Faces somente entre V M O D L (vestibular, mesial, oclusal, distal, lingual).
 - Você recebe uma ficha com os tratamentos (T1, T2...) e itens de orçamento (O1, O2...) em aberto do paciente. Use apenas esses apelidos nas sugestões; nunca invente um apelido.
 - sugestoes tipo item_orcamento (apelido O#) ou tratamento (apelido T#): somente quando o ditado diz que o item foi iniciado ou concluído; novo_status é in_progress ou completed.

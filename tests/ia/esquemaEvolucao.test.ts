@@ -25,5 +25,7 @@ describe('EvolucaoOutputSchema', () => {
   })
   it('prompt cobre as regras', () => {
     for (const t of ['português', 'FDI', 'V M O D L', 'tratamento_novo', 'apelidos']) expect(EVOLUCAO_SYSTEM).toContain(t)
+    expect(EVOLUCAO_SYSTEM).toContain('nunca escreva que faces ou dentes não foram informados')
+    expect(EVOLUCAO_SYSTEM).not.toContain('sempre com dente e faces')
   })
 })

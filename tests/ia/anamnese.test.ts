@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { validarRespostas, mesclarAnamnese, parsePreencher } from '@/lib/ia/anamnese/respostas'
-import { perguntasTexto, type Pergunta } from '@/lib/ia/anamnese/esquema'
+import { validarRespostas, mesclarAnamnese, parsePreencher, conflitosAnamnese } from '@/lib/ia/anamnese/respostas'
+import { perguntasTexto, ANAMNESE_SYSTEM, type Pergunta } from '@/lib/ia/anamnese/esquema'
 
 const T = '11111111-1111-4111-8111-111111111111'
 
@@ -73,6 +73,35 @@ describe('mesclarAnamnese', () => {
   })
   it('sem observação mantém as notas', () => {
     expect(mesclarAnamnese({}, 'A', { respostas: {}, observacoes: null }).notes).toBe('A')
+  })
+})
+
+describe('conflitosAnamnese', () => {
+  it('avisa quando a fala contradiz resposta marcada (sim/não e opções)', () => {
+    const r = conflitosAnamnese(
+      { q1: 'Não', q2: 'Nenhuma' },
+      { respostas: { q1: 'Sim', q2: 'Diabetes' }, observacoes: null },
+      perguntas,
+    )
+    expect(r).toEqual([
+      'Atenção: na fala, "Tem alergia?" = Sim; a ficha mantém Não.',
+      'Atenção: na fala, "Doença crônica?" = Diabetes; a ficha mantém Nenhuma.',
+    ])
+  })
+  it('não avisa quando concorda, quando a ficha está vazia ou em pergunta de texto', () => {
+    const r = conflitosAnamnese(
+      { q1: 'sim', q2: '  ', q3: 'Losartana' },
+      { respostas: { q1: 'Sim', q2: 'Diabetes', q3: 'Metformina' }, observacoes: null },
+      perguntas,
+    )
+    expect(r).toEqual([])
+  })
+})
+
+describe('ANAMNESE_SYSTEM', () => {
+  it('pede o complemento das respostas Sim em observacoes', () => {
+    expect(ANAMNESE_SYSTEM).toContain('complemento')
+    expect(ANAMNESE_SYSTEM).toContain('Alergia: dipirona')
   })
 })
 

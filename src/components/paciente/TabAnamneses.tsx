@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, X, ChevronDown, ChevronUp, ClipboardList, Wand2, Loader2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { BarraVoz } from '@/components/ia/BarraVoz'
 import { useIaStatus } from '@/components/ia/useIaStatus'
-import { mesclarAnamnese, type IaAnamnese } from '@/lib/ia/anamnese/respostas'
+import { mesclarAnamnese, conflitosAnamnese, type IaAnamnese } from '@/lib/ia/anamnese/respostas'
 import { appendText } from '@/lib/ia/texto'
 import type { AnamnesisTemplate, AnamnesisQuestion } from '@/types'
 
@@ -158,6 +158,9 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
   const [erroIa, setErroIa] = useState('')
 
   const template = templates.find(t => t.id === selectedTemplateId)
+  // Respostas mais recentes, para comparar com a fala quando a IA responder.
+  const answersRef = useRef(answers)
+  useEffect(() => { answersRef.current = answers }, [answers])
 
   function setResposta(id: string, valor: string) {
     setRespostas(r => ({ ...r, answers: { ...r.answers, [id]: valor }, iaIds: r.iaIds.filter(x => x !== id) }))
@@ -189,7 +192,9 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
           aiUsed: r.aiUsed || m.preenchidas.length > 0 || !!ia.observacoes,
         }
       })
-      setNotes(n => mesclarAnamnese({}, n, { respostas: {}, observacoes: ia.observacoes }).notes)
+      const avisos = conflitosAnamnese(answersRef.current, ia, template?.questions ?? [])
+      const extra = [ia.observacoes, ...avisos].filter(Boolean).join('\n') || null
+      setNotes(n => mesclarAnamnese({}, n, { respostas: {}, observacoes: extra }).notes)
     } catch {
       setErroIa('Não foi possível organizar agora. Tente de novo.')
     } finally {
