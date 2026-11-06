@@ -41,6 +41,8 @@ export interface AgentDeps {
   setHandler(conversationId: string, handler: 'agent' | 'human', reason: string | null): Promise<void>
   setContactName(conversationId: string, name: string): Promise<void>
   markUnread(conversationId: string): Promise<void>
+  markRead(conversationId: string): Promise<void>
+  lastActivityBefore(clinicId: string, phone: string, messageId: string): Promise<string | null>
   sendAgentMessage(conv: AgentConversation, body: string): Promise<boolean>
   recordUsage(clinicId: string, row: UsageRow): Promise<void>
 }
@@ -79,7 +81,9 @@ export async function runAgent(
   if (!clinic.config.enabled || !clinic.whatsappConnected) return 'disabled'
 
   if (conv.handler === 'human') {
-    if (!shouldResume(conv, now())) return 'human'
+    // last_message_at já foi atualizado pela mensagem nova; a retomada olha a atividade anterior a ela.
+    const before = await deps.lastActivityBefore(conv.clinic_id, conv.phone, messageId)
+    if (before !== null && !shouldResume({ handler: conv.handler, last_message_at: before }, now())) return 'human'
     await deps.setHandler(conv.id, 'agent', null)
     conv = { ...conv, handler: 'agent' }
   }
@@ -140,7 +144,10 @@ export async function runAgent(
 
   // A recepção pode ter assumido a conversa enquanto a IA pensava.
   const fresh = await deps.loadConversation(conv.id)
-  if (!fresh || fresh.handler !== 'agent') return 'human'
+  if (!fresh || fresh.handler !== 'agent') {
+    await deps.recordUsage(conv.clinic_id, usageRow(ai.model, true, inputTokens, outputTokens))
+    return 'human'
+  }
 
   let sent = false
   try {
@@ -151,6 +158,7 @@ export async function runAgent(
   if (!sent) return fail(inputTokens, outputTokens)
 
   await deps.recordUsage(conv.clinic_id, usageRow(ai.model, true, inputTokens, outputTokens))
+  if (decision.acao !== 'passar_recepcao') await deps.markRead(conv.id)
   if (decision.acao === 'guardar_nome') {
     await deps.setContactName(conv.id, decision.nome)
     return 'named'

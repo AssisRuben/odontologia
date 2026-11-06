@@ -32,6 +32,8 @@ function make(over: Partial<AgentDeps> = {}, out: Out | Error = reply) {
     setHandler: vi.fn(async () => {}),
     setContactName: vi.fn(async () => {}),
     markUnread: vi.fn(async () => {}),
+    markRead: vi.fn(async () => {}),
+    lastActivityBefore: vi.fn(async () => '2026-11-06T14:00:00Z'),
     sendAgentMessage: vi.fn(async () => true),
     recordUsage: vi.fn(async () => {}),
     ...over,
@@ -66,12 +68,48 @@ describe('runAgent', () => {
       loadConversation: vi.fn()
         .mockResolvedValueOnce(old)
         .mockResolvedValueOnce({ ...old, handler: 'agent' as const }),
+      lastActivityBefore: vi.fn(async () => '2026-11-05T20:00:00Z'),
       setHandler: vi.fn(async () => { calls.push('setHandler') }),
       sendAgentMessage: vi.fn(async () => { calls.push('send'); return true }),
     })
     expect(await run(deps)).toBe('replied')
     expect(deps.setHandler).toHaveBeenCalledWith('c1', 'agent', null)
     expect(calls).toEqual(['setHandler', 'send'])
+  })
+  it('retomada usa a atividade anterior, não o last_message_at já atualizado', async () => {
+    const bumped = { ...conv, handler: 'human' as const, last_message_at: NOW.toISOString() }
+    const agentAfter = { ...bumped, handler: 'agent' as const }
+    const old = make({
+      loadConversation: vi.fn().mockResolvedValueOnce(bumped).mockResolvedValueOnce(agentAfter),
+      lastActivityBefore: vi.fn(async () => '2026-11-06T02:00:00Z'),
+    })
+    expect(await run(old.deps)).toBe('replied')
+    expect(old.deps.setHandler).toHaveBeenCalledWith('c1', 'agent', null)
+    const recent = make({
+      loadConversation: vi.fn(async () => bumped),
+      lastActivityBefore: vi.fn(async () => '2026-11-06T14:00:00Z'),
+    })
+    expect(await run(recent.deps)).toBe('human')
+    expect(recent.deps.sendAgentMessage).not.toHaveBeenCalled()
+    const none = make({
+      loadConversation: vi.fn().mockResolvedValueOnce(bumped).mockResolvedValueOnce(agentAfter),
+      lastActivityBefore: vi.fn(async () => null),
+    })
+    expect(await run(none.deps)).toBe('replied')
+  })
+  it('unread=false após responder/guardar_nome; mantém em passar_recepcao e erro', async () => {
+    const a = make()
+    await run(a.deps)
+    expect(a.deps.markRead).toHaveBeenCalledWith('c1')
+    const b = make({}, { acao: 'guardar_nome', resposta: 'Oi', nome: 'Ze', motivo: null })
+    await run(b.deps)
+    expect(b.deps.markRead).toHaveBeenCalledWith('c1')
+    const c = make({}, { acao: 'passar_recepcao', resposta: 'x', nome: null, motivo: 'm' })
+    await run(c.deps)
+    expect(c.deps.markRead).not.toHaveBeenCalled()
+    const d = make({}, new AiError('timeout'))
+    await run(d.deps)
+    expect(d.deps.markRead).not.toHaveBeenCalled()
   })
   it('opt_out passa para a equipe sem enviar', async () => {
     const { deps } = make({
@@ -122,6 +160,7 @@ describe('runAgent', () => {
     })
     expect(await run(deps)).toBe('human')
     expect(deps.sendAgentMessage).not.toHaveBeenCalled()
+    expect(deps.recordUsage).toHaveBeenCalledWith('k1', expect.objectContaining({ ok: true, input_tokens: 100, output_tokens: 20 }))
   })
   it('erro da IA: nada enviado, não lida, uso ok false', async () => {
     const { deps } = make({}, new AiError('timeout'))

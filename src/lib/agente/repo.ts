@@ -138,6 +138,25 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
       check(error)
     },
 
+    async markRead(conversationId) {
+      const { error } = await admin.from('conversations').update({ unread: false }).eq('id', conversationId)
+      check(error)
+    },
+
+    async lastActivityBefore(clinicId, phone, messageId) {
+      const { data, error } = await admin
+        .from('messages')
+        .select('created_at')
+        .eq('clinic_id', clinicId)
+        .eq('phone', phone)
+        .neq('id', messageId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      check(error)
+      return (data?.created_at as string | undefined) ?? null
+    },
+
     async sendAgentMessage(conv, body) {
       const { data, error } = await admin
         .from('whatsapp_connections')
