@@ -29,3 +29,47 @@ const MIMES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
 export function pickRecorderMime(isSupported: (m: string) => boolean): string | null {
   return MIMES.find(isSupported) ?? null
 }
+
+/**
+ * No Chrome do Android o modo contínuo repete os trechos finais ("dente dente 36…").
+ * Lá o ditado roda frase a frase e reinicia sozinho até o usuário parar.
+ */
+export function modoReconhecimento(userAgent: string): { continuous: boolean; reiniciar: boolean } {
+  return /Android/i.test(userAgent) ? { continuous: false, reiniciar: true } : { continuous: true, reiniciar: false }
+}
+
+/** Pede reconhecimento no próprio aparelho quando o navegador oferece (sem erro se não houver). */
+export function pedirProcessamentoLocal(rec: object): void {
+  if ('processLocally' in rec) {
+    try {
+      ;(rec as { processLocally: boolean }).processLocally = true
+    } catch {
+      // propriedade somente leitura em algum navegador: segue com o padrão
+    }
+  }
+}
+
+/** Mensagem para erros do ditado; null quando o erro deve passar em silêncio. */
+export function mensagemErroDitado(erro: string | undefined): string | null {
+  switch (erro) {
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return 'Permita o uso do microfone no navegador.'
+    case 'audio-capture':
+      return 'Nenhum microfone encontrado.'
+    case 'network':
+      return 'Sem conexão com o serviço de ditado.'
+    default:
+      return null
+  }
+}
+
+/** Limite prático do corpo da requisição na hospedagem (~4,5 MB). */
+export const MAX_ENVIO_BYTES = 4 * 1024 * 1024
+
+/** Motivo para não enviar a gravação, ou null se pode enviar. */
+export function problemaGravacao(tamanho: number): 'vazia' | 'grande' | null {
+  if (tamanho <= 0) return 'vazia'
+  if (tamanho > MAX_ENVIO_BYTES) return 'grande'
+  return null
+}

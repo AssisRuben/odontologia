@@ -222,8 +222,13 @@ export default function IaConfigPage() {
           </div>
 
           <p className="text-xs text-[#6B7280] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">
-            A API da OpenAI não usa os dados enviados para treinar modelos. Para atender à LGPD, a clínica deve
-            aceitar o contrato de tratamento de dados (DPA) da OpenAI na conta dela.
+            Por padrão, segundo a política da OpenAI para a API, os dados enviados não são usados para treinar
+            modelos. Para atender à LGPD, a clínica deve aceitar o contrato de tratamento de dados (DPA) da OpenAI
+            na conta dela.
+          </p>
+          <p className="text-xs text-[#6B7280] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">
+            &quot;Ditar&quot; usa o serviço de voz do navegador ou do celular (Google ou Apple) e pode enviar o áudio a
+            eles. Para mais controle, prefira &quot;Gravar&quot;, que usa a OpenAI, coberta pelo DPA da clínica.
           </p>
         </div>
       )}

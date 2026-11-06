@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { Mic, Square, Loader2 } from 'lucide-react'
 import {
   getSpeechRecognition,
+  mensagemErroDitado,
+  modoReconhecimento,
+  pedirProcessamentoLocal,
   pickRecorderMime,
+  problemaGravacao,
   type SpeechRecognitionLike,
   type SpeechResultEvent,
 } from './fala'
@@ -12,6 +16,9 @@ import {
 const MAX_SEGUNDOS = 600
 const ERRO_MICROFONE = 'Permita o uso do microfone no navegador.'
 const ERRO_TRANSCRICAO = 'Não foi possível transcrever agora. Tente de novo.'
+const ERRO_DITADO = 'Não foi possível iniciar o ditado neste navegador.'
+const ERRO_GRAVADOR = 'Não foi possível gravar neste navegador.'
+const ERRO_GRANDE = 'Gravação grande demais para enviar. Grave trechos menores.'
 
 interface BarraVozProps {
   gravarDisponivel: boolean
@@ -44,6 +51,8 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
 
   const onTextoRef = useRef(onTexto)
   const reconhecimento = useRef<SpeechRecognitionLike | null>(null)
+  // Usuário ainda quer ditar (até apertar Parar): no Android o ditado reinicia a cada frase.
+  const querOuvir = useRef(false)
   const gravador = useRef<MediaRecorder | null>(null)
   const stream = useRef<MediaStream | null>(null)
   const pedacos = useRef<Blob[]>([])
@@ -69,6 +78,7 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
     montado.current = true
     return () => {
       montado.current = false
+      querOuvir.current = false
       const rec = reconhecimento.current
       if (rec) {
         rec.onresult = rec.onerror = rec.onend = null
@@ -89,10 +99,12 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
     const Ctor = getSpeechRecognition(window)
     if (!Ctor) return
     setErro('')
+    const { continuous, reiniciar } = modoReconhecimento(navigator.userAgent)
     const rec = new Ctor()
     rec.lang = 'pt-BR'
-    rec.continuous = true
+    rec.continuous = continuous
     rec.interimResults = true
+    pedirProcessamentoLocal(rec)
     rec.onresult = (e: SpeechResultEvent) => {
       let interino = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -103,33 +115,57 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
       setParcial(interino)
     }
     rec.onerror = e => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setErro(ERRO_MICROFONE)
+      const msg = mensagemErroDitado(e.error)
+      if (msg) {
+        querOuvir.current = false
+        setErro(msg)
+      }
     }
     rec.onend = () => {
-      reconhecimento.current = null
       setParcial('')
+      if (reiniciar && querOuvir.current && montado.current) {
+        try {
+          rec.start()
+          return
+        } catch {
+          setErro(ERRO_DITADO)
+        }
+      }
+      querOuvir.current = false
+      reconhecimento.current = null
       setModo('parado')
     }
     reconhecimento.current = rec
+    querOuvir.current = true
     setModo('ditando')
     try {
       rec.start()
     } catch {
+      querOuvir.current = false
       reconhecimento.current = null
+      setErro(ERRO_DITADO)
       setModo('parado')
     }
   }
 
   function pararDitado() {
+    querOuvir.current = false
     reconhecimento.current?.stop()
   }
 
   async function enviar(blob: Blob, duracao: number) {
+    const problema = problemaGravacao(blob.size)
+    if (problema) {
+      if (problema === 'grande') setErro(ERRO_GRANDE)
+      setModo('parado')
+      return
+    }
     setModo('transcrevendo')
     try {
       const form = new FormData()
       form.append('audio', blob, 'audio')
-      form.append('seconds', String(duracao))
+      // O relógio da página pode atrasar (aba em segundo plano, tela bloqueada): nunca passa de 10 min.
+      form.append('seconds', String(Math.min(MAX_SEGUNDOS, duracao)))
       const res = await fetch('/api/ia/transcrever', { method: 'POST', body: form })
       const j = await res.json().catch(() => ({}))
       if (!montado.current) return
@@ -161,7 +197,15 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
     }
     stream.current = s
     pedacos.current = []
-    const g = new MediaRecorder(s, { mimeType: mime, audioBitsPerSecond: 32000 })
+    let g: MediaRecorder
+    try {
+      g = new MediaRecorder(s, { mimeType: mime, audioBitsPerSecond: 32000 })
+    } catch {
+      liberarMicrofone()
+      setErro(ERRO_GRAVADOR)
+      setModo('parado')
+      return
+    }
     gravador.current = g
     const inicio = Date.now()
     g.ondataavailable = e => {
@@ -175,9 +219,19 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
       liberarMicrofone()
       void enviar(blob, duracao)
     }
+    try {
+      g.start()
+    } catch {
+      g.ondataavailable = null
+      g.onstop = null
+      gravador.current = null
+      liberarMicrofone()
+      setErro(ERRO_GRAVADOR)
+      setModo('parado')
+      return
+    }
     setSegundos(0)
     setModo('gravando')
-    g.start()
     timer.current = setInterval(() => {
       const dec = Math.round((Date.now() - inicio) / 1000)
       setSegundos(dec)
