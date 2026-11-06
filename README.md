@@ -306,6 +306,50 @@ Grave ou dite a evolução do atendimento e a anamnese; a IA organiza o texto e 
 
 ---
 
+## Agente de IA no WhatsApp
+
+Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as próximas consultas do paciente e passa para a recepção quando for preciso. Vem desligado.
+
+### 1. Banco, pré-requisitos e como ligar
+
+1. No SQL Editor do Supabase, aplique [`supabase/2026-11-06-agente-whatsapp.sql`](supabase/2026-11-06-agente-whatsapp.sql) (pode rodar de novo sem problema). **Aplique o SQL ANTES de publicar (deploy) o código novo.** A confirmação por "1"/"2" que já existe agora lê `clinics.agent_config` e a tabela `conversations`; sem o SQL, as confirmações deixam de funcionar.
+2. Pré-requisitos: WhatsApp conectado (Configurações → Mensagens) e chave da OpenAI cadastrada (Configurações → Inteligência artificial).
+3. Para ligar: Configurações → Agente do WhatsApp.
+4. A rota do webhook (`src/app/api/webhooks/evolution`) agora usa `maxDuration = 60` e `after()`: responde ao WhatsApp na hora e termina o trabalho do agente depois. Confira se a hospedagem permite 60 s por função.
+5. A instância da Evolution precisa entregar `messages.upsert` também das mensagens enviadas pela clínica (`fromMe`). Já é o padrão. É isso que permite detectar "respondido pelo celular".
+
+### O que o app faz
+
+- **Responde pacientes e contatos novos** com as informações que a clínica escreve na configuração do agente.
+- **Entende áudios** do paciente (transcreve com a OpenAI).
+- **Informa as próximas consultas** (até 3) de quem é paciente cadastrado.
+- **Passa para a recepção** quando o assunto foge do que sabe, quando o paciente pede, com muitas mensagens seguidas ou se a recepção responder pelo celular.
+- **Caixa de conversas** em Mensagens → Conversas, com filtro "Aguardando recepção", resposta direta, assumir/devolver ao agente e cadastro do paciente. O menu mostra um contador de conversas aguardando.
+- **Pausa e retoma sozinho:** depois de 12 h sem atividade, o agente volta a atender.
+- **Pedido de parar:** quem pedir para não receber WhatsApp deixa de ser atendido pelo agente.
+
+### O que não faz
+
+- Não agenda, cancela nem remarca consultas.
+- Não fala de valores, diagnósticos nem orientação clínica.
+- Só responde a quem escreveu: não envia mensagens por conta própria.
+- Limita-se a 30 respostas por conversa a cada 24 h.
+
+### Custo estimado
+
+- Resposta de texto: cerca de US$ 0,001 no modelo Econômico.
+- Áudio: US$ 0,0045 por minuto (áudios de até 5 min).
+- O uso do mês aparece em Configurações → Inteligência artificial.
+
+### LGPD
+
+- Com o agente ligado, mensagens de números desconhecidos são guardadas na caixa de conversas (com o agente desligado, não são).
+- O áudio não é salvo: só o texto transcrito.
+- Vão à OpenAI: o texto das últimas mensagens da conversa, as informações da clínica e, para pacientes, o primeiro nome e as próximas consultas. CPF, e-mail e endereço não vão.
+- Vale o mesmo cuidado da seção anterior: aceitar o DPA da OpenAI e mencionar o uso de IA na política de privacidade.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`
