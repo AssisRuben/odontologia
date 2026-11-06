@@ -4,6 +4,7 @@ import type { Ledger, LedgerRow, RowKind } from './apuracao'
 import { categoryLabel, groupLabel } from './categorias'
 import { monthLabel } from './mes'
 import { DISCLAIMER } from './textos'
+import { safeText, fit } from '@/lib/pdf/texto'
 
 export const MAX_ATTACHMENTS_BYTES = 100 * 1024 * 1024
 export const SKIPPED_NOTE =
@@ -98,26 +99,6 @@ export function selectAttachments(rows: LedgerRow[]): { included: LedgerRow[]; s
 
 export function toZip(files: Record<string, Uint8Array>): Uint8Array {
   return zipSync(files)
-}
-
-function safeText(font: PDFFont, text: string): string {
-  let out = ''
-  for (const ch of text.replace(/\s+/g, ' ')) {
-    try {
-      font.encodeText(ch)
-      out += ch
-    } catch {
-      out += '?'
-    }
-  }
-  return out
-}
-
-function fit(font: PDFFont, text: string, size: number, maxWidth: number): string {
-  let t = safeText(font, text)
-  if (font.widthOfTextAtSize(t, size) <= maxWidth) return t
-  while (t.length > 1 && font.widthOfTextAtSize(t + '...', size) > maxWidth) t = t.slice(0, -1)
-  return t + '...'
 }
 
 export async function toPdf(ledger: Ledger, clinicName: string): Promise<Uint8Array> {

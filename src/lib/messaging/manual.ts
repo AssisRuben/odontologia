@@ -13,11 +13,12 @@ export interface ManualPatient {
 export interface ManualRow {
   clinic_id: string
   patient_id: string
-  type: 'manual'
+  type: 'manual' | 'budget'
   direction: 'out'
   phone: string
   body: string
   dedupe_key: null
+  budget_id: string | null
 }
 
 export interface ManualDeps {
@@ -40,7 +41,7 @@ export interface ManualResult {
 const fail = (status: number, error: string): ManualResult => ({ status, body: { error } })
 
 export async function sendManual(
-  input: { clinicId: string; patient_id: unknown; body: unknown },
+  input: { clinicId: string; patient_id: unknown; body: unknown; kind?: 'manual' | 'budget'; budgetId?: string },
   deps: ManualDeps,
 ): Promise<ManualResult> {
   const { clinicId } = input
@@ -68,11 +69,12 @@ export async function sendManual(
   const res = await deps.deliver(conn, {
     clinic_id: clinicId,
     patient_id: patient.id,
-    type: 'manual',
+    type: input.kind ?? 'manual',
     direction: 'out',
     phone,
     body: text,
     dedupe_key: null,
+    budget_id: input.budgetId ?? null,
   })
   if (!res.ok) return fail(502, 'Falha ao enviar pelo WhatsApp')
   return { status: 200, body: { id: res.id } }

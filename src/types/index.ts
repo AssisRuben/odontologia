@@ -7,8 +7,11 @@ export interface Clinic {
   card_rates?: Record<string, string>
   whatsapp_key?: string
   whatsapp_phone?: string
+  budget_validity_days?: number
   created_at: string
 }
+
+export type AiTier = 'economico' | 'caprichado'
 
 export interface AnamnesisQuestion {
   id: string
@@ -299,4 +302,80 @@ export interface Treatment {
   professional?: Professional
   insurance_plan?: InsurancePlan
   treatment_teeth?: TreatmentTooth[]
+}
+
+// ── Orçamentos: funil e assinatura ──────────────────────────
+
+export type BudgetStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'expired' | 'completed'
+
+export type LostReason = 'preco' | 'pensar' | 'outro_lugar' | 'tempo' | 'medo' | 'sem_resposta' | 'outro'
+
+export type BudgetItemStatus = 'pending' | 'in_progress' | 'completed'
+
+export interface BudgetItem {
+  id: string
+  budget_id: string
+  procedure: string
+  tooth: string | null
+  quantity: number
+  unit_price: number
+  status: BudgetItemStatus
+  approved: boolean | null
+  created_at?: string
+}
+
+export interface Budget {
+  id: string
+  clinic_id: string
+  patient_id: string
+  professional_id: string | null
+  status: BudgetStatus
+  notes: string | null
+  total: number
+  approved_total: number | null
+  sent_at: string | null
+  viewed_at: string | null
+  decided_at: string | null
+  valid_until: string | null
+  lost_reason: LostReason | null
+  followup_at: string | null
+  approval_seen_at: string | null
+  created_at: string
+  updated_at: string
+  items?: BudgetItem[]
+}
+
+export type BudgetEventType =
+  | 'sent' | 'resent' | 'reminder' | 'viewed' | 'contact'
+  | 'approved' | 'rejected' | 'expired' | 'reopened' | 'edited'
+
+export type BudgetContactOutcome = 'nao_atendeu' | 'pensar' | 'aprovou' | 'perdido'
+
+export interface BudgetEvent {
+  id: string
+  budget_id: string
+  clinic_id: string
+  type: BudgetEventType
+  outcome: BudgetContactOutcome | null
+  reason: string | null
+  note: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export type BudgetSignatureProvider = 'app' | 'reception'
+
+export interface BudgetSignature {
+  budget_id: string
+  clinic_id: string
+  provider: BudgetSignatureProvider
+  provider_ref: string | null
+  signer_name: string
+  signer_cpf: string | null
+  snapshot: Record<string, unknown>
+  document_hash: string
+  ip: string | null
+  user_agent: string | null
+  signed_at: string
+  approved_by: string | null
 }

@@ -1,9 +1,11 @@
+import { linkUrl } from '@/lib/orcamentos/links'
 import { normalizePhone } from './phone'
 import { buildContext, renderTemplate } from './templates'
 import { todayYmd, zonedDateTime } from './time'
 import { windowStartToday } from './window'
 import type {
   AppointmentRow,
+  BudgetReminderRow,
   MessageKind,
   MessageSetting,
   MessageType,
@@ -28,6 +30,8 @@ export interface PlanInput {
   patientsWithFuture: Set<string>
   /** status pending|overdue com due_date */
   payments: PaymentRow[]
+  /** orçamentos 'sent' com link ativo */
+  budgets: BudgetReminderRow[]
 }
 
 export function dedupeKey(
@@ -40,6 +44,8 @@ export function dedupeKey(
     year?: number
     paymentId?: string
     offsetDays?: number
+    budgetId?: string
+    linkId?: string
   },
 ): string {
   switch (type) {
@@ -54,6 +60,10 @@ export function dedupeKey(
       return `charge:${parts.paymentId}:${parts.offsetDays}`
     case 'payment_due':
       return `payment_due:${parts.paymentId}:${parts.offsetDays}`
+    case 'budget_reminder':
+      return `budget_reminder:${parts.budgetId}:${parts.linkId}:${parts.offsetDays}`
+    case 'budget':
+      throw new Error('envio de orçamento é manual (sem dedupe_key)')
   }
 }
 
@@ -90,7 +100,7 @@ function build(
   c: Ctx,
   t: { patient: PatientRow; phone: string },
   extra: Partial_,
-  ctxArgs: { appointment?: AppointmentRow; payment?: PaymentRow } = {},
+  ctxArgs: { appointment?: AppointmentRow; payment?: PaymentRow; budget?: { total: number; valid_until: string | null }; link?: string } = {},
 ): QueueItem {
   const { input, setting } = c
   const context = buildContext({
@@ -126,6 +136,7 @@ function planAppointmentReminders(c: Ctx, type: 'confirmation' | 'reminder'): Qu
         {
           appointment_id: a.id,
           payment_id: null,
+          budget_id: null,
           scheduled_for: now,
           expires_at: start,
           dedupe_key: dedupeKey(type, { appointmentId: a.id, startTime: a.start_time }),
@@ -151,6 +162,7 @@ function planRecall(c: Ctx): QueueItem[] {
       build(c, t, {
         appointment_id: null,
         payment_id: null,
+          budget_id: null,
         scheduled_for: windowStartToday(input.now, input.cfg),
         expires_at: null,
         dedupe_key: dedupeKey('recall', { patientId: l.patient_id, lastAppointmentId: l.appointment_id }),
@@ -179,6 +191,7 @@ function planBirthdays(c: Ctx): QueueItem[] {
       build(c, t, {
         appointment_id: null,
         payment_id: null,
+          budget_id: null,
         scheduled_for: zonedDateTime(today, '09:00', cfg.timezone),
         expires_at: zonedDateTime(today, cfg.window_end, cfg.timezone),
         dedupe_key: dedupeKey('birthday', { patientId: patient.id, year }),
@@ -214,11 +227,43 @@ function planCharges(c: Ctx, type: 'charge' | 'payment_due'): QueueItem[] {
         {
           appointment_id: null,
           payment_id: p.id,
+          budget_id: null,
           scheduled_for: windowStartToday(input.now, input.cfg),
           expires_at: null,
           dedupe_key: dedupeKey(type, { paymentId: p.id, offsetDays: elapsed }),
         },
         { payment: p },
+      ),
+    )
+  }
+  return out
+}
+
+function planBudgetReminders(c: Ctx): QueueItem[] {
+  const { input, setting } = c
+  const tz = input.cfg.timezone
+  const today = ymdToDays(todayYmd(input.now, tz))
+  const offsets = setting.config.offset_days ?? []
+  const out: QueueItem[] = []
+  for (const b of input.budgets) {
+    if (b.valid_until && ymdToDays(b.valid_until) < today) continue
+    const elapsed = today - ymdToDays(todayYmd(new Date(b.link_created_at), tz))
+    if (!offsets.includes(elapsed)) continue
+    const t = c.target(b.patient_id)
+    if (!t) continue
+    out.push(
+      build(
+        c,
+        t,
+        {
+          appointment_id: null,
+          payment_id: null,
+          budget_id: b.id,
+          scheduled_for: windowStartToday(input.now, input.cfg),
+          expires_at: null,
+          dedupe_key: dedupeKey('budget_reminder', { budgetId: b.id, linkId: b.link_id, offsetDays: elapsed }),
+        },
+        { budget: { total: b.total, valid_until: b.valid_until }, link: linkUrl(b.token) },
       ),
     )
   }
@@ -251,12 +296,17 @@ export function planMessages(input: PlanInput): QueueItem[] {
       case 'payment_due':
         out.push(...planCharges(c, setting.type))
         break
+      case 'budget_reminder':
+        out.push(...planBudgetReminders(c))
+        break
+      case 'budget':
+        break // envio manual: nunca planejado pela rotina
     }
   }
   return out
 }
 
-export type StaleReason = 'appointment_changed' | 'not_confirmed' | 'paid' | 'opt_out' | 'expired' | null
+export type StaleReason = 'appointment_changed' | 'not_confirmed' | 'paid' | 'opt_out' | 'expired' | 'decided' | null
 
 /** start_time embutido em `type:<appointment_id>:<ISO>` (o ISO contém ':'). */
 export function keyStartTime(key: string | null): string | null {
@@ -270,6 +320,7 @@ export function staleReason(
   ctx: {
     appointment?: { start_time: string; status: string } | null
     payment?: { status: string } | null
+    budget?: { status: string; active_link_id: string | null } | null
     patient?: { whatsapp_opt_out: boolean } | null
   },
 ): StaleReason {
@@ -289,6 +340,11 @@ export function staleReason(
   if (item.type === 'charge' || item.type === 'payment_due') {
     const st = ctx.payment?.status
     if (!st || st === 'paid' || st === 'cancelled' || st === 'refunded') return 'paid'
+  }
+  if (item.type === 'budget_reminder') {
+    const b = ctx.budget
+    const keyLink = (item.dedupe_key ?? '').split(':')[2]
+    if (!b || b.status !== 'sent' || !b.active_link_id || b.active_link_id !== keyLink) return 'decided'
   }
   return null
 }

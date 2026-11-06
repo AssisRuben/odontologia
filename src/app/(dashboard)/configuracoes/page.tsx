@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, ChevronRight } from 'lucide-react'
+import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, Sparkles, ChevronRight } from 'lucide-react'
 
 const configCards = [
   {
@@ -50,6 +50,13 @@ const configCards = [
     description: 'Conecte o Asaas para cobranças, Pix, boleto e nota fiscal.',
     icon: Wallet,
     color: '#0EA5E9',
+  },
+  {
+    id: 'ia',
+    title: 'Inteligência artificial',
+    description: 'Chave da OpenAI para gravar a evolução e a anamnese por voz.',
+    icon: Sparkles,
+    color: '#EC4899',
   },
 ]
 

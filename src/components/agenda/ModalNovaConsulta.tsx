@@ -24,6 +24,8 @@ interface ModalNovaConsultaProps {
   initialDate?: Date
   initialHour?: string
   initialProfessionalId?: string
+  initialPatientId?: string
+  initialNotes?: string
   clinicId: string
   professionals: Professional[]
   patients: Patient[]
@@ -49,6 +51,8 @@ export function ModalNovaConsulta({
   initialDate,
   initialHour,
   initialProfessionalId,
+  initialPatientId,
+  initialNotes,
   clinicId,
   professionals,
   patients,
@@ -74,17 +78,18 @@ export function ModalNovaConsulta({
   useEffect(() => {
     if (open) {
       const start = initialHour || '09:00'
+      const paciente = initialPatientId ? patients.find((p) => p.id === initialPatientId) ?? null : null
       setPatientSearch('')
-      setSelectedPatient(null)
+      setSelectedPatient(paciente)
       setShowPatientList(false)
       setProfessionalId(initialProfessionalId || professionals[0]?.id || '')
       setDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'))
       setStartTime(start)
       setEndTime(calcEndTime(start))
       setProcedure('')
-      setNotes('')
+      setNotes(initialNotes ?? '')
       setStatus('scheduled')
-      setInsurancePlanId('')
+      setInsurancePlanId(paciente?.insurance_plan_id || '')
       setLoading(false)
       setError('')
       setSuccess(false)

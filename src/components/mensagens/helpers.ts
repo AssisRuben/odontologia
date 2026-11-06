@@ -7,7 +7,7 @@ export const PAGE_SIZE = 50
 
 /** Variáveis que o editor oferece como atalho para cada tipo. */
 export function variablesFor(type: MessageType, all: readonly string[]): string[] {
-  return all.filter((v) => v !== 'link' || type === 'charge' || type === 'payment_due')
+  return all.filter((v) => v !== 'link' || type === 'charge' || type === 'payment_due' || type === 'budget' || type === 'budget_reminder')
 }
 
 /** Devolve o fuso informado se for válido; senão o padrão. */
@@ -21,7 +21,7 @@ export function resolveTz(tz: unknown): string {
   }
 }
 
-export const SETTING_ORDER: MessageType[] = ['confirmation', 'reminder', 'recall', 'birthday', 'charge', 'payment_due']
+export const SETTING_ORDER: MessageType[] = ['confirmation', 'reminder', 'recall', 'birthday', 'charge', 'payment_due', 'budget_reminder', 'budget']
 
 export const SETTING_META: Record<MessageType, { title: string; description: string }> = {
   confirmation: { title: 'Confirmação de consulta', description: 'Pede ao paciente que confirme ou desmarque a consulta antes do horário.' },
@@ -30,6 +30,8 @@ export const SETTING_META: Record<MessageType, { title: string; description: str
   birthday: { title: 'Aniversariantes', description: 'Envie felicitações automáticas no dia do aniversário dos seus pacientes.' },
   charge: { title: 'Inadimplentes', description: 'Notifique pacientes com pagamentos em atraso.' },
   payment_due: { title: 'Lembrete de vencimento', description: 'Avisa o paciente antes do vencimento de uma cobrança.' },
+  budget: { title: 'Envio de orçamento', description: 'Texto da mensagem com o link do orçamento.' },
+  budget_reminder: { title: 'Lembrete de orçamento', description: 'Avisa o paciente que o orçamento ainda está disponível.' },
 }
 
 export const KIND_LABELS: Record<MessageKind, string> = {
@@ -39,6 +41,8 @@ export const KIND_LABELS: Record<MessageKind, string> = {
   birthday: 'Aniversário',
   charge: 'Cobrança',
   payment_due: 'Lembrete de vencimento',
+  budget: 'Orçamento',
+  budget_reminder: 'Lembrete de orçamento',
   manual: 'Manual',
   auto_reply: 'Resposta automática',
   incoming: 'Recebida',
@@ -76,6 +80,7 @@ export const ERROR_LABELS: Record<string, string> = {
   paid: 'Pagamento quitado',
   opt_out: 'Paciente optou por não receber',
   expired: 'Expirada',
+  decided: 'Orçamento decidido ou link substituído',
 }
 
 /** Rótulo do erro/motivo; texto que não é código conhecido aparece como está. */
@@ -141,7 +146,15 @@ export function validateConfig(type: MessageType, form: ConfigForm): ConfigResul
       return { ok: true, config: { offset_days: unique } }
     }
     case 'birthday':
+    case 'budget':
       return { ok: true, config: {} }
+    case 'budget_reminder': {
+      const nums = form.days.map((d) => parseIntInRange(d, 1, 60))
+      if (nums.length === 0 || nums.some((n) => n === null)) {
+        return { ok: false, error: 'Informe os dias após o envio como números inteiros de 1 a 60.' }
+      }
+      return { ok: true, config: { offset_days: [...new Set(nums as number[])].sort((a, b) => a - b) } }
+    }
   }
 }
 
@@ -154,6 +167,10 @@ export function configToForm(type: MessageType, config: MessageSetting['config']
   if (type === 'charge') {
     const d = config.offset_days?.length ? config.offset_days : [1, 7]
     return { offset: '', days: [String(d[0] ?? 1), String(d[1] ?? 7)] }
+  }
+  if (type === 'budget_reminder') {
+    const d = config.offset_days?.length ? config.offset_days : [3, 7]
+    return { offset: '', days: [String(d[0] ?? 3), String(d[1] ?? 7)] }
   }
   if (type === 'confirmation') return { offset: String(config.offset_hours ?? 24), days: [] }
   if (type === 'reminder') return { offset: String(config.offset_hours ?? 2), days: [] }

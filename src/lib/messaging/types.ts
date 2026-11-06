@@ -1,4 +1,4 @@
-export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge' | 'payment_due'
+export type MessageType = 'confirmation' | 'reminder' | 'recall' | 'birthday' | 'charge' | 'payment_due' | 'budget' | 'budget_reminder'
 export type MessageKind = MessageType | 'manual' | 'auto_reply' | 'incoming'
 export type MessageStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'received'
 
@@ -43,11 +43,23 @@ export interface PaymentRow {
   provider_state: string | null
 }
 
+/** Orçamento 'sent' com link ativo (base dos lembretes). */
+export interface BudgetReminderRow {
+  id: string
+  patient_id: string
+  total: number
+  valid_until: string | null
+  link_id: string
+  token: string
+  link_created_at: string
+}
+
 export interface QueueItem {
   clinic_id: string
   patient_id: string
   appointment_id: string | null
   payment_id: string | null
+  budget_id: string | null
   type: MessageType
   phone: string
   body: string

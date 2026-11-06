@@ -235,6 +235,77 @@ No SQL Editor do Supabase, aplique [`supabase/2026-11-05-livro-caixa.sql`](supab
 
 ---
 
+## Funil de orçamentos e assinatura
+
+Envio do orçamento pelo WhatsApp, aprovação e assinatura pelo paciente no celular, lembretes automáticos e acompanhamento do que foi fechado ou perdido.
+
+### 1. Banco e endereço do app
+
+1. No SQL Editor do Supabase, aplique [`supabase/2026-11-05-funil-orcamentos.sql`](supabase/2026-11-05-funil-orcamentos.sql) (pode rodar de novo sem problema).
+2. O link do orçamento precisa ser um endereço que o celular do paciente alcance. Em produção, o `APP_URL` já serve. Em teste local, o `APP_URL` aponta para o Docker (`host.docker.internal`), então use um túnel, por exemplo `npx cloudflared tunnel --url http://localhost:3001`, e coloque o endereço gerado em `PUBLIC_APP_URL` (sem mexer no `APP_URL`). Reinicie o `npm run dev` depois.
+3. Os lembretes rodam na rotina de mensagens que já existe (`/api/cron/messages`). A mesma rotina marca como vencidos os orçamentos fora da validade.
+
+### O que o app faz
+
+- **Envio pelo WhatsApp** com um link para o paciente.
+- **Página do paciente:** ele escolhe os itens que quer, assina com nome e CPF, ou recusa.
+- **Lembretes** nos dias 3 e 7 depois do envio (configuráveis em Mensagens).
+- **Para ligar:** lista de orçamentos parados, com registro de cada contato.
+- **Aprovação pela recepção**, quando o paciente decide fora do link.
+- **Comprovante em PDF** da aprovação. O paciente pode baixar por 30 dias.
+- **Página Orçamentos** com indicadores por período e por dentista.
+- **Validade padrão** em Configurações → Clínica.
+- **Gerar cobrança** com o valor aprovado.
+
+### O que não faz
+
+- Não usa provedor de assinatura. É assinatura eletrônica simples, aceita em contratos entre particulares (Lei 14.063/2020). Para prova mais forte, dá para adicionar depois um provedor como ZapSign ou Clicksign (não está nesta versão).
+- Não conta orçamentos antigos nos números do funil: eles não têm data de envio.
+
+### Regras
+
+- **Orçamento aprovado fica travado.** Para mudar, crie outro.
+- **Editar um orçamento enviado desativa o link.** Reenvie para o paciente.
+- **5 CPFs errados** bloqueiam a assinatura daquele link por 1 hora.
+
+---
+
+## Evolução e anamnese por voz (IA)
+
+Grave ou dite a evolução do atendimento e a anamnese; a IA organiza o texto e sugere as ações no sistema.
+
+### 1. Banco e chave da OpenAI
+
+1. No SQL Editor do Supabase, aplique [`supabase/2026-11-06-evolucao-por-voz.sql`](supabase/2026-11-06-evolucao-por-voz.sql) (pode rodar de novo sem problema). **Aplique o SQL antes de publicar (deploy) o código novo**: sem ele, salvar a anamnese dá erro.
+2. Não há variável de ambiente nova: a chave é de cada clínica. Em Configurações → Inteligência artificial, cole a chave da OpenAI da clínica. Ela é testada antes de salvar e só os 4 últimos dígitos aparecem depois.
+3. Escolha o modelo: **Econômico** (`gpt-6-luna`, padrão) ou **Mais caprichado** (`gpt-6.1-terra`). A mesma tela mostra o uso do mês com o custo estimado em dólar.
+4. Uploads de áudio usam `experimental.proxyClientMaxBodySize: '26mb'` no `next.config.ts` (já configurado). Na hospedagem (Vercel) o corpo da requisição tem limite de cerca de 4,5 MB, então o app envia até ~4 MB por gravação (cerca de 10 min).
+
+### O que o app faz
+
+- **Evolução** (agenda → janela de evolução):
+  - **Gravar:** transcreve com a OpenAI (`gpt-transcribe`), até ~4 MB por gravação (cerca de 10 min). O áudio não é salvo.
+  - **Ditar:** usa o reconhecimento de voz do navegador ou do celular, sem custo (veja LGPD abaixo).
+  - **Organizar com IA:** devolve o texto em seções e sugestões já marcadas: concluir ou iniciar item de orçamento aprovado, atualizar tratamento, lançar tratamento novo no odontograma (valor R$ 0) e retorno que abre o agendamento.
+  - **Salvar e aplicar N sugestões** grava tudo de uma vez.
+- **Modelo de anamnese padrão:** toda clínica já vem com o modelo "Anamnese Geral" (11 perguntas), que pode ser editado ou apagado em Configurações → Modelos de anamnese. Para bancos que já existiam, aplique [`supabase/2026-11-06-anamnese-padrao.sql`](supabase/2026-11-06-anamnese-padrao.sql) (pode rodar de novo sem problema): ele cria o modelo só nas clínicas que ainda não têm nenhum.
+- **Anamnese:** Gravar/Ditar e **Preencher com IA**, que preenche só as perguntas em branco; detalhes vão para Observações. Sem chave cadastrada, Ditar escreve direto em Observações.
+
+### Custo estimado
+
+- Transcrição: US$ 0,0045 por minuto.
+- Uma evolução (3 min de áudio + organizar): cerca de US$ 0,015 no modelo econômico.
+
+### LGPD
+
+- São dados de saúde. Por padrão, segundo a política da OpenAI para a API, os dados não são usados para treinar modelos.
+- A clínica deve aceitar o DPA (acordo de processamento de dados) na conta dela na OpenAI.
+- **Ditar** usa o serviço de voz do navegador ou do celular (Google no Chrome/Android, Apple no Safari/iPhone) e pode enviar o áudio a eles. Para mais controle, prefira **Gravar** (OpenAI, coberta pelo DPA da clínica).
+- Recomendamos mencionar o uso de IA no termo de consentimento ou na política de privacidade da clínica.
+- A ficha enviada à IA não leva nome, CPF, telefone, e-mail, endereço, data de nascimento, idade nem sexo.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`
@@ -250,6 +321,7 @@ src/
   app/(dashboard)/     telas do sistema (agenda, pacientes, financeiro, ...)
   components/          componentes por área (agenda, paciente, layout, ui)
   lib/supabase/        conexão com o Supabase (navegador e servidor)
+  lib/orcamentos/      regras do funil de orçamentos e assinatura
   store/               estado global (clínica atual)
   types/               tipos das tabelas
   proxy.ts             redireciona para /login quem não está logado

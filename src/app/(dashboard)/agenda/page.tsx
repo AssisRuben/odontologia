@@ -39,11 +39,23 @@ export default function AgendaPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalDate, setModalDate] = useState<Date | undefined>()
   const [modalHour, setModalHour] = useState<string | undefined>()
+  const [modalPatientId, setModalPatientId] = useState<string | undefined>()
+  const [modalProfessionalId, setModalProfessionalId] = useState<string | undefined>()
+  const [modalNotes, setModalNotes] = useState<string | undefined>()
   const [waitingCount, setWaitingCount] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [popover, setPopover] = useState<{ apt: Appointment; rect: DOMRect } | null>(null)
   const [editingApt, setEditingApt] = useState<Appointment | null>(null)
+  function abrirNovaConsulta(o: { date?: Date; hour?: string; patientId?: string; professionalId?: string; notes?: string } = {}) {
+    setModalDate(o.date)
+    setModalHour(o.hour)
+    setModalPatientId(o.patientId)
+    setModalProfessionalId(o.professionalId)
+    setModalNotes(o.notes)
+    setModalOpen(true)
+  }
+
   const [evolutionApt, setEvolutionApt] = useState<Appointment | null>(null)
 
   const [reloadKey, setReloadKey] = useState(0)
@@ -279,7 +291,7 @@ export default function AgendaPage() {
           </div>
 
           <button
-            onClick={() => { setModalDate(new Date()); setModalOpen(true) }}
+            onClick={() => abrirNovaConsulta({ date: new Date() })}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3B82F6] text-white rounded-lg text-xs font-medium hover:bg-[#2563EB] transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -325,7 +337,7 @@ export default function AgendaPage() {
             currentDate={currentDate}
             appointments={filteredAppointments}
             indicators={indicators}
-            onDateClick={(date, hour) => { setModalDate(date); setModalHour(hour); setModalOpen(true) }}
+            onDateClick={(date, hour) => abrirNovaConsulta({ date, hour })}
             onEventClick={openPopover}
           />
         </div>
@@ -338,7 +350,9 @@ export default function AgendaPage() {
           onSaved={() => { setReloadKey((k) => k + 1) }}
           initialDate={modalDate}
           initialHour={modalHour}
-          initialProfessionalId={selectedProfessional?.id}
+          initialProfessionalId={modalProfessionalId ?? selectedProfessional?.id}
+          initialPatientId={modalPatientId}
+          initialNotes={modalNotes}
           clinicId={clinicId}
           professionals={professionals}
           patients={patients}
@@ -375,7 +389,19 @@ export default function AgendaPage() {
           professionals={professionals}
           clinicId={clinicId}
           onClose={() => setEvolutionApt(null)}
-          onSaved={() => setEvolutionApt(null)}
+          onSaved={(retorno) => {
+            const apt = evolutionApt
+            setEvolutionApt(null)
+            if (retorno) {
+              const [y, m, d] = retorno.data.split('-').map(Number)
+              abrirNovaConsulta({
+                date: new Date(y, m - 1, d),
+                patientId: apt.patient_id,
+                professionalId: retorno.professionalId,
+                notes: `Retorno: ${retorno.motivo}`,
+              })
+            }
+          }}
         />
       )}
     </div>

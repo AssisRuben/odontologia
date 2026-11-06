@@ -1,10 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, X, ChevronDown, ChevronUp, ClipboardList } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, X, ChevronDown, ChevronUp, ClipboardList, Wand2, Loader2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { BarraVoz } from '@/components/ia/BarraVoz'
+import { useIaStatus } from '@/components/ia/useIaStatus'
+import { mesclarAnamnese, conflitosAnamnese, type IaAnamnese } from '@/lib/ia/anamnese/respostas'
+import { appendText } from '@/lib/ia/texto'
 import type { AnamnesisTemplate, AnamnesisQuestion } from '@/types'
 
 interface Anamnese {
@@ -13,6 +17,7 @@ interface Anamnese {
   template_id: string | null
   answers: Record<string, string>
   notes: string | null
+  ai_used: boolean
   created_at: string
   template?: AnamnesisTemplate
 }
@@ -123,6 +128,16 @@ export function TabAnamneses({ patientId, clinicId }: Props) {
 
 // ─── Modal nova anamnese ──────────────────────────────────────────────────────
 
+// Respostas, selos "IA" e ai_used andam juntos: o preenchimento da IA é calculado
+// sobre o estado atual (inclusive cliques feitos durante a requisição).
+interface Respostas {
+  answers: Record<string, string>
+  iaIds: string[]
+  aiUsed: boolean
+}
+
+const RESPOSTAS_VAZIAS: Respostas = { answers: {}, iaIds: [], aiUsed: false }
+
 function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }: {
   patientId: string
   clinicId: string
@@ -131,23 +146,79 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
   onSaved: () => void
 }) {
   const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0]?.id || '')
-  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [respostas, setRespostas] = useState<Respostas>(RESPOSTAS_VAZIAS)
+  const { answers, iaIds, aiUsed } = respostas
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [erroSalvar, setErroSalvar] = useState('')
+  const { conectado } = useIaStatus()
+  const [ditado, setDitado] = useState('')
+  const [vozOcupada, setVozOcupada] = useState(false)
+  const [preenchendo, setPreenchendo] = useState(false)
+  const [erroIa, setErroIa] = useState('')
 
   const template = templates.find(t => t.id === selectedTemplateId)
+  // Respostas mais recentes, para comparar com a fala quando a IA responder.
+  const answersRef = useRef(answers)
+  useEffect(() => { answersRef.current = answers }, [answers])
+
+  function setResposta(id: string, valor: string) {
+    setRespostas(r => ({ ...r, answers: { ...r.answers, [id]: valor }, iaIds: r.iaIds.filter(x => x !== id) }))
+  }
+
+  async function handlePreencher() {
+    setErroIa('')
+    setPreenchendo(true)
+    try {
+      const res = await fetch('/api/ia/anamnese/preencher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId: selectedTemplateId, texto: ditado }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || typeof j.respostas !== 'object' || j.respostas === null) {
+        setErroIa(typeof j.error === 'string' ? j.error : 'Não foi possível organizar agora. Tente de novo.')
+        return
+      }
+      const ia: IaAnamnese = {
+        respostas: j.respostas,
+        observacoes: typeof j.observacoes === 'string' ? j.observacoes : null,
+      }
+      setRespostas(r => {
+        const m = mesclarAnamnese(r.answers, '', ia)
+        return {
+          answers: m.answers,
+          iaIds: [...new Set([...r.iaIds, ...m.preenchidas])],
+          aiUsed: r.aiUsed || m.preenchidas.length > 0 || !!ia.observacoes,
+        }
+      })
+      const avisos = conflitosAnamnese(answersRef.current, ia, template?.questions ?? [])
+      const extra = [ia.observacoes, ...avisos].filter(Boolean).join('\n') || null
+      setNotes(n => mesclarAnamnese({}, n, { respostas: {}, observacoes: extra }).notes)
+    } catch {
+      setErroIa('Não foi possível organizar agora. Tente de novo.')
+    } finally {
+      setPreenchendo(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
+    setErroSalvar('')
     const supabase = createClient()
-    await supabase.from('anamneses').insert({
+    const { error } = await supabase.from('anamneses').insert({
       clinic_id: clinicId,
       patient_id: patientId,
       template_id: selectedTemplateId || null,
       answers,
       notes: notes || null,
+      ai_used: aiUsed,
     })
     setSaving(false)
+    if (error) {
+      setErroSalvar(`Erro ao salvar: ${error.message}`)
+      return
+    }
     onSaved()
   }
 
@@ -166,8 +237,9 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
           {templates.length > 1 && (
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Modelo</label>
-              <select value={selectedTemplateId} onChange={e => { setSelectedTemplateId(e.target.value); setAnswers({}) }}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
+              <select value={selectedTemplateId} disabled={preenchendo}
+                onChange={e => { setSelectedTemplateId(e.target.value); setRespostas(RESPOSTAS_VAZIAS) }}
+                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white disabled:opacity-50">
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
@@ -179,14 +251,45 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
             </p>
           )}
 
+          {template && (
+            <div>
+              <label className="block text-sm font-medium text-[#111827] mb-1">Preencher por voz</label>
+              <div className="mb-2">
+                <BarraVoz
+                  gravarDisponivel={conectado}
+                  onTexto={(t) => (conectado ? setDitado((d) => appendText(d, t)) : setNotes((n) => appendText(n, t)))}
+                  disabled={preenchendo || saving}
+                  onOcupado={setVozOcupada}
+                />
+              </div>
+              {conectado && (<>
+              <textarea value={ditado} readOnly={preenchendo} onChange={e => setDitado(e.target.value)} rows={3}
+                placeholder="Dite ou escreva as respostas do paciente..."
+                className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none" />
+              <button type="button" onClick={handlePreencher}
+                disabled={preenchendo || saving || vozOcupada || !selectedTemplateId || !ditado.trim()}
+                className="mt-2 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#3B82F6] bg-[#EFF6FF] text-sm font-medium text-[#3B82F6] hover:bg-[#DBEAFE] disabled:opacity-50">
+                {preenchendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                {preenchendo ? 'Preenchendo…' : 'Preencher com IA'}
+              </button>
+              {erroIa && <p className="mt-1.5 text-sm text-red-600">{erroIa}</p>}
+              </>)}
+            </div>
+          )}
+
           {template?.questions.map((q) => (
             <div key={q.id}>
-              <label className="block text-sm font-medium text-[#111827] mb-1">{q.text}</label>
+              <label className="block text-sm font-medium text-[#111827] mb-1">
+                {q.text}
+                {iaIds.includes(q.id) && (
+                  <span className="ml-2 px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#3B82F6] text-[10px] font-semibold align-middle">IA</span>
+                )}
+              </label>
               {q.type === 'yesno' ? (
                 <div className="flex gap-2">
                   {['Sim', 'Não'].map(opt => (
                     <button key={opt} type="button"
-                      onClick={() => setAnswers(a => ({ ...a, [q.id]: opt }))}
+                      onClick={() => setResposta(q.id, opt)}
                       className={`px-4 h-9 rounded-lg border text-sm font-medium transition-colors ${answers[q.id] === opt ? 'bg-[#3B82F6] text-white border-[#3B82F6]' : 'border-[#E5E7EB] text-[#374151] hover:border-[#3B82F6]'}`}>
                       {opt}
                     </button>
@@ -196,14 +299,14 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
                 <div className="flex flex-wrap gap-2">
                   {(q.options || []).map(opt => (
                     <button key={opt} type="button"
-                      onClick={() => setAnswers(a => ({ ...a, [q.id]: opt }))}
+                      onClick={() => setResposta(q.id, opt)}
                       className={`px-3 h-8 rounded-lg border text-sm transition-colors ${answers[q.id] === opt ? 'bg-[#3B82F6] text-white border-[#3B82F6]' : 'border-[#E5E7EB] text-[#374151] hover:border-[#3B82F6]'}`}>
                       {opt}
                     </button>
                   ))}
                 </div>
               ) : (
-                <textarea value={answers[q.id] || ''} onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+                <textarea value={answers[q.id] || ''} onChange={e => setResposta(q.id, e.target.value)}
                   rows={2}
                   className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none" />
               )}
@@ -212,18 +315,19 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
 
           <div>
             <label className="block text-sm font-medium text-[#111827] mb-1">Observações gerais</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+            <textarea value={notes} readOnly={preenchendo} onChange={e => setNotes(e.target.value)} rows={3}
               placeholder="Observações adicionais..."
               className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none" />
           </div>
         </div>
 
+        {erroSalvar && <p className="px-5 pt-3 text-sm text-red-600">{erroSalvar}</p>}
         <div className="p-5 border-t border-[#E5E7EB] flex gap-3 shrink-0">
           <button onClick={onClose}
             className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving || templates.length === 0}
+          <button onClick={handleSave} disabled={saving || preenchendo || vozOcupada || templates.length === 0}
             className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
             {saving ? 'Salvando...' : 'Salvar anamnese'}
           </button>

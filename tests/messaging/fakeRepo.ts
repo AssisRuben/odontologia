@@ -14,6 +14,8 @@ export interface FakeMessage {
   sent_at: Date | null
   error: string | null
   provider_message_id: string | null
+  type?: string | null
+  budget_id?: string | null
 }
 
 export class FakeRepo implements QueueRepo {
@@ -68,7 +70,7 @@ export class FakeRepo implements QueueRepo {
       )
       .sort((a, b) => a.scheduled_for.getTime() - b.scheduled_for.getTime())
       .slice(0, limit)
-      .map((r) => ({ id: r.id, phone: r.phone, body: r.body, attempts: r.attempts }))
+      .map((r) => ({ id: r.id, phone: r.phone, body: r.body, attempts: r.attempts, type: r.type ?? null, budget_id: r.budget_id ?? null }))
   }
 
   /** Atômico: check-and-set síncrono, como o UPDATE ... WHERE status = 'queued'. */
@@ -79,6 +81,17 @@ export class FakeRepo implements QueueRepo {
     r.attempts += 1
     r.scheduled_for = this.clock()
     return true
+  }
+
+  reminderEvents: { clinicId: string; budgetId: string }[] = []
+  reminderFailures = 0
+
+  async recordBudgetReminder(clinicId: string, budgetId: string) {
+    if (this.reminderFailures > 0) {
+      this.reminderFailures--
+      throw new Error('events down')
+    }
+    this.reminderEvents.push({ clinicId, budgetId })
   }
 
   markSentFailures = 0
