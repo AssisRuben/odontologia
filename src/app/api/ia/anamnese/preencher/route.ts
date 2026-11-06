@@ -42,13 +42,13 @@ export async function POST(req: NextRequest) {
         system: ANAMNESE_SYSTEM,
         user: `Perguntas:\n${perguntasTexto(perguntas)}\n\nTexto:\n${p.texto}`,
       })
-      await recordUsage(admin, clinicId, userId, {
-        ...uso, input_tokens: r.inputTokens, output_tokens: r.outputTokens, ok: true,
-      })
     } catch (e) {
       await recordUsage(admin, clinicId, userId, { ...uso, input_tokens: null, output_tokens: null, ok: false })
       throw e
     }
+    await recordUsage(admin, clinicId, userId, {
+      ...uso, input_tokens: r.inputTokens, output_tokens: r.outputTokens, ok: true,
+    })
     return { status: 200, body: validarRespostas(r.data, perguntas) }
   })
 }

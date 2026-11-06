@@ -227,17 +227,18 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
             </p>
           )}
 
-          {template && conectado && (
+          {template && (
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Preencher por voz</label>
               <div className="mb-2">
                 <BarraVoz
                   gravarDisponivel={conectado}
-                  onTexto={(t) => setDitado((d) => appendText(d, t))}
+                  onTexto={(t) => (conectado ? setDitado((d) => appendText(d, t)) : setNotes((n) => appendText(n, t)))}
                   disabled={preenchendo || saving}
                   onOcupado={setVozOcupada}
                 />
               </div>
+              {conectado && (<>
               <textarea value={ditado} readOnly={preenchendo} onChange={e => setDitado(e.target.value)} rows={3}
                 placeholder="Dite ou escreva as respostas do paciente..."
                 className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none" />
@@ -248,6 +249,7 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
                 {preenchendo ? 'Preenchendo…' : 'Preencher com IA'}
               </button>
               {erroIa && <p className="mt-1.5 text-sm text-red-600">{erroIa}</p>}
+              </>)}
             </div>
           )}
 
