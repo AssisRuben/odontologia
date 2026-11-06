@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
+import { getProvider, type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
 import { fetchAll } from './cycleData'
 import { normalizePhone } from './phone'
 import { parseReply, pickConfirmationTarget, type SentConfirmation } from './replies'
@@ -9,6 +9,19 @@ import { sendNow } from './sendNow'
 import { renderTemplate } from './templates'
 import { formatDataCurta, formatHora } from './time'
 import { normalizeMessagingConfig } from './config'
+import { normalizeAgentConfig } from '@/lib/agente/config'
+import {
+  MAX_WA_AUDIO_SECONDS,
+  OUTGOING_RECHECK_MS,
+  REASON_CLINIC_PHONE,
+  TEXT_AUDIO,
+  TEXT_AUDIO_UNTRANSCRIBED,
+  truncateIncoming,
+} from '@/lib/agente/conversa'
+import { upsertConversation } from '@/lib/agente/repo'
+import { getAiForClinic } from '@/lib/ia/conexao'
+import { TRANSCRIBE_MODEL } from '@/lib/ia/modelos'
+import { createAiDeps, recordUsage } from '@/lib/ia/repo'
 import type { MessagingConfig } from './types'
 import { startOfClinicDay } from './window'
 
@@ -16,74 +29,131 @@ const CONFIRMATION_WINDOW_MS = 48 * 3_600_000
 const CONFIRM_TEMPLATE = 'Consulta confirmada! Até {data} às {hora}.'
 const CANCEL_TEXT = 'Consulta desmarcada. Em breve entraremos em contato para remarcar.'
 
+export type IncomingResult = 'ignored' | 'stored' | 'confirmed' | 'cancelled' | 'connection' | 'outgoing'
+export interface IncomingOutcome {
+  result: IncomingResult
+  agent: { conversationId: string; messageId: string } | null
+}
+
 export interface IncomingDeps {
   findClinicByInstance(instance: string): Promise<{ clinicId: string; token: string; cfg: MessagingConfig } | null>
   findPatientByPhone(clinicId: string, phone: string): Promise<string | null>
   /** Evolution pode entregar a mesma mensagem duas vezes: já existe uma com este provider_message_id? */
   incomingExists(clinicId: string, providerMessageId: string): Promise<boolean>
-  saveIncoming(row: { clinic_id: string; patient_id: string | null; phone: string; body: string; provider_message_id: string }): Promise<string | null>
+  saveIncoming(row: {
+    clinic_id: string
+    patient_id: string | null
+    phone: string
+    body: string
+    provider_message_id: string
+    conversation_id: string
+    transcribed: boolean
+  }): Promise<string | null>
   recentConfirmations(clinicId: string, phone: string, since: Date): Promise<SentConfirmation[]>
   /** false se a consulta não é mais agendada/confirmada (ou não é da clínica): nada foi alterado. */
   setAppointmentStatus(clinicId: string, appointmentId: string, status: 'confirmed' | 'cancelled'): Promise<boolean>
   setReplyAction(messageId: string, action: 'confirmed' | 'cancelled', appointmentId: string): Promise<void>
   sendAutoReply(args: { clinicId: string; patientId: string | null; phone: string; body: string; appointmentId: string }): Promise<void>
   updateConnection(instance: string, status: ConnectionStatus, phone: string | null): Promise<void>
+  agentEnabled(clinicId: string): Promise<boolean>
+  /** Baixa e transcreve o áudio; registra o uso `transcricao_whatsapp`. */
+  transcribeAudio(
+    clinicId: string,
+    instance: string,
+    token: string,
+    providerMessageId: string,
+    seconds: number,
+  ): Promise<{ ok: true; text: string } | { ok: false; reason: 'no_key' | 'failed' }>
+  upsertConversation(clinicId: string, phone: string, patientId: string | null, at: Date): Promise<string>
+  /** O id já está em `messages`, ou há linha `out` sending/sent com mesmo telefone e corpo criada depois de `since`. */
+  outgoingKnown(clinicId: string, providerMessageId: string, phone: string, body: string, since: Date): Promise<boolean>
+  saveHumanFromPhone(clinicId: string, conversationId: string, phone: string, body: string, providerMessageId: string): Promise<void>
+  setHandler(conversationId: string, handler: 'agent' | 'human', reason: string | null): Promise<void>
+  markRead(conversationId: string): Promise<void>
+  sleep(ms: number): Promise<void>
 }
 
-export async function handleIncoming(
-  event: WebhookEvent,
-  deps: IncomingDeps,
-  now: Date,
-): Promise<'ignored' | 'stored' | 'confirmed' | 'cancelled' | 'connection'> {
+const OUTGOING_KNOWN_WINDOW_MS = 60_000
+
+export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, now: Date): Promise<IncomingOutcome> {
+  const done = (result: IncomingResult): IncomingOutcome => ({ result, agent: null })
+
   if (event.kind === 'connection') {
     await deps.updateConnection(event.instance, event.status, event.phone)
-    return 'connection'
+    return done('connection')
   }
 
-  // Mensagens da clínica e áudios só passam a ser tratados nas próximas tarefas (agente); por ora, ignorados.
-  if (event.kind === 'outgoing' || event.audio) return 'ignored'
-
   const clinic = await deps.findClinicByInstance(event.instance)
-  if (!clinic) return 'ignored'
+  if (!clinic) return done('ignored')
   const { clinicId, cfg } = clinic
 
-  if (await deps.incomingExists(clinicId, event.providerMessageId)) return 'ignored'
+  if (event.kind === 'outgoing') return handleOutgoing(event, clinicId, deps, now)
+
+  if (await deps.incomingExists(clinicId, event.providerMessageId)) return done('ignored')
 
   const phone = normalizePhone(event.from) ?? event.from
   const patientId = await deps.findPatientByPhone(clinicId, phone)
+  const agentOn = await deps.agentEnabled(clinicId)
 
   // Privacidade (LGPD): o número da clínica também recebe conversas que não são de pacientes.
-  // Só guarda mensagens de pacientes cadastrados ou de quem recebeu uma confirmação recente
-  // (cobre o telefone editado depois do envio). As demais nem chegam ao banco.
+  // Com o agente desligado, só guarda mensagens de pacientes cadastrados ou de quem recebeu uma
+  // confirmação recente (cobre o telefone editado depois do envio). As demais nem chegam ao banco.
+  // Com o agente ligado, qualquer número individual é guardado.
   const since = new Date(now.getTime() - CONFIRMATION_WINDOW_MS)
   let confirmations: SentConfirmation[] | null = null
-  if (!patientId) {
+  if (!patientId && !agentOn) {
     confirmations = await deps.recentConfirmations(clinicId, phone, since)
-    if (confirmations.length === 0) return 'ignored'
+    if (confirmations.length === 0) return done('ignored')
   }
 
+  let text = event.text
+  let transcribed = false
+  if (event.audio) {
+    text = TEXT_AUDIO
+    if (agentOn) {
+      if (event.audio.seconds > MAX_WA_AUDIO_SECONDS) {
+        text = TEXT_AUDIO_UNTRANSCRIBED
+      } else {
+        const t = await deps.transcribeAudio(clinicId, event.instance, clinic.token, event.providerMessageId, event.audio.seconds)
+        if (t.ok) {
+          text = t.text
+          transcribed = true
+        } else if (t.reason === 'failed') {
+          text = TEXT_AUDIO_UNTRANSCRIBED
+        }
+      }
+    }
+  }
+  text = truncateIncoming(text)
+
+  const conversationId = await deps.upsertConversation(clinicId, phone, patientId, event.at)
   // null = duplicata concorrente (índice único)
   const messageId = await deps.saveIncoming({
     clinic_id: clinicId,
     patient_id: patientId,
     phone,
-    body: event.text,
+    body: text,
     provider_message_id: event.providerMessageId,
+    conversation_id: conversationId,
+    transcribed,
   })
 
-  if (messageId === null) return 'ignored'
+  if (messageId === null) return done('ignored')
 
-  const reply = parseReply(event.text)
-  if (!reply) return 'stored'
+  // Mensagem guardada e não consumida por "1"/"2": segue para o agente (se ligado).
+  const toAgent: IncomingOutcome = { result: 'stored', agent: agentOn ? { conversationId, messageId } : null }
+
+  const reply = parseReply(text)
+  if (!reply) return toAgent
 
   confirmations ??= await deps.recentConfirmations(clinicId, phone, since)
   const target = pickConfirmationTarget(confirmations, now)
-  if (!target) return 'stored'
+  if (!target) return toAgent
 
   const action = reply === 'confirm' ? 'confirmed' : 'cancelled'
   // "1"/"2" repetido: a consulta já está nesse status — só guarda a mensagem, sem nova resposta automática.
-  if (target.appointment.status === action) return 'stored'
-  if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return 'stored'
+  if (target.appointment.status === action) return toAgent
+  if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return toAgent
   await deps.setReplyAction(messageId, action, target.appointment_id)
 
   let body = CANCEL_TEXT
@@ -103,7 +173,32 @@ export async function handleIncoming(
   } catch (err) {
     console.error('[webhook] auto_reply falhou:', err instanceof Error ? err.message : 'erro')
   }
-  return action
+  return done(action)
+}
+
+async function handleOutgoing(
+  event: Extract<WebhookEvent, { kind: 'outgoing' }>,
+  clinicId: string,
+  deps: IncomingDeps,
+  now: Date,
+): Promise<IncomingOutcome> {
+  const ignored: IncomingOutcome = { result: 'ignored', agent: null }
+  const phone = normalizePhone(event.to) ?? event.to
+  const patientId = await deps.findPatientByPhone(clinicId, phone)
+  // Mesma regra de privacidade: sem agente, conversas da clínica com quem não é paciente não são guardadas.
+  if (!patientId && !(await deps.agentEnabled(clinicId))) return ignored
+
+  const since = new Date(now.getTime() - OUTGOING_KNOWN_WINDOW_MS)
+  if (await deps.outgoingKnown(clinicId, event.providerMessageId, phone, event.text, since)) return ignored
+  // O app pode ainda não ter gravado o id da mensagem que acabou de enviar.
+  await deps.sleep(OUTGOING_RECHECK_MS)
+  if (await deps.outgoingKnown(clinicId, event.providerMessageId, phone, event.text, since)) return ignored
+
+  const conversationId = await deps.upsertConversation(clinicId, phone, patientId, event.at)
+  await deps.saveHumanFromPhone(clinicId, conversationId, phone, truncateIncoming(event.text), event.providerMessageId)
+  await deps.setHandler(conversationId, 'human', REASON_CLINIC_PHONE)
+  await deps.markRead(conversationId)
+  return { result: 'outgoing', agent: null }
 }
 
 export interface PatientPhones {
@@ -304,5 +399,86 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       const { error } = await admin.from('whatsapp_connections').update(update).eq('instance', instance)
       check(error)
     },
+ 
+    async agentEnabled(clinicId) {
+      const { data, error } = await admin.from('clinics').select('agent_config').eq('id', clinicId).single()
+      check(error)
+      return normalizeAgentConfig(data!.agent_config).enabled
+    },
+
+    async transcribeAudio(clinicId, instance, token, providerMessageId, seconds) {
+      const ai = await getAiForClinic(clinicId, createAiDeps(admin))
+      if (!ai) return { ok: false, reason: 'no_key' }
+      const uso = { kind: 'transcricao_whatsapp' as const, model: TRANSCRIBE_MODEL, audio_seconds: seconds, input_tokens: null, output_tokens: null }
+      try {
+        const { bytes, mimetype } = await getProvider().getAudio(instance, token, providerMessageId)
+        const type = mimetype.split(';')[0].trim() || 'audio/ogg'
+        const ext = type.includes('mp4') || type.includes('m4a') ? 'm4a' : type.includes('mpeg') ? 'mp3' : type.includes('webm') ? 'webm' : 'ogg'
+        const text = await ai.client.transcribe(new File([bytes as BlobPart], `audio.${ext}`, { type }))
+        await recordUsage(admin, clinicId, null, { ...uso, ok: true })
+        return { ok: true, text }
+      } catch (err) {
+        console.error('[webhook] transcrição falhou:', err instanceof Error ? err.message : 'erro')
+        await recordUsage(admin, clinicId, null, { ...uso, ok: false })
+        return { ok: false, reason: 'failed' }
+      }
+    },
+
+    upsertConversation: (clinicId, phone, patientId, at) => upsertConversation(admin, clinicId, phone, patientId, at),
+
+    async outgoingKnown(clinicId, providerMessageId, phone, body, since) {
+      const { data: byId, error } = await admin
+        .from('messages')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('provider_message_id', providerMessageId)
+        .limit(1)
+      check(error)
+      if ((byId?.length ?? 0) > 0) return true
+      // sendNow grava 'sending' antes de chamar a Evolution: o eco pode chegar antes do provider_message_id.
+      const { data, error: err2 } = await admin
+        .from('messages')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('direction', 'out')
+        .in('status', ['sending', 'sent'])
+        .eq('phone', phone)
+        .eq('body', body)
+        .gte('created_at', since.toISOString())
+        .limit(1)
+      check(err2)
+      return (data?.length ?? 0) > 0
+    },
+
+    async saveHumanFromPhone(clinicId, conversationId, phone, body, providerMessageId) {
+      const { error } = await admin.from('messages').insert({
+        clinic_id: clinicId,
+        conversation_id: conversationId,
+        phone,
+        body,
+        type: 'human',
+        direction: 'out',
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        provider_message_id: providerMessageId,
+      })
+      if (error?.code === '23505') return
+      check(error)
+    },
+
+    async setHandler(conversationId, handler, reason) {
+      const { error } = await admin
+        .from('conversations')
+        .update({ handler, handoff_reason: handler === 'human' ? reason : null, handler_since: new Date().toISOString() })
+        .eq('id', conversationId)
+      check(error)
+    },
+
+    async markRead(conversationId) {
+      const { error } = await admin.from('conversations').update({ unread: false }).eq('id', conversationId)
+      check(error)
+    },
+
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   }
 }
