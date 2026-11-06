@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getProvider, type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
+import { getProvider, type AudioMedia, type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
 import { fetchAll } from './cycleData'
 import { normalizePhone } from './phone'
 import { parseReply, pickConfirmationTarget, type SentConfirmation } from './replies'
@@ -62,7 +62,7 @@ export interface IncomingDeps {
     clinicId: string,
     instance: string,
     token: string,
-    providerMessageId: string,
+    media: AudioMedia,
     seconds: number,
   ): Promise<{ ok: true; text: string } | { ok: false; reason: 'no_key' | 'failed' }>
   upsertConversation(clinicId: string, phone: string, patientId: string | null, at: Date): Promise<string>
@@ -117,7 +117,7 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
       if (event.audio.seconds > MAX_WA_AUDIO_SECONDS) {
         text = TEXT_AUDIO_UNTRANSCRIBED
       } else {
-        const t = await deps.transcribeAudio(clinicId, event.instance, clinic.token, event.providerMessageId, event.audio.seconds)
+        const t = await deps.transcribeAudio(clinicId, event.instance, clinic.token, event.audio.media, event.audio.seconds)
         if (t.ok) {
           text = t.text
           transcribed = true
@@ -413,7 +413,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       return normalizeAgentConfig(data!.agent_config).enabled
     },
 
-    async transcribeAudio(clinicId, instance, token, providerMessageId, seconds) {
+    async transcribeAudio(clinicId, instance, token, media, seconds) {
       const ai = await getAiForClinic(clinicId, createAiDeps(admin, WA_AI_OPTIONS))
       if (!ai) return { ok: false, reason: 'no_key' }
       const uso = { kind: 'transcricao_whatsapp' as const, model: TRANSCRIBE_MODEL, audio_seconds: seconds, input_tokens: null, output_tokens: null }
@@ -426,7 +426,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         }
       }
       try {
-        const { bytes, mimetype } = await getProvider().getAudio(instance, token, providerMessageId)
+        const { bytes, mimetype } = await getProvider().getAudio(instance, token, media)
         const type = mimetype.split(';')[0].trim() || 'audio/ogg'
         const ext = type.includes('mp4') || type.includes('m4a') ? 'm4a' : type.includes('mpeg') ? 'mp3' : type.includes('webm') ? 'webm' : 'ogg'
         const text = await ai.client.transcribe(new File([bytes as BlobPart], `audio.${ext}`, { type }))

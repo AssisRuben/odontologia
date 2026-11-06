@@ -204,7 +204,13 @@ describe('EvolutionProvider.parseWebhook', () => {
       instance: 'clinic-abc',
       from: '5511987654321',
       text: '',
-      audio: { seconds: 12 },
+      audio: {
+        seconds: 12,
+        media: {
+          key: { remoteJid: '5511987654321@s.whatsapp.net', fromMe: false, id: 'MSGAUD1' },
+          message: { audioMessage: { url: 'https://mmg.whatsapp.net/x', mimetype: 'audio/ogg; codecs=opus', seconds: 12, ptt: true } },
+        },
+      },
       providerMessageId: 'MSGAUD1',
       at: new Date(1762080000 * 1000),
     })
@@ -290,22 +296,24 @@ describe('EvolutionProvider.parseWebhook', () => {
 describe('EvolutionProvider.getAudio', () => {
   it('monta URL e corpo, envia apikey da instância e decodifica base64', async () => {
     const { provider, fetchImpl } = make(() => res(200, mediaB64))
-    const out = await provider.getAudio('clinic-abc', 'TOK', 'MSGAUD1')
+    const media = { key: { id: 'MSGAUD1', remoteJid: '5511987654321@s.whatsapp.net' }, message: { audioMessage: { url: 'u' } } }
+    const out = await provider.getAudio('clinic-abc', 'TOK', media)
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('http://evo.test/chat/getBase64FromMediaMessage/clinic-abc')
     expect(init.method).toBe('POST')
     expect(hdr(init, 'apikey')).toBe('TOK')
-    expect(JSON.parse(String(init.body))).toEqual({ message: { key: { id: 'MSGAUD1' } }, convertToMp4: false })
+    // A mensagem completa evita que a Evolution procure no próprio banco ("Message not found").
+    expect(JSON.parse(String(init.body))).toEqual({ message: media, convertToMp4: false })
     expect(Buffer.from(out.bytes).toString()).toBe('hello')
     expect(out.mimetype).toBe('audio/ogg; codecs=opus')
   })
   it('HTTP 500 -> TransientSendError', async () => {
     const { provider } = make(() => res(500, {}))
-    await expect(provider.getAudio('i', 't', 'x')).rejects.toBeInstanceOf(TransientSendError)
+    await expect(provider.getAudio('i', 't', { key: { id: 'x' }, message: {} })).rejects.toBeInstanceOf(TransientSendError)
   })
   it('resposta sem base64 -> TransientSendError', async () => {
     const { provider } = make(() => res(200, { mimetype: 'audio/ogg' }))
-    await expect(provider.getAudio('i', 't', 'x')).rejects.toBeInstanceOf(TransientSendError)
+    await expect(provider.getAudio('i', 't', { key: { id: 'x' }, message: {} })).rejects.toBeInstanceOf(TransientSendError)
   })
 })
 

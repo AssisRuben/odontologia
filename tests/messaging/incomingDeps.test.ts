@@ -50,6 +50,8 @@ describe('lastIncomingAt', () => {
   })
 })
 
+const MEDIA = { key: { id: 'pm' }, message: { audioMessage: {} } }
+
 describe('transcribeAudio', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -60,7 +62,7 @@ describe('transcribeAudio', () => {
     mocks.getAiForClinic.mockResolvedValue({ client: { transcribe: async () => 'texto' }, model: 'm' })
     mocks.recordUsage.mockResolvedValue(undefined)
     const { admin } = fakeAdmin()
-    await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', 'pm', 10)
+    await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', MEDIA, 10)
     expect(mocks.createAiDeps).toHaveBeenCalledWith(admin, { timeoutMs: 20_000, maxRetries: 0 })
   })
 
@@ -68,13 +70,13 @@ describe('transcribeAudio', () => {
     mocks.getAiForClinic.mockResolvedValue({ client: { transcribe: async () => 'texto' }, model: 'm' })
     mocks.recordUsage.mockRejectedValue(new Error('db'))
     const { admin } = fakeAdmin()
-    expect(await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', 'pm', 10)).toEqual({ ok: true, text: 'texto' })
+    expect(await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', MEDIA, 10)).toEqual({ ok: true, text: 'texto' })
   })
 
   it('falha ao registrar o uso depois de erro na transcrição não lança', async () => {
     mocks.getAiForClinic.mockResolvedValue({ client: { transcribe: async () => { throw new Error('x') } }, model: 'm' })
     mocks.recordUsage.mockRejectedValue(new Error('db'))
     const { admin } = fakeAdmin()
-    expect(await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', 'pm', 10)).toEqual({ ok: false, reason: 'failed' })
+    expect(await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', MEDIA, 10)).toEqual({ ok: false, reason: 'failed' })
   })
 })

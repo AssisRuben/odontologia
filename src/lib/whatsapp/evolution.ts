@@ -2,6 +2,7 @@ import { normalizePhone } from '@/lib/messaging/phone'
 import {
   PermanentSendError,
   TransientSendError,
+  type AudioMedia,
   type ConnectionStatus,
   type WebhookEvent,
   type WhatsAppProvider,
@@ -189,10 +190,14 @@ export class EvolutionProvider implements WhatsAppProvider {
     throw new PermanentSendError(`Evolution API recusou o envio (HTTP ${res.status})`)
   }
 
-  /** Baixa o áudio de uma mensagem recebida (Evolution v2 getBase64FromMediaMessage). */
-  async getAudio(instance: string, token: string, providerMessageId: string) {
+  /**
+   * Baixa o áudio de uma mensagem recebida (Evolution v2 getBase64FromMediaMessage).
+   * Envia a mensagem completa do webhook: só com o id, a Evolution procura no próprio banco
+   * e responde "Message not found" quando a instância não guarda mensagens.
+   */
+  async getAudio(instance: string, token: string, media: AudioMedia) {
     const res = await this.request('POST', `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`, token, {
-      message: { key: { id: providerMessageId } },
+      message: { key: media.key, message: media.message },
       convertToMp4: false,
     })
     if (!res.ok) throw new TransientSendError(`Evolution API: falha ao baixar áudio (HTTP ${res.status})`)
@@ -253,7 +258,7 @@ export class EvolutionProvider implements WhatsAppProvider {
         instance: b.instance,
         from: phone,
         text: '',
-        audio: { seconds: Number.isFinite(secs) && secs > 0 ? secs : 0 },
+        audio: { seconds: Number.isFinite(secs) && secs > 0 ? secs : 0, media: { key, message: msg as Json } },
         providerMessageId: id,
         at,
       }

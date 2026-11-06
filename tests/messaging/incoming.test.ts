@@ -195,7 +195,7 @@ describe('handleIncoming', () => {
   })
 
   describe('agente', () => {
-    const audio = (seconds: number): WebhookEvent => ({ ...(incoming('') as Extract<WebhookEvent, { kind: 'incoming' }>), audio: { seconds } })
+    const audio = (seconds: number): WebhookEvent => ({ ...(incoming('') as Extract<WebhookEvent, { kind: 'incoming' }>), audio: { seconds, media: { key: { id: 'pm1' }, message: { audioMessage: {} } } } })
     const outgoing = (text = 'Olá, tudo bem?'): WebhookEvent => ({
       kind: 'outgoing', instance: 'inst', to: '+55 (11) 98765-4321', text, providerMessageId: 'out1', at: now,
     })
@@ -231,7 +231,7 @@ describe('handleIncoming', () => {
     it('áudio com agente ligado é transcrito', async () => {
       const d = makeDeps({ agentEnabled: on() })
       await handleIncoming(audio(30), d, now)
-      expect(d.transcribeAudio).toHaveBeenCalledWith('c1', 'inst', 't', 'pm1', 30)
+      expect(d.transcribeAudio).toHaveBeenCalledWith('c1', 'inst', 't', { key: { id: 'pm1' }, message: { audioMessage: {} } }, 30)
       expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ body: 'transcrito', transcribed: true }))
     })
 
