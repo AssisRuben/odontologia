@@ -92,6 +92,7 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
           <h3 className="font-semibold text-[#111827]">{meta.title}</h3>
           <p className="text-sm text-[#6B7280]">{meta.description}</p>
         </div>
+        {type !== 'budget' && (
         <button
           type="button"
           role="switch"
@@ -103,6 +104,7 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
         >
           <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${setting.enabled ? 'translate-x-5' : ''}`} />
         </button>
+        )}
       </div>
 
       <div className="mb-4 text-sm text-[#111827] flex items-center gap-2 flex-wrap">
@@ -140,6 +142,21 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
             <label htmlFor={`cfg-${type}`} className="font-medium">Dias antes do vencimento</label>
             <input id={`cfg-${type}`} type="number" min={1} max={60} step={1} value={form.days[0] ?? ''}
               onChange={(e) => setForm({ ...form, days: [e.target.value] })} className={inputCls} />
+          </>
+        )}
+        {type === 'budget_reminder' && (
+          <>
+            <span className="font-medium">Dias após o envio</span>
+            {[0, 1].map((i) => (
+              <input key={i} aria-label={`Dias após o envio (${i + 1}º lembrete)`} type="number" min={1} max={60} step={1}
+                value={form.days[i] ?? ''}
+                onChange={(e) => {
+                  const days = [...form.days]
+                  days[i] = e.target.value
+                  setForm({ ...form, days })
+                }}
+                className={inputCls} />
+            ))}
           </>
         )}
         {type === 'birthday' && <span className="text-[#6B7280]">Enviado no dia, às 9h</span>}

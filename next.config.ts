@@ -1,7 +1,22 @@
 import type { NextConfig } from "next";
 
+const publicHeaders = [
+  { key: 'Cache-Control', value: 'no-store' },
+  { key: 'X-Robots-Tag', value: 'noindex' },
+]
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Só no `npm run dev`: deixa o celular abrir o app pelo túnel do Cloudflare
+  // (sem isso o Next bloqueia os arquivos de desenvolvimento e a página não funciona).
+  allowedDevOrigins: ['*.trycloudflare.com'],
+
+  // Página e API públicas do orçamento: nunca em cache nem indexadas
+  async headers() {
+    return [
+      { source: '/orcamento/:path*', headers: publicHeaders },
+      { source: '/api/public/:path*', headers: publicHeaders },
+    ]
+  },
 };
 
 export default nextConfig;

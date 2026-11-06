@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Página e API públicas do paciente (link do orçamento): sem sessão, sem redirecionamento
+  if (pathname.startsWith('/orcamento/') || pathname.startsWith('/api/public/')) {
+    return NextResponse.next({ request })
+  }
+
   // Cron e webhooks se autenticam sozinhos (segredo/token); não passam pelo login
   if (pathname.startsWith('/api/cron/') || pathname.startsWith('/api/webhooks/')) {
     return NextResponse.next({ request })

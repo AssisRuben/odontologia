@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronLeft, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
+import { parseValidityDays } from '@/lib/orcamentos/aba'
 
 export default function ClinicaPage() {
   const { clinicId } = useClinicStore()
@@ -12,6 +13,7 @@ export default function ClinicaPage() {
   const [cnpj, setCnpj] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [validity, setValidity] = useState('30')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -27,6 +29,7 @@ export default function ClinicaPage() {
         setCnpj(data.cnpj || '')
         setPhone(data.phone || '')
         setAddress(data.address || '')
+        setValidity(String(data.budget_validity_days ?? 30))
       }
       setLoading(false)
     }
@@ -36,12 +39,14 @@ export default function ClinicaPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) { setError('Nome da clínica é obrigatório.'); return }
+    const v = parseValidityDays(validity)
+    if (!v.ok) { setError(v.error); return }
     setError('')
     setSaving(true)
     const supabase = createClient()
     const { error: err } = await supabase
       .from('clinics')
-      .update({ name: name.trim(), cnpj: cnpj || null, phone: phone || null, address: address || null })
+      .update({ name: name.trim(), cnpj: cnpj || null, phone: phone || null, address: address || null, budget_validity_days: v.days })
       .eq('id', clinicId)
     setSaving(false)
     if (err) { setError(`Erro ao salvar: ${err.message}`); return }
@@ -102,6 +107,18 @@ export default function ClinicaPage() {
               rows={2}
               className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
               placeholder="Rua, número, bairro, cidade — SP"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[#111827] mb-1">Validade padrão dos orçamentos (dias)</label>
+            <input
+              type="number"
+              min={1}
+              max={180}
+              value={validity}
+              onChange={(e) => setValidity(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
             />
           </div>
 

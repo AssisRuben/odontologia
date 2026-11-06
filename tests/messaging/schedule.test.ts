@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { planMessages, staleReason, dedupeKey, type PlanInput } from '@/lib/messaging/schedule'
 import { DEFAULT_TEMPLATES } from '@/lib/messaging/templates'
-import type { MessageSetting, MessageType, PatientRow, AppointmentRow, PaymentRow } from '@/lib/messaging/types'
+import type { BudgetReminderRow, MessageSetting, MessageType, PatientRow, AppointmentRow, PaymentRow } from '@/lib/messaging/types'
 
 const cfg = { window_start: '08:00', window_end: '20:00', daily_limit: 100, timezone: 'America/Sao_Paulo' }
 const NOW = new Date('2026-11-03T13:00:00Z')
@@ -13,6 +13,8 @@ const configs: Record<MessageType, MessageSetting['config']> = {
   birthday: {},
   charge: { offset_days: [1, 7] },
   payment_due: { offset_days: [3] },
+  budget: {},
+  budget_reminder: { offset_days: [3, 7] },
 }
 function settings(over: Partial<Record<MessageType, boolean>> = {}): MessageSetting[] {
   return (Object.keys(configs) as MessageType[]).map((type) => ({
@@ -33,7 +35,7 @@ function input(o: Partial<PlanInput> = {}): PlanInput {
   return {
     now: NOW, clinicId: 'c1', clinicName: 'Clínica X', cfg, settings: settings(),
     patients: new Map([['p1', patient()]]),
-    upcoming: [], lastCompleted: [], patientsWithFuture: new Set(), payments: [], ...o,
+    upcoming: [], lastCompleted: [], patientsWithFuture: new Set(), payments: [], budgets: [], ...o,
   }
 }
 const withPatient = (p: Partial<PatientRow>) => new Map([['p1', patient(p)]])
@@ -214,5 +216,54 @@ describe('staleReason', () => {
   })
   it('tipos sem regra → null', () => {
     expect(staleReason({ type: 'manual', dedupe_key: null, expires_at: null }, NOW, {})).toBeNull()
+  })
+})
+
+const bud = (o: Partial<BudgetReminderRow> = {}): BudgetReminderRow => ({
+  id: 'b1', patient_id: 'p1', total: 1500, valid_until: '2026-12-01', link_id: 'l1', token: 'tok123',
+  link_created_at: '2026-10-31T15:00:00Z', ...o,
+})
+
+describe('planMessages - budget_reminder', () => {
+  it('lembra no dia 3 após a criação do link, com texto renderizado', () => {
+    const items = planMessages(input({ budgets: [bud()] }))
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      type: 'budget_reminder', budget_id: 'b1', payment_id: null, appointment_id: null,
+      dedupe_key: 'budget_reminder:b1:l1:3', expires_at: null,
+    })
+    expect(items[0].body).toContain('01/12/2026')
+    expect(items[0].body).toContain('/orcamento/tok123')
+  })
+  it('lembra no dia 7 e não no 4', () => {
+    expect(planMessages(input({ budgets: [bud({ link_created_at: '2026-10-27T15:00:00Z' })] }))[0].dedupe_key).toBe('budget_reminder:b1:l1:7')
+    expect(planMessages(input({ budgets: [bud({ link_created_at: '2026-10-30T15:00:00Z' })] }))).toEqual([])
+  })
+  it('reminder day counted in clinic timezone', () => {
+    // 01:00Z de 01/11 ainda é 31/10 em São Paulo => 3 dias até 03/11
+    expect(planMessages(input({ budgets: [bud({ link_created_at: '2026-11-01T01:00:00Z' })] }))).toHaveLength(1)
+    // 04:00Z de 31/10 é 01:00 de 31/10 em SP => também 3 dias
+    expect(planMessages(input({ budgets: [bud({ link_created_at: '2026-10-31T04:00:00Z' })] }))).toHaveLength(1)
+    // 02:00Z de 31/10 é 23:00 de 30/10 em SP => 4 dias, não planeja
+    expect(planMessages(input({ budgets: [bud({ link_created_at: '2026-10-31T02:00:00Z' })] }))).toEqual([])
+  })
+  it('opt-out, sem telefone, desabilitado e vencido não planejam', () => {
+    expect(planMessages(input({ budgets: [bud()], patients: withPatient({ whatsapp_opt_out: true }) }))).toEqual([])
+    expect(planMessages(input({ budgets: [bud()], patients: withPatient({ whatsapp: null }) }))).toEqual([])
+    expect(planMessages(input({ budgets: [bud()], settings: settings({ budget_reminder: false }) }))).toEqual([])
+    expect(planMessages(input({ budgets: [bud({ valid_until: '2026-11-02' })] }))).toEqual([])
+    expect(planMessages(input({ budgets: [bud({ valid_until: null })] }))).toHaveLength(1)
+  })
+  it('o tipo budget (manual) nunca é planejado', () => {
+    const only = settings().map((s) => ({ ...s, enabled: s.type === 'budget' }))
+    expect(planMessages(input({ settings: only, budgets: [bud()] }))).toEqual([])
+  })
+  it('stale budget reminder is cancelled', () => {
+    const it_ = { type: 'budget_reminder' as const, dedupe_key: 'budget_reminder:b1:l1:3', expires_at: null }
+    expect(staleReason(it_, NOW, { budget: { status: 'sent', active_link_id: 'l1' } })).toBeNull()
+    expect(staleReason(it_, NOW, { budget: { status: 'approved', active_link_id: 'l1' } })).toBe('decided')
+    expect(staleReason(it_, NOW, { budget: { status: 'sent', active_link_id: 'l2' } })).toBe('decided')
+    expect(staleReason(it_, NOW, { budget: { status: 'sent', active_link_id: null } })).toBe('decided')
+    expect(staleReason(it_, NOW, { budget: null })).toBe('decided')
   })
 })

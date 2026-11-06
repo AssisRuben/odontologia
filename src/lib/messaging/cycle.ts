@@ -24,6 +24,7 @@ interface QueuedRow {
   appointment_id: string | null
   patient_id: string | null
   payment_id: string | null
+  budget_id: string | null
 }
 
 function check(error: { message: string } | null): void {
@@ -46,6 +47,22 @@ async function byIds<T extends { id: string }>(
   return map
 }
 
+/** Link ativo (não revogado) de cada orçamento informado. */
+async function activeLinkIds(admin: SupabaseClient, clinicId: string, budgetIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  for (let i = 0; i < budgetIds.length; i += 200) {
+    const { data, error } = await admin
+      .from('budget_links')
+      .select('id, budget_id')
+      .eq('clinic_id', clinicId)
+      .is('revoked_at', null)
+      .in('budget_id', budgetIds.slice(i, i + 200))
+    check(error)
+    for (const r of (data ?? []) as { id: string; budget_id: string }[]) map.set(r.budget_id, r.id)
+  }
+  return map
+}
+
 /** Cancela itens 'queued' que deixaram de fazer sentido. Retorna quantos foram cancelados. */
 async function cancelStale(
   admin: SupabaseClient,
@@ -56,7 +73,7 @@ async function cancelStale(
   const rows = await fetchAll<QueuedRow>((from, to) =>
     admin
       .from('messages')
-      .select('id, type, dedupe_key, expires_at, appointment_id, patient_id, payment_id')
+      .select('id, type, dedupe_key, expires_at, appointment_id, patient_id, payment_id, budget_id')
       .eq('clinic_id', clinicId)
       .eq('status', 'queued')
       .not('dedupe_key', 'is', null)
@@ -68,10 +85,12 @@ async function cancelStale(
   const ids = (pick: (r: QueuedRow) => string | null) =>
     [...new Set(rows.map(pick).filter((v): v is string => !!v))]
   const missingPatients = ids((r) => r.patient_id).filter((id) => !patients.has(id))
-  const [appointments, payments, extraPatients] = await Promise.all([
+  const [appointments, payments, budgetStatus, activeLinks, extraPatients] = await Promise.all([
     byIds<{ id: string; start_time: string; status: string }>(
       admin, clinicId, 'appointments', 'id, start_time, status', ids((r) => r.appointment_id)),
     byIds<{ id: string; status: string }>(admin, clinicId, 'payments', 'id, status', ids((r) => r.payment_id)),
+    byIds<{ id: string; status: string }>(admin, clinicId, 'budgets', 'id, status', ids((r) => r.budget_id)),
+    activeLinkIds(admin, clinicId, ids((r) => r.budget_id)),
     byIds<{ id: string; whatsapp_opt_out: boolean }>(
       admin, clinicId, 'patients', 'id, whatsapp_opt_out', missingPatients),
   ])
@@ -81,6 +100,9 @@ async function cancelStale(
     const reason = staleReason(row, now, {
       appointment: row.appointment_id ? (appointments.get(row.appointment_id) ?? null) : null,
       payment: row.payment_id ? (payments.get(row.payment_id) ?? null) : null,
+      budget: row.budget_id
+        ? { status: budgetStatus.get(row.budget_id)?.status ?? 'missing', active_link_id: activeLinks.get(row.budget_id) ?? null }
+        : null,
       patient: row.patient_id
         ? (patients.get(row.patient_id) ?? extraPatients.get(row.patient_id) ?? null)
         : null,

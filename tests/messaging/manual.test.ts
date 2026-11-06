@@ -26,7 +26,7 @@ describe('sendManual', () => {
       { instance: 'i', token: 't', status: 'connected' },
       {
         clinic_id: 'c1', patient_id: 'p1', type: 'manual', direction: 'out',
-        phone: '5511987654321', body: 'Olá', dedupe_key: null,
+        phone: '5511987654321', body: 'Olá', dedupe_key: null, budget_id: null,
       },
     )
   })

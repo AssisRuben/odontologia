@@ -1,17 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Menu, X, Search, Bell, Settings, User, Stethoscope,
-  Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare,
+  Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { useClinicStore } from '@/store/clinicStore'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
   { label: 'Pacientes',     href: '/pacientes',     icon: Users },
+  { label: 'Orçamentos',    href: '/orcamentos',    icon: ClipboardList },
   { label: 'Financeiro',    href: '/financeiro',    icon: DollarSign },
   { label: 'Prótese',       href: '/protese',       icon: Layers },
   { label: 'Estoque',       href: '/estoque',       icon: Package },
@@ -20,13 +23,34 @@ const navLinks = [
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
 ]
 
-const desktopPrimary  = navLinks.slice(0, 3)
-const bottomNavLinks  = navLinks.slice(0, 3)   // Agenda, Pacientes, Financeiro
-const secondaryLinks  = navLinks.slice(3)       // itens do "Mais"
+const desktopPrimary  = navLinks.slice(0, 4)   // Agenda, Pacientes, Orçamentos, Financeiro
+const bottomNavLinks  = navLinks.filter((l) => ['/agenda', '/pacientes', '/financeiro'].includes(l.href))
+const secondaryLinks  = navLinks.filter((l) => !bottomNavLinks.includes(l))  // itens do "Mais"
 
 export function Navbar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { clinicId } = useClinicStore()
+  const [approvedBadge, setApprovedBadge] = useState(0)
+
+  // Orçamentos aprovados nos últimos 30 dias que a recepção ainda não viu.
+  const refreshBadge = useCallback(async () => {
+    if (!clinicId) return
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const { count } = await createClient().from('budgets')
+      .select('id', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId).eq('status', 'approved')
+      .is('approval_seen_at', null).gte('decided_at', since)
+    setApprovedBadge(count ?? 0)
+  }, [clinicId])
+
+  useEffect(() => { refreshBadge() }, [refreshBadge, pathname])
+  useEffect(() => {
+    window.addEventListener('orcamentos:seen', refreshBadge)
+    return () => window.removeEventListener('orcamentos:seen', refreshBadge)
+  }, [refreshBadge])
+
+  const badgeFor = (href: string) => (href === '/orcamentos' ? approvedBadge : 0)
 
   return (
     <>
@@ -55,6 +79,11 @@ export function Navbar() {
                 )}
               >
                 {link.label}
+                {badgeFor(link.href) > 0 && (
+                  <span className="ml-1.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+                    {badgeFor(link.href)}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -120,6 +149,11 @@ export function Navbar() {
                 >
                   <link.icon className="w-4 h-4 shrink-0" />
                   {link.label}
+                  {badgeFor(link.href) > 0 && (
+                    <span className="inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+                      {badgeFor(link.href)}
+                    </span>
+                  )}
                 </Link>
               ))}
             </nav>
