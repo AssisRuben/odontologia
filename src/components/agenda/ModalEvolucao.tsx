@@ -11,6 +11,7 @@ interface Evolution {
   id: string
   date: string
   description: string
+  ai_used: boolean
   professional?: { name: string; color: string }
 }
 

@@ -13,6 +13,7 @@ interface Anamnese {
   template_id: string | null
   answers: Record<string, string>
   notes: string | null
+  ai_used: boolean
   created_at: string
   template?: AnamnesisTemplate
 }

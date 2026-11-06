@@ -11,6 +11,8 @@ export interface Clinic {
   created_at: string
 }
 
+export type AiTier = 'economico' | 'caprichado'
+
 export interface AnamnesisQuestion {
   id: string
   text: string

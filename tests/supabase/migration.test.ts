@@ -318,3 +318,38 @@ describe.each(['2026-11-05-funil-orcamentos.sql', 'schema.sql'])('%s ajustes da 
     expect(sql).toContain('AND (locked_until IS NULL OR locked_until <= NOW())')
   })
 })
+
+describe.each(['2026-11-06-evolucao-por-voz.sql', 'schema.sql'])('%s evolucao-por-voz', (file) => {
+  const sql = read(file)
+
+  it('cria ai_connections e ai_usage como na especificação', () => {
+    expect(sql).toMatch(/CREATE TABLE (IF NOT EXISTS )?ai_connections \(\s+clinic_id\s+UUID PRIMARY KEY REFERENCES clinics\(id\) ON DELETE CASCADE,/)
+    expect(sql).toMatch(/api_key_last4 TEXT NOT NULL,/)
+    expect(sql).toContain("CHECK (model_tier IN ('economico','caprichado'))")
+    expect(sql).toMatch(/CREATE TABLE (IF NOT EXISTS )?ai_usage \(/)
+    expect(sql).toContain("CHECK (kind IN ('transcricao','evolucao','anamnese'))")
+    expect(sql).toMatch(/CREATE INDEX IF NOT EXISTS \w+ ON ai_usage \(clinic_id, created_at\);/)
+  })
+
+  it('as duas tabelas têm RLS e nenhuma policy', () => {
+    for (const t of ['ai_connections', 'ai_usage']) {
+      expect(sql).toMatch(new RegExp(`ALTER TABLE ${t}\\s+ENABLE ROW LEVEL SECURITY`))
+      expect(sql).not.toMatch(new RegExp(`CREATE POLICY[^;]*ON ${t}\\b`))
+    }
+  })
+
+  it('marca ai_used em evolutions e anamneses', () => {
+    expect(sql).toMatch(/ALTER TABLE evolutions\s+ADD COLUMN IF NOT EXISTS ai_used BOOLEAN NOT NULL DEFAULT FALSE;/)
+    expect(sql).toMatch(/ALTER TABLE anamneses\s+ADD COLUMN IF NOT EXISTS ai_used BOOLEAN NOT NULL DEFAULT FALSE;/)
+  })
+
+  it('save_evolution_with_actions é SECURITY DEFINER, em modo sistema e só da service_role', () => {
+    const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.save_evolution_with_actions'))
+    expect(fn).toContain('CREATE OR REPLACE FUNCTION public.save_evolution_with_actions')
+    expect(fn).toContain('SECURITY DEFINER')
+    expect(fn).toContain("set_config('app.budget_system', 'on', true)")
+    expect(fn).toMatch(/REVOKE ALL ON FUNCTION public\.save_evolution_with_actions\([^)]*\) FROM PUBLIC, anon, authenticated;/)
+    expect(fn).toMatch(/GRANT EXECUTE ON FUNCTION public\.save_evolution_with_actions\([^)]*\) TO service_role;/)
+    expect(fn).toContain('Paciente ou consulta inválidos')
+  })
+})
