@@ -270,6 +270,40 @@ Envio do orçamento pelo WhatsApp, aprovação e assinatura pelo paciente no cel
 
 ---
 
+## Evolução e anamnese por voz (IA)
+
+Grave ou dite a evolução do atendimento e a anamnese; a IA organiza o texto e sugere as ações no sistema.
+
+### 1. Banco e chave da OpenAI
+
+1. No SQL Editor do Supabase, aplique [`supabase/2026-11-06-evolucao-por-voz.sql`](supabase/2026-11-06-evolucao-por-voz.sql).
+2. Não há variável de ambiente nova: a chave é de cada clínica. Em Configurações → Inteligência artificial, cole a chave da OpenAI da clínica. Ela é testada antes de salvar e só os 4 últimos dígitos aparecem depois.
+3. Escolha o modelo: **Econômico** (`gpt-6-luna`, padrão) ou **Mais caprichado** (`gpt-6.1-terra`). A mesma tela mostra o uso do mês com o custo estimado em dólar.
+4. Uploads de áudio usam `experimental.proxyClientMaxBodySize: '26mb'` no `next.config.ts` (já configurado).
+
+### O que o app faz
+
+- **Evolução** (agenda → janela de evolução):
+  - **Gravar:** transcreve com a OpenAI (`gpt-transcribe`), até 10 minutos. O áudio não é salvo.
+  - **Ditar:** usa o reconhecimento de voz do navegador, sem custo.
+  - **Organizar com IA:** devolve o texto em seções e sugestões já marcadas: concluir ou iniciar item de orçamento aprovado, atualizar tratamento, lançar tratamento novo no odontograma (valor R$ 0) e retorno que abre o agendamento.
+  - **Salvar e aplicar N sugestões** grava tudo de uma vez.
+- **Anamnese:** Gravar/Ditar e **Preencher com IA**, que preenche só as perguntas em branco; detalhes vão para Observações. Sem chave cadastrada, Ditar escreve direto em Observações.
+
+### Custo estimado
+
+- Transcrição: US$ 0,0045 por minuto.
+- Uma evolução (3 min de áudio + organizar): cerca de US$ 0,015 no modelo econômico.
+
+### LGPD
+
+- São dados de saúde. A API da OpenAI não usa os dados enviados para treinar modelos.
+- A clínica deve aceitar o DPA (acordo de processamento de dados) na conta dela na OpenAI.
+- Recomendamos mencionar o uso de IA no termo de consentimento ou na política de privacidade da clínica.
+- A ficha enviada à IA não leva nome, CPF nem telefone.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`

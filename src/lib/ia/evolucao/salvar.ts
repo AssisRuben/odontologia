@@ -1,4 +1,4 @@
-import { isUuid } from '../rotas'
+import { isUuid } from '../uuid'
 import { MAX_TEXT_CHARS } from '../modelos'
 import { isFdi, normalizarFaces, type Acao } from './sugestoes'
 

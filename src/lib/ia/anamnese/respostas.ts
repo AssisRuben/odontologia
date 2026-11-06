@@ -1,5 +1,5 @@
 import { MAX_TEXT_CHARS } from '../modelos'
-import { isUuid } from '../rotas'
+import { isUuid } from '../uuid'
 import type { Pergunta } from './esquema'
 
 const MAX_RESPOSTA = 500

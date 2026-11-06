@@ -2,14 +2,12 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getCurrentClinic } from '@/lib/auth/currentClinic'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isUuid } from './uuid'
 import { AiError, aiErrorResponse } from './erros'
 
 const INTERNAL = { error: 'Erro interno. Tente novamente.' }
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function isUuid(s: unknown): s is string {
-  return typeof s === 'string' && UUID_RE.test(s)
-}
+export { isUuid }
 
 /** Autentica, entrega clínica/usuário/admin e padroniza 401, 500 e erros de IA. */
 export async function withClinic(
