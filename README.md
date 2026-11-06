@@ -288,6 +288,7 @@ Grave ou dite a evolução do atendimento e a anamnese; a IA organiza o texto e 
   - **Ditar:** usa o reconhecimento de voz do navegador ou do celular, sem custo (veja LGPD abaixo).
   - **Organizar com IA:** devolve o texto em seções e sugestões já marcadas: concluir ou iniciar item de orçamento aprovado, atualizar tratamento, lançar tratamento novo no odontograma (valor R$ 0) e retorno que abre o agendamento.
   - **Salvar e aplicar N sugestões** grava tudo de uma vez.
+- **Modelo de anamnese padrão:** toda clínica já vem com o modelo "Anamnese Geral" (11 perguntas), que pode ser editado ou apagado em Configurações → Modelos de anamnese. Para bancos que já existiam, aplique [`supabase/2026-11-06-anamnese-padrao.sql`](supabase/2026-11-06-anamnese-padrao.sql) (pode rodar de novo sem problema): ele cria o modelo só nas clínicas que ainda não têm nenhum.
 - **Anamnese:** Gravar/Ditar e **Preencher com IA**, que preenche só as perguntas em branco; detalhes vão para Observações. Sem chave cadastrada, Ditar escreve direto em Observações.
 
 ### Custo estimado
