@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, Sparkles, ChevronRight } from 'lucide-react'
+import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, Sparkles, Bot, ChevronRight } from 'lucide-react'
 
 const configCards = [
   {
@@ -57,6 +57,13 @@ const configCards = [
     description: 'Chave da OpenAI para gravar a evolução e a anamnese por voz.',
     icon: Sparkles,
     color: '#EC4899',
+  },
+  {
+    id: 'agente',
+    title: 'Agente do WhatsApp',
+    description: 'Assistente virtual que responde os pacientes no WhatsApp.',
+    icon: Bot,
+    color: '#14B8A6',
   },
 ]
 
