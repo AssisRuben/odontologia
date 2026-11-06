@@ -148,6 +148,11 @@ export async function runAgent(
     await deps.recordUsage(conv.clinic_id, usageRow(ai.model, true, inputTokens, outputTokens))
     return 'human'
   }
+  // O paciente pode ter mandado outra mensagem: a execução dela responde por todas.
+  if ((await deps.latestIncomingId(conv.id)) !== messageId) {
+    await deps.recordUsage(conv.clinic_id, usageRow(ai.model, true, inputTokens, outputTokens))
+    return 'superseded'
+  }
 
   let sent = false
   try {

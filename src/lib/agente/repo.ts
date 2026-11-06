@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAiForClinic } from '@/lib/ia/conexao'
+import { WA_AI_OPTIONS } from '@/lib/ia/modelos'
 import { createAiDeps, recordUsage } from '@/lib/ia/repo'
 import { normalizeMessagingConfig } from '@/lib/messaging/config'
 import { sendNow } from '@/lib/messaging/sendNow'
 import type { AgentConversation, AgentDeps } from './agente'
 import { normalizeAgentConfig } from './config'
 import { HISTORY_LIMIT, MAX_NEXT_APPOINTMENTS } from './conversa'
-import { historyRole } from './contexto'
+import { historyBody, historyRole } from './contexto'
 
 function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
@@ -15,7 +16,7 @@ function check(error: { message: string } | null): void {
 const CONV_COLUMNS = 'id, clinic_id, phone, patient_id, contact_name, handler, last_message_at'
 
 export function createAgentDeps(admin: SupabaseClient): AgentDeps {
-  const aiDeps = createAiDeps(admin)
+  const aiDeps = createAiDeps(admin, WA_AI_OPTIONS)
   return {
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 
@@ -103,7 +104,7 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
         .limit(HISTORY_LIMIT)
       check(error)
       const rows = (data ?? []) as { direction: 'in' | 'out'; type: string; body: string }[]
-      return rows.reverse().map((m) => ({ role: historyRole(m), body: m.body }))
+      return rows.reverse().map((m) => ({ role: historyRole(m), body: historyBody(m.type, m.body) }))
     },
 
     async agentRepliesSince(conversationId, since) {
@@ -149,6 +150,7 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
         .select('created_at')
         .eq('clinic_id', clinicId)
         .eq('phone', phone)
+        .in('status', ['sent', 'received'])
         .neq('id', messageId)
         .order('created_at', { ascending: false })
         .limit(1)

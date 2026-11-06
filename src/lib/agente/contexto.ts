@@ -39,6 +39,14 @@ export function historyRole(m: { direction: 'in' | 'out'; type: string }): Histo
   return 'automatica'
 }
 
+const MASKED_TYPES = new Set(['charge', 'payment_due', 'budget', 'budget_reminder'])
+export const MASKED_BODY = '[mensagem automática de cobrança ou orçamento]'
+
+/** Texto que vai à IA: cobranças e orçamentos (valores) não são enviados. */
+export function historyBody(type: string, body: string): string {
+  return MASKED_TYPES.has(type) ? MASKED_BODY : body
+}
+
 function parts(date: Date, timeZone: string, opts: Intl.DateTimeFormatOptions): Record<string, string> {
   const out: Record<string, string> = {}
   for (const p of new Intl.DateTimeFormat('pt-BR', { timeZone, hourCycle: 'h23', ...opts }).formatToParts(date)) {

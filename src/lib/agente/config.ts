@@ -47,6 +47,11 @@ export function validateAgentConfig(
   return { ok: true, config: normalizeAgentConfig(raw) }
 }
 
+/** Pré-requisitos (WhatsApp e chave) só são exigidos ao ligar: editar com o agente já ligado não depende deles. */
+export function needsPrerequisites(current: AgentConfig, next: AgentConfig): boolean {
+  return next.enabled && !current.enabled
+}
+
 export function formatHours(hours: AgentConfig['hours']): string {
   return ORDER.map((d) => {
     const r = hours[d]

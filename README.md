@@ -316,7 +316,8 @@ Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as 
 2. Pré-requisitos: WhatsApp conectado (Configurações → Mensagens) e chave da OpenAI cadastrada (Configurações → Inteligência artificial).
 3. Para ligar: Configurações → Agente do WhatsApp.
 4. A rota do webhook (`src/app/api/webhooks/evolution`) agora usa `maxDuration = 60` e `after()`: responde ao WhatsApp na hora e termina o trabalho do agente depois. Confira se a hospedagem permite 60 s por função.
-5. A instância da Evolution precisa entregar `messages.upsert` também das mensagens enviadas pela clínica (`fromMe`). Já é o padrão. É isso que permite detectar "respondido pelo celular".
+5. A instância da Evolution precisa entregar `messages.upsert` também das mensagens enviadas pela clínica (`fromMe`): confira se o webhook da instância está inscrito em `messages.upsert`. É isso que permite detectar "respondido pelo celular".
+6. Desative a saudação e a mensagem de ausência do WhatsApp Business: o agente responde no lugar delas. (Uma mensagem do celular da clínica até 10 s depois da mensagem do paciente é tratada como saudação automática: fica no histórico, mas não tira a conversa do agente.)
 
 ### O que o app faz
 
@@ -326,12 +327,13 @@ Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as 
 - **Passa para a recepção** quando o assunto foge do que sabe, quando o paciente pede, com muitas mensagens seguidas ou se a recepção responder pelo celular.
 - **Caixa de conversas** em Mensagens → Conversas, com filtro "Aguardando recepção", resposta direta, assumir/devolver ao agente e cadastro do paciente. O menu mostra um contador de conversas aguardando.
 - **Pausa e retoma sozinho:** depois de 12 h sem atividade, o agente volta a atender.
-- **Pedido de parar:** quem pedir para não receber WhatsApp deixa de ser atendido pelo agente.
+- **Paciente que não quer WhatsApp:** se a ficha do paciente estiver marcada para não receber WhatsApp, o agente não responde e passa a conversa para a recepção. Um pedido feito só na conversa não muda essa marcação.
 
 ### O que não faz
 
 - Não agenda, cancela nem remarca consultas.
-- Não fala de valores, diagnósticos nem orientação clínica.
+- Só fala de valores se eles estiverem no texto que a clínica escreveu na configuração do agente.
+- Não dá diagnósticos nem orientação clínica.
 - Só responde a quem escreveu: não envia mensagens por conta própria.
 - Limita-se a 30 respostas por conversa a cada 24 h.
 
@@ -345,7 +347,7 @@ Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as 
 
 - Com o agente ligado, mensagens de números desconhecidos são guardadas na caixa de conversas (com o agente desligado, não são).
 - O áudio não é salvo: só o texto transcrito.
-- Vão à OpenAI: o texto das últimas mensagens da conversa, as informações da clínica e, para pacientes, o primeiro nome e as próximas consultas. CPF, e-mail e endereço não vão.
+- Vão à OpenAI: o texto das últimas 20 mensagens da conversa (cobranças e orçamentos vão sem o texto, só a indicação de que houve uma mensagem automática), as informações da clínica e, para pacientes, o primeiro nome e as próximas consultas. CPF, e-mail e endereço não vão.
 - Vale o mesmo cuidado da seção anterior: aceitar o DPA da OpenAI e mencionar o uso de IA na política de privacidade.
 
 ---

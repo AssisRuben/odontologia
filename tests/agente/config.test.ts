@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeAgentConfig, validateAgentConfig, formatHours, AGENT_INFO_MAX } from '@/lib/agente/config'
+import { normalizeAgentConfig, validateAgentConfig, formatHours, AGENT_INFO_MAX, needsPrerequisites } from '@/lib/agente/config'
 
 describe('normalizeAgentConfig', () => {
   it('null vira padrão', () => {
@@ -34,5 +34,16 @@ describe('formatHours', () => {
     const s = formatHours({ '1': ['08:00', '18:00'] })
     expect(s.startsWith('Seg 08:00–18:00; Ter fechado')).toBe(true)
     expect(s.endsWith('Dom fechado')).toBe(true)
+  })
+})
+
+describe('needsPrerequisites', () => {
+  const off = { enabled: false, hours: {}, info: '' }
+  const on = { enabled: true, hours: {}, info: '' }
+  it('só ao ligar (desligado → ligado)', () => {
+    expect(needsPrerequisites(off, on)).toBe(true)
+    expect(needsPrerequisites(on, { ...on, info: 'novo texto' })).toBe(false)
+    expect(needsPrerequisites(on, off)).toBe(false)
+    expect(needsPrerequisites(off, off)).toBe(false)
   })
 })

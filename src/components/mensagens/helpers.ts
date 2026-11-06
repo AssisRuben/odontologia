@@ -46,6 +46,8 @@ export const KIND_LABELS: Record<MessageKind, string> = {
   manual: 'Manual',
   auto_reply: 'Resposta automática',
   incoming: 'Recebida',
+  agent: 'Assistente',
+  human: 'Equipe',
 }
 
 export const STATUS_LABELS: Record<MessageStatus, string> = {

@@ -1,5 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
-import { upsertConversation } from '@/lib/agente/repo'
+import { fakeAdmin } from '../fakeSupabase'
+
+const mocks = vi.hoisted(() => ({
+  createAiDeps: vi.fn(() => ({ marker: 'aiDeps' })),
+  getAiForClinic: vi.fn(async () => null),
+}))
+vi.mock('@/lib/ia/repo', () => ({ createAiDeps: mocks.createAiDeps, recordUsage: vi.fn() }))
+vi.mock('@/lib/ia/conexao', () => ({ getAiForClinic: mocks.getAiForClinic }))
+
+import { createAgentDeps, upsertConversation } from '@/lib/agente/repo'
 
 describe('upsertConversation', () => {
   it('trata conflito do índice único relendo', async () => {
@@ -31,5 +40,33 @@ describe('upsertConversation', () => {
     }
     expect(await upsertConversation(admin as never, 'k1', '55', null, new Date())).toBe('new')
     expect(update).not.toHaveBeenCalled()
+  })
+})
+
+describe('createAgentDeps', () => {
+  it('getAi usa timeout de 20 s e sem novas tentativas', async () => {
+    const { admin } = fakeAdmin()
+    await createAgentDeps(admin).getAi('k1')
+    expect(mocks.createAiDeps).toHaveBeenCalledWith(admin, { timeoutMs: 20_000, maxRetries: 0 })
+    expect(mocks.getAiForClinic).toHaveBeenCalledWith('k1', { marker: 'aiDeps' })
+  })
+
+  it('history mascara cobranças e orçamentos', async () => {
+    const rows = [
+      { direction: 'out', type: 'charge', body: 'Pague R$ 300' },
+      { direction: 'in', type: 'incoming', body: 'oi' },
+    ]
+    const { admin } = fakeAdmin(() => ({ data: rows, error: null }))
+    expect(await createAgentDeps(admin).history('k1', '5511')).toEqual([
+      { role: 'paciente', body: 'oi' },
+      { role: 'automatica', body: '[mensagem automática de cobrança ou orçamento]' },
+    ])
+  })
+
+  it('lastActivityBefore considera só mensagens enviadas ou recebidas', async () => {
+    const { admin, queries } = fakeAdmin(() => ({ data: { created_at: '2026-11-06T10:00:00Z' }, error: null }))
+    expect(await createAgentDeps(admin).lastActivityBefore('k1', '5511', 'm1')).toBe('2026-11-06T10:00:00Z')
+    expect(queries[0].calls).toContainEqual(['in', 'status', ['sent', 'received']])
+    expect(queries[0].calls).toContainEqual(['neq', 'id', 'm1'])
   })
 })

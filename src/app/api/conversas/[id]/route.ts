@@ -3,6 +3,7 @@ import { isUuid, withClinic } from '@/lib/ia/rotas'
 import { INVALID_ID, NOT_FOUND } from '@/lib/agente/caixa'
 import { contactLabel } from '@/lib/agente/conversa'
 import { historyRole } from '@/lib/agente/contexto'
+import { normalizeAgentConfig } from '@/lib/agente/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +46,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     }))
     const { error: readErr } = await admin.from('conversations').update({ unread: false }).eq('id', id).eq('clinic_id', clinicId)
     if (readErr) throw new Error(readErr.message)
+    const { data: clinic, error: clinicErr } = await admin.from('clinics').select('agent_config').eq('id', clinicId).single()
+    if (clinicErr) throw new Error(clinicErr.message)
     return {
       status: 200,
       body: {
@@ -54,6 +57,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
           label: contactLabel({ patientName: p?.name ?? null, contact_name: conv.contact_name, phone: conv.phone }),
         },
         mensagens,
+        agenteLigado: normalizeAgentConfig((clinic as { agent_config: unknown }).agent_config).enabled,
       },
     }
   })

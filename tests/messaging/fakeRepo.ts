@@ -131,6 +131,8 @@ export class FakeRepo implements QueueRepo {
         r.clinic_id === clinicId &&
         r.direction === 'out' &&
         r.status === 'sent' &&
+        r.type !== 'agent' &&
+        r.type !== 'human' &&
         r.sent_at !== null &&
         r.sent_at >= since,
     ).length

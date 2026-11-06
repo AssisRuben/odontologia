@@ -11,6 +11,7 @@ import { formatDataCurta, formatHora } from './time'
 import { normalizeMessagingConfig } from './config'
 import { normalizeAgentConfig } from '@/lib/agente/config'
 import {
+  GREETING_WINDOW_MS,
   MAX_WA_AUDIO_SECONDS,
   OUTGOING_RECHECK_MS,
   REASON_CLINIC_PHONE,
@@ -20,7 +21,7 @@ import {
 } from '@/lib/agente/conversa'
 import { upsertConversation } from '@/lib/agente/repo'
 import { getAiForClinic } from '@/lib/ia/conexao'
-import { TRANSCRIBE_MODEL } from '@/lib/ia/modelos'
+import { TRANSCRIBE_MODEL, WA_AI_OPTIONS } from '@/lib/ia/modelos'
 import { createAiDeps, recordUsage } from '@/lib/ia/repo'
 import type { MessagingConfig } from './types'
 import { startOfClinicDay } from './window'
@@ -65,11 +66,13 @@ export interface IncomingDeps {
     seconds: number,
   ): Promise<{ ok: true; text: string } | { ok: false; reason: 'no_key' | 'failed' }>
   upsertConversation(clinicId: string, phone: string, patientId: string | null, at: Date): Promise<string>
-  /** O id já está em `messages`, ou há linha `out` sending/sent com mesmo telefone e corpo criada depois de `since`. */
+  /** O id já está em `messages`, ou há linha `out` com mesmo telefone e corpo que está `sending` (qualquer idade) ou foi enviada depois de `since`. */
   outgoingKnown(clinicId: string, providerMessageId: string, phone: string, body: string, since: Date): Promise<boolean>
   saveHumanFromPhone(clinicId: string, conversationId: string, phone: string, body: string, providerMessageId: string): Promise<void>
   setHandler(conversationId: string, handler: 'agent' | 'human', reason: string | null): Promise<void>
   markRead(conversationId: string): Promise<void>
+  /** Quando chegou a última mensagem recebida deste telefone (null se nunca). */
+  lastIncomingAt(clinicId: string, phone: string): Promise<Date | null>
   sleep(ms: number): Promise<void>
 }
 
@@ -196,6 +199,10 @@ async function handleOutgoing(
 
   const conversationId = await deps.upsertConversation(clinicId, phone, patientId, event.at)
   await deps.saveHumanFromPhone(clinicId, conversationId, phone, truncateIncoming(event.text), event.providerMessageId)
+  // Saudação/ausência automática do WhatsApp Business sai logo após a mensagem do paciente:
+  // fica no histórico, mas não tira a conversa do agente.
+  const lastIn = await deps.lastIncomingAt(clinicId, phone)
+  if (lastIn && Math.abs(event.at.getTime() - lastIn.getTime()) < GREETING_WINDOW_MS) return { result: 'outgoing', agent: null }
   await deps.setHandler(conversationId, 'human', REASON_CLINIC_PHONE)
   await deps.markRead(conversationId)
   return { result: 'outgoing', agent: null }
@@ -407,19 +414,27 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
     },
 
     async transcribeAudio(clinicId, instance, token, providerMessageId, seconds) {
-      const ai = await getAiForClinic(clinicId, createAiDeps(admin))
+      const ai = await getAiForClinic(clinicId, createAiDeps(admin, WA_AI_OPTIONS))
       if (!ai) return { ok: false, reason: 'no_key' }
       const uso = { kind: 'transcricao_whatsapp' as const, model: TRANSCRIBE_MODEL, audio_seconds: seconds, input_tokens: null, output_tokens: null }
+      // Falha ao registrar o uso não pode descartar a transcrição nem derrubar o webhook.
+      const record = async (ok: boolean) => {
+        try {
+          await recordUsage(admin, clinicId, null, { ...uso, ok })
+        } catch (e) {
+          console.error('[webhook] falha ao registrar uso:', e instanceof Error ? e.name : 'erro')
+        }
+      }
       try {
         const { bytes, mimetype } = await getProvider().getAudio(instance, token, providerMessageId)
         const type = mimetype.split(';')[0].trim() || 'audio/ogg'
         const ext = type.includes('mp4') || type.includes('m4a') ? 'm4a' : type.includes('mpeg') ? 'mp3' : type.includes('webm') ? 'webm' : 'ogg'
         const text = await ai.client.transcribe(new File([bytes as BlobPart], `audio.${ext}`, { type }))
-        await recordUsage(admin, clinicId, null, { ...uso, ok: true })
+        await record(true)
         return { ok: true, text }
       } catch (err) {
         console.error('[webhook] transcrição falhou:', err instanceof Error ? err.message : 'erro')
-        await recordUsage(admin, clinicId, null, { ...uso, ok: false })
+        await record(false)
         return { ok: false, reason: 'failed' }
       }
     },
@@ -435,7 +450,8 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .limit(1)
       check(error)
       if ((byId?.length ?? 0) > 0) return true
-      // sendNow grava 'sending' antes de chamar a Evolution: o eco pode chegar antes do provider_message_id.
+      // sendNow e a fila gravam 'sending' antes de chamar a Evolution: o eco pode chegar antes do
+      // provider_message_id. Mensagens da fila foram criadas horas antes, então vale o sent_at.
       const { data, error: err2 } = await admin
         .from('messages')
         .select('id')
@@ -444,7 +460,7 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
         .in('status', ['sending', 'sent'])
         .eq('phone', phone)
         .eq('body', body)
-        .gte('created_at', since.toISOString())
+        .or(`status.eq.sending,sent_at.gte.${since.toISOString()}`)
         .limit(1)
       check(err2)
       return (data?.length ?? 0) > 0
@@ -477,6 +493,21 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
     async markRead(conversationId) {
       const { error } = await admin.from('conversations').update({ unread: false }).eq('id', conversationId)
       check(error)
+    },
+
+    async lastIncomingAt(clinicId, phone) {
+      const { data, error } = await admin
+        .from('messages')
+        .select('created_at')
+        .eq('clinic_id', clinicId)
+        .eq('phone', phone)
+        .eq('direction', 'in')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      check(error)
+      const at = (data as { created_at: string } | null)?.created_at
+      return at ? new Date(at) : null
     },
 
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),

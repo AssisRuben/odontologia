@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { withClinic } from '@/lib/ia/rotas'
 import { getAiForClinic } from '@/lib/ia/conexao'
 import { createAiDeps } from '@/lib/ia/repo'
-import { normalizeAgentConfig, validateAgentConfig } from '@/lib/agente/config'
+import { needsPrerequisites, normalizeAgentConfig, validateAgentConfig } from '@/lib/agente/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +36,10 @@ export async function PUT(req: NextRequest) {
   return withClinic('agente config PUT', async ({ clinicId, admin }) => {
     const v = validateAgentConfig(body)
     if (!v.ok) return { status: 422, body: { error: v.error } }
-    if (v.config.enabled) {
+    const { data: cur, error: curErr } = await admin.from('clinics').select('agent_config').eq('id', clinicId).single()
+    if (curErr) throw new Error(curErr.message)
+    // Só ao ligar: com o agente já ligado, editar textos/horários funciona mesmo com o WhatsApp caído.
+    if (needsPrerequisites(normalizeAgentConfig((cur as { agent_config: unknown }).agent_config), v.config)) {
       const [connRes, ai] = await Promise.all([
         admin.from('whatsapp_connections').select('status').eq('clinic_id', clinicId).maybeSingle(),
         getAiForClinic(clinicId, createAiDeps(admin)),

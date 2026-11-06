@@ -162,6 +162,14 @@ describe('runAgent', () => {
     expect(deps.sendAgentMessage).not.toHaveBeenCalled()
     expect(deps.recordUsage).toHaveBeenCalledWith('k1', expect.objectContaining({ ok: true, input_tokens: 100, output_tokens: 20 }))
   })
+  it('mensagem nova chegou durante a chamada da IA: não envia, superseded, uso ok true', async () => {
+    const { deps } = make({ latestIncomingId: vi.fn().mockResolvedValueOnce('m1').mockResolvedValueOnce('m2') })
+    expect(await run(deps)).toBe('superseded')
+    expect(deps.latestIncomingId).toHaveBeenCalledTimes(2)
+    expect(deps.sendAgentMessage).not.toHaveBeenCalled()
+    expect(deps.markUnread).not.toHaveBeenCalled()
+    expect(deps.recordUsage).toHaveBeenCalledWith('k1', expect.objectContaining({ ok: true, input_tokens: 100, output_tokens: 20 }))
+  })
   it('erro da IA: nada enviado, não lida, uso ok false', async () => {
     const { deps } = make({}, new AiError('timeout'))
     expect(await run(deps)).toBe('error')

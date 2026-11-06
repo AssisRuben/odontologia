@@ -76,6 +76,14 @@ describe('responderConversa', () => {
     )
     expect(deps.markAnswered).toHaveBeenCalledWith('c1', 'Assumida pela equipe')
   })
+  it('falha ao marcar como respondida depois do envio ainda devolve sucesso', async () => {
+    const deps = respDeps({ markAnswered: vi.fn(async () => { throw new Error('db') }) })
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await responderConversa(deps, 'k1', 'c1', 'oi')).toEqual({ status: 200, body: { ok: true } })
+    expect(err).toHaveBeenCalled()
+    expect(JSON.stringify(err.mock.calls)).not.toContain('oi')
+    err.mockRestore()
+  })
   it('conversa já com a equipe mantém o motivo', async () => {
     const deps = respDeps({ loadConversation: vi.fn(async () => ({ ...CONV, handler: 'human' })) })
     await responderConversa(deps, 'k1', 'c1', 'oi')

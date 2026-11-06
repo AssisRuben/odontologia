@@ -113,6 +113,8 @@ export function createSupabaseQueueRepo(admin: SupabaseClient): QueueRepo {
         .eq('clinic_id', clinicId)
         .eq('direction', 'out')
         .eq('status', 'sent')
+        // O limite diário vale para as mensagens automáticas: respostas do agente e da equipe não contam.
+        .not('type', 'in', '(agent,human)')
         .gte('sent_at', since.toISOString())
       check(error)
       return count ?? 0

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AiTier } from '@/types'
 import type { AiDeps } from './conexao'
-import { makeAiClient } from './openai'
+import { makeAiClient, type AiClientOptions } from './openai'
 import type { UsageRow } from './uso'
 import { fetchAllPages } from '@/lib/payments/repo'
 
@@ -9,7 +9,8 @@ function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
 }
 
-export function createAiDeps(admin: SupabaseClient): AiDeps {
+/** `opts` muda timeout/novas tentativas do cliente (o caminho do WhatsApp usa `WA_AI_OPTIONS`). */
+export function createAiDeps(admin: SupabaseClient, opts?: AiClientOptions): AiDeps {
   return {
     async getStored(clinicId) {
       const { data, error } = await admin
@@ -42,7 +43,7 @@ export function createAiDeps(admin: SupabaseClient): AiDeps {
         return (data ?? []) as UsageRow[]
       })
     },
-    makeClient: apiKey => makeAiClient(apiKey),
+    makeClient: apiKey => makeAiClient(apiKey, undefined, opts),
   }
 }
 

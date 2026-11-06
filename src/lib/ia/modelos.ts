@@ -5,6 +5,9 @@ export const MAX_AUDIO_BYTES = 25 * 1024 * 1024
 export const MAX_AUDIO_SECONDS = 600
 export const MAX_TEXT_CHARS = 20000
 export const AI_TIMEOUT_MS = 60000
+/** Chamadas no caminho do WhatsApp (webhook, agente, testar): curtas e sem novas tentativas. */
+export const WA_AI_TIMEOUT_MS = 20_000
+export const WA_AI_OPTIONS = { timeoutMs: WA_AI_TIMEOUT_MS, maxRetries: 0 } as const
 
 /** Preços em US$: transcrição por minuto; texto por milhão de tokens. */
 export const PRICES_USD: {

@@ -61,7 +61,12 @@ export async function responderConversa(
   }
   const res = await deps.send({ instance: conn.instance, token: conn.token }, row)
   if (!res.ok) return { status: 502, body: { error: 'Não foi possível enviar. Tente de novo.' } }
-  await deps.markAnswered(conv.id, conv.handler === 'agent' ? REASON_TAKEN_OVER : null)
+  // A mensagem já saiu: falha ao marcar a conversa não pode virar erro (a equipe reenviaria).
+  try {
+    await deps.markAnswered(conv.id, conv.handler === 'agent' ? REASON_TAKEN_OVER : null)
+  } catch (e) {
+    console.error('[conversas] falha ao marcar como respondida:', e instanceof Error ? e.name : 'erro')
+  }
   return { status: 200, body: { ok: true } }
 }
 

@@ -33,6 +33,7 @@ function makeDeps(over: Partial<IncomingDeps> = {}) {
     saveHumanFromPhone: vi.fn<IncomingDeps['saveHumanFromPhone']>(async () => {}),
     setHandler: vi.fn<IncomingDeps['setHandler']>(async () => {}),
     markRead: vi.fn<IncomingDeps['markRead']>(async () => {}),
+    lastIncomingAt: vi.fn<IncomingDeps['lastIncomingAt']>(async () => null),
     sleep: vi.fn(async () => {}),
   }
   const deps: IncomingDeps = { ...base, ...over }
@@ -298,6 +299,23 @@ describe('handleIncoming', () => {
       expect((await handleIncoming(outgoing(), d, now)).result).toBe('ignored')
       expect(d.sleep).toHaveBeenCalledTimes(1)
       expect(d.saveHumanFromPhone).not.toHaveBeenCalled()
+    })
+
+    it('outgoing desconhecido até 10 s após a última recebida (saudação/ausência do WhatsApp Business): grava sem mudar o handler', async () => {
+      const d = makeDeps({ agentEnabled: on(), lastIncomingAt: vi.fn(async () => new Date(now.getTime() - 9_000)) })
+      expect(await handleIncoming(outgoing(), d, now)).toEqual({ result: 'outgoing', agent: null })
+      expect(d.lastIncomingAt).toHaveBeenCalledWith('c1', '5511987654321')
+      expect(d.saveHumanFromPhone).toHaveBeenCalledWith('c1', 'conv1', '5511987654321', 'Olá, tudo bem?', 'out1')
+      expect(d.setHandler).not.toHaveBeenCalled()
+      expect(d.markRead).not.toHaveBeenCalled()
+    })
+
+    it('outgoing desconhecido mais de 10 s após a última recebida passa para a equipe', async () => {
+      const d = makeDeps({ agentEnabled: on(), lastIncomingAt: vi.fn(async () => new Date(now.getTime() - 10_000)) })
+      expect((await handleIncoming(outgoing(), d, now)).result).toBe('outgoing')
+      expect(d.saveHumanFromPhone).toHaveBeenCalled()
+      expect(d.setHandler).toHaveBeenCalledWith('conv1', 'human', 'Respondido pelo celular da clínica')
+      expect(d.markRead).toHaveBeenCalledWith('conv1')
     })
 
     it('outgoing para número desconhecido com agente desligado é ignorado (privacidade)', async () => {

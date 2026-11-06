@@ -34,8 +34,13 @@ export function toAiError(e: unknown): AiError {
   return new AiError('unavailable')
 }
 
-export function makeAiClient(apiKey: string, sdk?: OpenAI): AiClient {
-  const openai = sdk ?? new OpenAI({ apiKey, timeout: AI_TIMEOUT_MS, maxRetries: 1 })
+export interface AiClientOptions {
+  timeoutMs?: number
+  maxRetries?: number
+}
+
+export function makeAiClient(apiKey: string, sdk?: OpenAI, opts: AiClientOptions = {}): AiClient {
+  const openai = sdk ?? new OpenAI({ apiKey, timeout: opts.timeoutMs ?? AI_TIMEOUT_MS, maxRetries: opts.maxRetries ?? 1 })
 
   return {
     async transcribe(audio) {

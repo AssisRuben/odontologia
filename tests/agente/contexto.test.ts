@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildAgentContext, firstName, historyRole, type AgentContextInput, type HistoryItem } from '@/lib/agente/contexto'
+import { buildAgentContext, firstName, historyBody, historyRole, type AgentContextInput, type HistoryItem } from '@/lib/agente/contexto'
 
 const base = (over: Partial<AgentContextInput> = {}): AgentContextInput => ({
   clinic: {
@@ -86,5 +86,13 @@ describe('historyRole', () => {
     expect(historyRole({ direction: 'out', type: 'human' })).toBe('equipe')
     expect(historyRole({ direction: 'out', type: 'manual' })).toBe('equipe')
     expect(historyRole({ direction: 'out', type: 'reminder' })).toBe('automatica')
+  })
+})
+
+describe('historyBody', () => {
+  it('mascara cobranças e orçamentos; mantém o resto', () => {
+    const masked = '[mensagem automática de cobrança ou orçamento]'
+    for (const t of ['charge', 'payment_due', 'budget', 'budget_reminder']) expect(historyBody(t, 'R$ 100')).toBe(masked)
+    for (const t of ['reminder', 'confirmation', 'incoming', 'agent', 'human', 'manual']) expect(historyBody(t, 'texto')).toBe('texto')
   })
 })

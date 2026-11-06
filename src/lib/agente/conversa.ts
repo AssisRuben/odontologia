@@ -12,6 +12,8 @@ export const MAX_REPLY_CHARS = 1000
 export const MAX_NAME_CHARS = 80
 export const MAX_REASON_CHARS = 120
 export const MAX_NEXT_APPOINTMENTS = 3
+/** Mensagem do celular da clínica até 10 s após a recebida: saudação/ausência do WhatsApp Business. */
+export const GREETING_WINDOW_MS = 10_000
 
 export const TEXT_AUDIO = '[áudio]'
 export const TEXT_AUDIO_UNTRANSCRIBED = '[áudio não transcrito]'

@@ -220,6 +220,9 @@ export default function AgenteConfigPage() {
               <p className="text-xs text-[#6B7280] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">
                 Com o agente ligado, mensagens de números que não são pacientes também ficam guardadas.
               </p>
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Desative a saudação e a mensagem de ausência do WhatsApp Business: o agente responde no lugar delas.
+              </p>
             </div>
 
             <div className={cardCls}>

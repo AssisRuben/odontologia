@@ -29,6 +29,7 @@ export default function ConversaPainel({ id, onBack, onChanged }: Props) {
   const [sendError, setSendError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [modal, setModal] = useState(false)
+  const [agenteLigado, setAgenteLigado] = useState(true)
   const endRef = useRef<HTMLDivElement>(null)
   const lastCount = useRef(0)
 
@@ -40,6 +41,7 @@ export default function ConversaPainel({ id, onBack, onChanged }: Props) {
       setLoadError(null)
       setConversa(json.conversa)
       setMsgs(json.mensagens ?? [])
+      setAgenteLigado(json.agenteLigado !== false)
     } catch {
       setLoadError('Não foi possível carregar a conversa.')
     }
@@ -120,16 +122,18 @@ export default function ConversaPainel({ id, onBack, onChanged }: Props) {
         )}
       </div>
 
-      <div className={`px-4 py-2 border-b border-[#E5E7EB] flex items-center gap-3 text-sm ${conversa.handler === 'human' ? 'bg-[#FEF3C7]' : 'bg-[#EFF6FF]'}`}>
+      <div className={`px-4 py-2 border-b border-[#E5E7EB] flex items-center gap-3 text-sm ${conversa.handler === 'human' ? 'bg-[#FEF3C7]' : agenteLigado ? 'bg-[#EFF6FF]' : 'bg-[#F9FAFB]'}`}>
         <span className="flex-1 text-[#111827]">
           {conversa.handler === 'human'
             ? `Passada para a equipe${conversa.handoff_reason ? `: ${conversa.handoff_reason}` : ''}`
-            : 'O assistente está atendendo'}
+            : agenteLigado ? 'O assistente está atendendo' : 'Agente desligado'}
         </span>
-        <button disabled={busy} onClick={() => toggleHandler(conversa.handler === 'human' ? 'encerrar' : 'assumir')}
-          className="px-3 py-1.5 text-sm font-medium bg-[#3B82F6] text-white rounded-lg disabled:opacity-50 shrink-0">
-          {conversa.handler === 'human' ? 'Encerrar atendimento' : 'Assumir conversa'}
-        </button>
+        {(conversa.handler === 'human' || agenteLigado) && (
+          <button disabled={busy} onClick={() => toggleHandler(conversa.handler === 'human' ? 'encerrar' : 'assumir')}
+            className="px-3 py-1.5 text-sm font-medium bg-[#3B82F6] text-white rounded-lg disabled:opacity-50 shrink-0">
+            {conversa.handler === 'human' ? 'Encerrar atendimento' : 'Assumir conversa'}
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#F9FAFB]">
