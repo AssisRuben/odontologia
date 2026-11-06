@@ -39,6 +39,9 @@ export default function AgendaPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalDate, setModalDate] = useState<Date | undefined>()
   const [modalHour, setModalHour] = useState<string | undefined>()
+  const [modalPatientId, setModalPatientId] = useState<string | undefined>()
+  const [modalProfessionalId, setModalProfessionalId] = useState<string | undefined>()
+  const [modalNotes, setModalNotes] = useState<string | undefined>()
   const [waitingCount, setWaitingCount] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -325,7 +328,11 @@ export default function AgendaPage() {
             currentDate={currentDate}
             appointments={filteredAppointments}
             indicators={indicators}
-            onDateClick={(date, hour) => { setModalDate(date); setModalHour(hour); setModalOpen(true) }}
+            onDateClick={(date, hour) => {
+              setModalDate(date); setModalHour(hour)
+              setModalPatientId(undefined); setModalProfessionalId(undefined); setModalNotes(undefined)
+              setModalOpen(true)
+            }}
             onEventClick={openPopover}
           />
         </div>
@@ -338,7 +345,9 @@ export default function AgendaPage() {
           onSaved={() => { setReloadKey((k) => k + 1) }}
           initialDate={modalDate}
           initialHour={modalHour}
-          initialProfessionalId={selectedProfessional?.id}
+          initialProfessionalId={modalProfessionalId ?? selectedProfessional?.id}
+          initialPatientId={modalPatientId}
+          initialNotes={modalNotes}
           clinicId={clinicId}
           professionals={professionals}
           patients={patients}
@@ -375,7 +384,19 @@ export default function AgendaPage() {
           professionals={professionals}
           clinicId={clinicId}
           onClose={() => setEvolutionApt(null)}
-          onSaved={() => setEvolutionApt(null)}
+          onSaved={(retorno) => {
+            const apt = evolutionApt
+            setEvolutionApt(null)
+            if (retorno) {
+              const [y, m, d] = retorno.data.split('-').map(Number)
+              setModalDate(new Date(y, m - 1, d))
+              setModalHour(undefined)
+              setModalPatientId(apt.patient_id)
+              setModalProfessionalId(apt.professional_id)
+              setModalNotes(`Retorno: ${retorno.motivo}`)
+              setModalOpen(true)
+            }
+          }}
         />
       )}
     </div>

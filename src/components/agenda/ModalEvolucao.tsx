@@ -1,10 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, CheckCircle2, ImagePlus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, CheckCircle2, ImagePlus, Trash2, ChevronLeft, ChevronRight, Wand2, Undo2, Loader2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { BarraVoz } from '@/components/ia/BarraVoz'
+import { ListaSugestoes } from '@/components/ia/ListaSugestoes'
+import { useIaStatus } from '@/components/ia/useIaStatus'
+import { appendText } from '@/lib/ia/texto'
+import { dataRetorno, type Sugestao } from '@/lib/ia/evolucao/sugestoes'
 import type { Appointment, Professional } from '@/types'
 
 interface Evolution {
@@ -21,10 +26,10 @@ interface ModalEvolucaoProps {
   professionals: Professional[]
   clinicId: string
   onClose: () => void
-  onSaved: () => void
+  onSaved: (retorno: { data: string; motivo: string } | null) => void
 }
 
-export function ModalEvolucao({ open, appointment, professionals, clinicId, onClose, onSaved }: ModalEvolucaoProps) {
+export function ModalEvolucao({ open, appointment, professionals, onClose, onSaved }: ModalEvolucaoProps) {
   const [professionalId, setProfessionalId] = useState(appointment.professional_id)
   const [date, setDate] = useState(format(parseISO(appointment.start_time), 'yyyy-MM-dd'))
   const [description, setDescription] = useState('')
@@ -33,6 +38,12 @@ export function ModalEvolucao({ open, appointment, professionals, clinicId, onCl
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [organizando, setOrganizando] = useState(false)
+  const [textoOriginal, setTextoOriginal] = useState<string | null>(null)
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
+  const [marcadas, setMarcadas] = useState<boolean[]>([])
+  const [aiUsed, setAiUsed] = useState(false)
+  const { conectado } = useIaStatus()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
 
@@ -45,6 +56,11 @@ export function ModalEvolucao({ open, appointment, professionals, clinicId, onCl
     setLoading(false)
     setSuccess(false)
     setError('')
+    setOrganizando(false)
+    setTextoOriginal(null)
+    setSugestoes([])
+    setMarcadas([])
+    setAiUsed(false)
 
     async function loadPast() {
       const supabase = createClient()
@@ -91,29 +107,89 @@ export function ModalEvolucao({ open, appointment, professionals, clinicId, onCl
     setError('')
     setLoading(true)
 
-    const supabase = createClient()
+    const escolhidas = sugestoes.filter((_, k) => marcadas[k])
+    const retornoSug = escolhidas.find((x) => x.acao.tipo === 'retorno')
+    const acoes = escolhidas.map((x) => x.acao).filter((a) => a.tipo !== 'retorno')
 
-    const { error: insertError } = await supabase.from('evolutions').insert({
-      clinic_id: clinicId,
-      patient_id: appointment.patient_id,
-      appointment_id: appointment.id,
-      professional_id: professionalId,
-      date,
-      description: description.trim(),
-      images: [],
-    })
-
-    if (insertError) {
-      setError(`Erro ao salvar: ${insertError.message}`)
+    let res: Response
+    try {
+      res = await fetch('/api/evolucoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: appointment.patient_id,
+          appointmentId: appointment.id,
+          professionalId,
+          date,
+          description: description.trim(),
+          images: [],
+          aiUsed,
+          acoes,
+        }),
+      })
+    } catch {
+      setError('Erro ao salvar. Verifique a conexão e tente de novo.')
+      setLoading(false)
+      return
+    }
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setError(typeof j.error === 'string' ? j.error : 'Erro ao salvar. Tente de novo.')
       setLoading(false)
       return
     }
 
     setSuccess(true)
     setLoading(false)
-    onSaved()
+    const retorno =
+      retornoSug && retornoSug.acao.tipo === 'retorno'
+        ? { data: dataRetorno(date, retornoSug.acao.dias), motivo: retornoSug.acao.motivo }
+        : null
+    onSaved(retorno)
     setTimeout(onClose, 1500)
   }
+
+  async function handleOrganizar() {
+    setError('')
+    setOrganizando(true)
+    try {
+      const res = await fetch('/api/ia/evolucao/organizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId: appointment.patient_id, texto: description }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || typeof j.texto !== 'string') {
+        setError(typeof j.error === 'string' ? j.error : 'Não foi possível organizar agora. Tente de novo.')
+        return
+      }
+      const novas: Sugestao[] = Array.isArray(j.sugestoes) ? j.sugestoes : []
+      setTextoOriginal(description)
+      setDescription(j.texto)
+      setSugestoes(novas)
+      setMarcadas(novas.map(() => true))
+      setAiUsed(true)
+    } catch {
+      setError('Não foi possível organizar agora. Tente de novo.')
+    } finally {
+      setOrganizando(false)
+    }
+  }
+
+  function handleDesfazer() {
+    if (textoOriginal === null) return
+    setDescription(textoOriginal)
+    setTextoOriginal(null)
+    setSugestoes([])
+    setMarcadas([])
+    setAiUsed(false)
+  }
+
+  function toggleSugestao(i: number) {
+    setMarcadas((prev) => prev.map((m, k) => (k === i ? !m : m)))
+  }
+
+  const nMarcadas = marcadas.filter(Boolean).length
 
   const selectedProf = professionals.find((p) => p.id === professionalId)
 
@@ -216,6 +292,13 @@ export function ModalEvolucao({ open, appointment, professionals, clinicId, onCl
             <label className="block text-sm font-medium text-[#111827] mb-1">
               Descreva a evolução do tratamento desse paciente
             </label>
+            <div className="mb-2">
+              <BarraVoz
+                gravarDisponivel={conectado}
+                onTexto={(t) => setDescription((d) => appendText(d, t))}
+                disabled={loading || organizando}
+              />
+            </div>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -223,7 +306,34 @@ export function ModalEvolucao({ open, appointment, professionals, clinicId, onCl
               rows={5}
               className="w-full px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
             />
+            {conectado && (description.trim() || textoOriginal !== null) && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {description.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleOrganizar}
+                    disabled={organizando || loading}
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#3B82F6] bg-[#EFF6FF] text-sm font-medium text-[#3B82F6] hover:bg-[#DBEAFE] disabled:opacity-50"
+                  >
+                    {organizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                    {organizando ? 'Organizando…' : 'Organizar com IA'}
+                  </button>
+                )}
+                {textoOriginal !== null && (
+                  <button
+                    type="button"
+                    onClick={handleDesfazer}
+                    disabled={organizando || loading}
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50"
+                  >
+                    <Undo2 className="w-4 h-4" /> Desfazer
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+
+          <ListaSugestoes sugestoes={sugestoes} marcadas={marcadas} onToggle={toggleSugestao} />
 
           {/* Upload de imagens */}
           <div>
@@ -279,7 +389,7 @@ export function ModalEvolucao({ open, appointment, professionals, clinicId, onCl
             disabled={loading}
             className="w-full h-11 rounded-xl bg-[#3B82F6] text-white text-sm font-semibold hover:bg-[#2563EB] transition-colors disabled:opacity-50"
           >
-            {loading ? 'Salvando...' : 'Salvar evolução'}
+            {loading ? 'Salvando...' : nMarcadas > 0 ? `Salvar e aplicar ${nMarcadas} ${nMarcadas === 1 ? 'sugestão' : 'sugestões'}` : 'Salvar'}
           </button>
 
           {/* Últimas evoluções */}
