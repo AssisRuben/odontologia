@@ -26,7 +26,7 @@ interface ModalEvolucaoProps {
   professionals: Professional[]
   clinicId: string
   onClose: () => void
-  onSaved: (retorno: { data: string; motivo: string } | null) => void
+  onSaved: (retorno: { data: string; motivo: string; professionalId: string } | null) => void
 }
 
 export function ModalEvolucao({ open, appointment, professionals, onClose, onSaved }: ModalEvolucaoProps) {
@@ -144,7 +144,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
     setLoading(false)
     const retorno =
       retornoSug && retornoSug.acao.tipo === 'retorno'
-        ? { data: dataRetorno(date, retornoSug.acao.dias), motivo: retornoSug.acao.motivo }
+        ? { data: dataRetorno(date, retornoSug.acao.dias), motivo: retornoSug.acao.motivo, professionalId }
         : null
     onSaved(retorno)
     setTimeout(onClose, 1500)
@@ -165,7 +165,8 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
         return
       }
       const novas: Sugestao[] = Array.isArray(j.sugestoes) ? j.sugestoes : []
-      setTextoOriginal(description)
+      // Organizar de novo mantém o texto de antes da primeira organização.
+      setTextoOriginal((o) => o ?? description)
       setDescription(j.texto)
       setSugestoes(novas)
       setMarcadas(novas.map(() => true))

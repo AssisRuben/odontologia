@@ -31,28 +31,29 @@ export async function POST(req: NextRequest) {
     const ficha = buildFicha(input, todayYmd(new Date(), 'America/Sao_Paulo'))
 
     const uso = { kind: 'evolucao' as const, model: ai.model, audio_seconds: null }
+    let r
     try {
-      const r = await ai.client.organize({
+      r = await ai.client.organize({
         model: ai.model,
         schema: EvolucaoOutputSchema,
         name: 'evolucao',
         system: EVOLUCAO_SYSTEM,
         user: `Ficha do paciente:\n${ficha.texto}\n\nTexto do atendimento:\n${p.texto}`,
       })
-      await recordUsage(admin, clinicId, userId, {
-        ...uso, input_tokens: r.inputTokens, output_tokens: r.outputTokens, ok: true,
-      })
-      return {
-        status: 200,
-        body: {
-          texto: montarTexto(r.data.secoes),
-          secoes: r.data.secoes,
-          sugestoes: validarSugestoes(r.data.sugestoes, ficha.refs),
-        },
-      }
     } catch (e) {
       await recordUsage(admin, clinicId, userId, { ...uso, input_tokens: null, output_tokens: null, ok: false })
       throw e
+    }
+    await recordUsage(admin, clinicId, userId, {
+      ...uso, input_tokens: r.inputTokens, output_tokens: r.outputTokens, ok: true,
+    })
+    return {
+      status: 200,
+      body: {
+        texto: montarTexto(r.data.secoes),
+        secoes: r.data.secoes,
+        sugestoes: validarSugestoes(r.data.sugestoes, ficha.refs),
+      },
     }
   })
 }

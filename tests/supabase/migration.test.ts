@@ -352,4 +352,26 @@ describe.each(['2026-11-06-evolucao-por-voz.sql', 'schema.sql'])('%s evolucao-po
     expect(fn).toMatch(/GRANT EXECUTE ON FUNCTION public\.save_evolution_with_actions\([^)]*\) TO service_role;/)
     expect(fn).toContain('Paciente ou consulta inválidos')
   })
+
+  it('trava item e orçamento juntos e não deixa espaço duplo na mensagem', () => {
+    const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.save_evolution_with_actions'))
+    expect(fn).toContain('FOR UPDATE OF bi, b;')
+    expect(fn).not.toMatch(/FOR UPDATE OF bi;/)
+    expect(fn).toContain("'O item% já foi concluído ou mudou. Organize de novo.', COALESCE(' ' || v_procedure, '')")
+    expect(fn).toContain("'O tratamento% já foi concluído ou mudou. Organize de novo.', COALESCE(' ' || v_procedure, '')")
+  })
+})
+
+describe('save_evolution_with_actions', () => {
+  it('é idêntica na migração e no schema.sql', () => {
+    const corpo = (f: string) => {
+      const sql = read(f)
+      const ini = sql.indexOf('CREATE OR REPLACE FUNCTION public.save_evolution_with_actions')
+      const fim = sql.indexOf('GRANT EXECUTE ON FUNCTION public.save_evolution_with_actions', ini)
+      expect(ini).toBeGreaterThanOrEqual(0)
+      expect(fim).toBeGreaterThan(ini)
+      return sql.slice(ini, fim)
+    }
+    expect(corpo('schema.sql')).toBe(corpo('2026-11-06-evolucao-por-voz.sql'))
+  })
 })

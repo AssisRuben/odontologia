@@ -397,7 +397,7 @@ export default function AgendaPage() {
               abrirNovaConsulta({
                 date: new Date(y, m - 1, d),
                 patientId: apt.patient_id,
-                professionalId: apt.professional_id,
+                professionalId: retorno.professionalId,
                 notes: `Retorno: ${retorno.motivo}`,
               })
             }

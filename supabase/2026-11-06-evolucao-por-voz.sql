@@ -103,13 +103,13 @@ BEGIN
         AND b.patient_id = p_patient_id
         AND b.status = 'approved'
         AND bi.approved = TRUE
-      FOR UPDATE OF bi;
+      FOR UPDATE OF bi, b;
 
       IF NOT FOUND OR NOT (
         (v_cur_status = 'pending' AND v_new_status IN ('in_progress','completed'))
         OR (v_cur_status = 'in_progress' AND v_new_status = 'completed')
       ) THEN
-        RAISE EXCEPTION 'O item % já foi concluído ou mudou. Organize de novo.', COALESCE(v_procedure, '');
+        RAISE EXCEPTION 'O item% já foi concluído ou mudou. Organize de novo.', COALESCE(' ' || v_procedure, '');
       END IF;
 
       UPDATE budget_items SET status = v_new_status WHERE id = (v_action->>'id')::uuid;
@@ -138,7 +138,7 @@ BEGIN
         (v_cur_status = 'planned' AND v_new_status IN ('in_progress','completed'))
         OR (v_cur_status = 'in_progress' AND v_new_status = 'completed')
       ) THEN
-        RAISE EXCEPTION 'O tratamento % já foi concluído ou mudou. Organize de novo.', COALESCE(v_procedure, '');
+        RAISE EXCEPTION 'O tratamento% já foi concluído ou mudou. Organize de novo.', COALESCE(' ' || v_procedure, '');
       END IF;
 
       UPDATE treatments SET status = v_new_status WHERE id = (v_action->>'id')::uuid;

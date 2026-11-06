@@ -128,6 +128,16 @@ export function TabAnamneses({ patientId, clinicId }: Props) {
 
 // ─── Modal nova anamnese ──────────────────────────────────────────────────────
 
+// Respostas, selos "IA" e ai_used andam juntos: o preenchimento da IA é calculado
+// sobre o estado atual (inclusive cliques feitos durante a requisição).
+interface Respostas {
+  answers: Record<string, string>
+  iaIds: string[]
+  aiUsed: boolean
+}
+
+const RESPOSTAS_VAZIAS: Respostas = { answers: {}, iaIds: [], aiUsed: false }
+
 function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }: {
   patientId: string
   clinicId: string
@@ -136,22 +146,21 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
   onSaved: () => void
 }) {
   const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0]?.id || '')
-  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [respostas, setRespostas] = useState<Respostas>(RESPOSTAS_VAZIAS)
+  const { answers, iaIds, aiUsed } = respostas
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [erroSalvar, setErroSalvar] = useState('')
   const { conectado } = useIaStatus()
   const [ditado, setDitado] = useState('')
   const [vozOcupada, setVozOcupada] = useState(false)
   const [preenchendo, setPreenchendo] = useState(false)
   const [erroIa, setErroIa] = useState('')
-  const [iaIds, setIaIds] = useState<string[]>([])
-  const [aiUsed, setAiUsed] = useState(false)
 
   const template = templates.find(t => t.id === selectedTemplateId)
 
   function setResposta(id: string, valor: string) {
-    setAnswers(a => ({ ...a, [id]: valor }))
-    setIaIds(ids => ids.filter(x => x !== id))
+    setRespostas(r => ({ ...r, answers: { ...r.answers, [id]: valor }, iaIds: r.iaIds.filter(x => x !== id) }))
   }
 
   async function handlePreencher() {
@@ -172,11 +181,15 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
         respostas: j.respostas,
         observacoes: typeof j.observacoes === 'string' ? j.observacoes : null,
       }
-      const m = mesclarAnamnese(answers, notes, ia)
-      setAnswers(m.answers)
-      setNotes(m.notes)
-      setIaIds(ids => [...new Set([...ids, ...m.preenchidas])])
-      if (m.preenchidas.length > 0 || ia.observacoes) setAiUsed(true)
+      setRespostas(r => {
+        const m = mesclarAnamnese(r.answers, '', ia)
+        return {
+          answers: m.answers,
+          iaIds: [...new Set([...r.iaIds, ...m.preenchidas])],
+          aiUsed: r.aiUsed || m.preenchidas.length > 0 || !!ia.observacoes,
+        }
+      })
+      setNotes(n => mesclarAnamnese({}, n, { respostas: {}, observacoes: ia.observacoes }).notes)
     } catch {
       setErroIa('Não foi possível organizar agora. Tente de novo.')
     } finally {
@@ -186,8 +199,9 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
 
   async function handleSave() {
     setSaving(true)
+    setErroSalvar('')
     const supabase = createClient()
-    await supabase.from('anamneses').insert({
+    const { error } = await supabase.from('anamneses').insert({
       clinic_id: clinicId,
       patient_id: patientId,
       template_id: selectedTemplateId || null,
@@ -196,6 +210,10 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
       ai_used: aiUsed,
     })
     setSaving(false)
+    if (error) {
+      setErroSalvar(`Erro ao salvar: ${error.message}`)
+      return
+    }
     onSaved()
   }
 
@@ -214,8 +232,9 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
           {templates.length > 1 && (
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Modelo</label>
-              <select value={selectedTemplateId} onChange={e => { setSelectedTemplateId(e.target.value); setAnswers({}); setIaIds([]); setAiUsed(false) }}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
+              <select value={selectedTemplateId} disabled={preenchendo}
+                onChange={e => { setSelectedTemplateId(e.target.value); setRespostas(RESPOSTAS_VAZIAS) }}
+                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white disabled:opacity-50">
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
@@ -297,6 +316,7 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
           </div>
         </div>
 
+        {erroSalvar && <p className="px-5 pt-3 text-sm text-red-600">{erroSalvar}</p>}
         <div className="p-5 border-t border-[#E5E7EB] flex gap-3 shrink-0">
           <button onClick={onClose}
             className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
