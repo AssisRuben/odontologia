@@ -331,11 +331,38 @@ Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as 
 
 ### O que não faz
 
-- Não agenda, cancela nem remarca consultas.
+- Agendamento: só como descrito em "Agendamento pelo agente", logo abaixo.
 - Só fala de valores se eles estiverem no texto que a clínica escreveu na configuração do agente.
 - Não dá diagnósticos nem orientação clínica.
 - Só responde a quem escreveu: não envia mensagens por conta própria.
 - Limita-se a 30 respostas por conversa a cada 24 h.
+
+### Agendamento pelo agente
+
+O agente também marca, remarca e desmarca consultas pelo WhatsApp.
+
+1. **Banco:** aplique [`supabase/2026-11-06-agente-agendamento.sql`](supabase/2026-11-06-agente-agendamento.sql) (pode rodar de novo) **antes** de publicar o código novo.
+2. **Profissionais:** em Configurações → Profissionais, marque "Atende pelo WhatsApp" e defina o horário de cada profissional. Sem isso, ninguém aparece nas ofertas.
+3. **Tipos e regras:** em Configurações → Agente do WhatsApp, configure os tipos de consulta (nome, duração, quais profissionais) e as regras (antecedência mínima, dias à frente, intervalo entre horários).
+4. **Horário da clínica:** os horários oferecidos também ficam dentro do horário de funcionamento definido em Configurações → Agente do WhatsApp. Sem horário da clínica, nenhum horário é oferecido.
+
+Como funciona:
+
+- O agente oferece até 5 horários numerados; o paciente responde com o número e o agente confirma a consulta. As ofertas expiram em 2 horas.
+- Remarcar e desmarcar respeitam a antecedência mínima; em cima da hora, a conversa passa para a recepção.
+- Cada paciente pode ter no máximo 2 consultas futuras marcadas pelo WhatsApp; acima disso, a conversa passa para a recepção.
+- Contato novo (número que não é paciente) vira uma ficha, marcada como cadastrada pelo WhatsApp, para completar CPF e dados no atendimento.
+- Na agenda, consultas marcadas pelo agente têm o ícone do WhatsApp; na conversa, aparece o rótulo "Consulta marcada/remarcada/desmarcada" com link para o dia.
+
+O que não faz:
+
+- Feriados e bloqueios dedicados.
+- Lista de espera.
+- Sinal ou pagamento antecipado.
+- Sala ou cadeira.
+- Agendar para outra pessoa (passa para a recepção).
+- Vários procedimentos numa consulta.
+- Lembrete diferente para consultas marcadas pelo WhatsApp.
 
 ### Custo estimado
 

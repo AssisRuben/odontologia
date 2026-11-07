@@ -50,6 +50,25 @@ describe('lastIncomingAt', () => {
   })
 })
 
+describe('hasActiveOffers', () => {
+  const now = new Date('2026-11-06T15:00:00Z')
+  it('true com alguma oferta não vencida; filtra por clínica e conversa', async () => {
+    const offers = [{ n: 1, expires_at: '2026-11-06T14:00:00Z' }, { n: 2, expires_at: '2026-11-06T16:00:00Z' }]
+    const { admin, queries } = fakeAdmin(() => ({ data: { offers }, error: null }))
+    expect(await createSupabaseIncomingDeps(admin).hasActiveOffers('k1', 'cv1', now)).toBe(true)
+    expect(queries[0].table).toBe('conversations')
+    expect(queries[0].calls).toContainEqual(['eq', 'clinic_id', 'k1'])
+    expect(queries[0].calls).toContainEqual(['eq', 'id', 'cv1'])
+  })
+
+  it('false com ofertas vencidas, vazias ou sem conversa', async () => {
+    for (const data of [{ offers: [{ n: 1, expires_at: '2026-11-06T15:00:00Z' }] }, { offers: [] }, { offers: null }, null]) {
+      const { admin } = fakeAdmin(() => ({ data, error: null }))
+      expect(await createSupabaseIncomingDeps(admin).hasActiveOffers('k1', 'cv1', now)).toBe(false)
+    }
+  })
+})
+
 const MEDIA = { key: { id: 'pm' }, message: { audioMessage: {} } }
 
 describe('transcribeAudio', () => {

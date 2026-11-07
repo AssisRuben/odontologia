@@ -1,5 +1,7 @@
 import { formatHours, type AgentConfig } from './config'
-import { HISTORY_LIMIT, MAX_NEXT_APPOINTMENTS } from './conversa'
+import { HISTORY_LIMIT } from './conversa'
+import { MAX_APPOINTMENT_ALIASES } from './agendamento/limites'
+import { diaCurto, type Oferta } from './agendamento/ofertas'
 
 export type HistoryItem = {
   role: 'paciente' | 'assistente' | 'equipe' | 'automatica'
@@ -16,7 +18,10 @@ export type AgentContextInput = {
     timezone: string
   }
   contact: { kind: 'patient'; firstName: string } | { kind: 'new'; name: string | null }
-  nextAppointments: { start: string; professional: string | null }[]
+  tipos: { nome: string; duracao_min: number }[]
+  consultas: { alias: string; start: string; procedure: string | null; professional: string | null }[]
+  ofertas: Oferta[]
+  antecedenciaH: number
   history: HistoryItem[]
   now: Date
 }
@@ -60,18 +65,32 @@ function formatNow(date: Date, tz: string): string {
   return `${p.weekday}, ${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`
 }
 
-function formatAppointment(a: { start: string; professional: string | null }, tz: string): string {
-  const p = parts(new Date(a.start), tz, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-  const when = `${p.day}/${p.month} ${p.hour}:${p.minute}`
-  return a.professional ? `${when} com ${a.professional}` : when
+function formatWhen(start: string, tz: string): string {
+  const d = new Date(start)
+  const p = parts(d, tz, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return `${diaCurto(d, tz)} ${p.day}/${p.month} ${p.hour}:${p.minute}`
+}
+
+function formatConsulta(c: AgentContextInput['consultas'][number], tz: string): string {
+  const base = `${c.alias} = ${formatWhen(c.start, tz)}${c.procedure ? ` ${c.procedure}` : ''}`
+  return c.professional ? `${base} com ${c.professional}` : base
+}
+
+function formatOfertas(ofertas: Oferta[], now: Date, tz: string): string {
+  const vigentes = ofertas.filter((o) => new Date(o.expires_at).getTime() > now.getTime())
+  if (!vigentes.length) return 'Opções oferecidas: nenhuma'
+  const ate = Math.min(...vigentes.map((o) => new Date(o.expires_at).getTime()))
+  const p = parts(new Date(ate), tz, { hour: '2-digit', minute: '2-digit' })
+  const itens = vigentes.map((o) => `${o.n}) ${formatWhen(o.start, tz)} ${o.professional_name}`)
+  return `Opções oferecidas (válidas até ${p.hour}:${p.minute}): ${itens.join('; ')}`
 }
 
 export function buildAgentContext(input: AgentContextInput): string {
-  const { clinic, contact, nextAppointments, history, now } = input
+  const { clinic, contact, tipos, consultas, ofertas, antecedenciaH, history, now } = input
   const contactLine = contact.kind === 'patient'
     ? `paciente ${contact.firstName}`
     : `contato novo (nome: ${contact.name || 'não informado'})`
-  const appts = nextAppointments.slice(0, MAX_NEXT_APPOINTMENTS).map((a) => formatAppointment(a, clinic.timezone))
+  const appts = consultas.slice(0, MAX_APPOINTMENT_ALIASES).map((c) => formatConsulta(c, clinic.timezone))
   const lines = [
     `Clínica: ${clinic.name} · Endereço: ${clinic.address || 'não informado'} · Telefone: ${clinic.phone || 'não informado'}`,
     `Convênios aceitos: ${clinic.insurances.length ? clinic.insurances.join(', ') : 'nenhum cadastrado'}`,
@@ -81,7 +100,10 @@ export function buildAgentContext(input: AgentContextInput): string {
     clinic.config.info.trim() || '(nenhuma)',
     '',
     `Contato: ${contactLine}`,
-    `Próximas consultas: ${appts.length ? appts.join('; ') : 'nenhuma'}`,
+    `Tipos de consulta que você pode marcar: ${tipos.length ? tipos.map((t) => `${t.nome} (${t.duracao_min} min)`).join('; ') : 'nenhum (não marque; passe para a recepção)'}`,
+    `Próximas consultas do paciente: ${appts.length ? appts.join('; ') : 'nenhuma'}`,
+    formatOfertas(ofertas, now, clinic.timezone),
+    `Antecedência mínima para marcar, remarcar ou desmarcar: ${antecedenciaH} h`,
     '',
     `Conversa (mais antiga primeiro, até ${HISTORY_LIMIT}):`,
     ...history.slice(-HISTORY_LIMIT).map((h) => `${ROLE_LABEL[h.role]} ${h.body}`),

@@ -7,17 +7,19 @@ import { sendNow } from '@/lib/messaging/sendNow'
 import type { AgentConversation, AgentDeps } from './agente'
 import { normalizeAgentConfig } from './config'
 import { HISTORY_LIMIT, MAX_NEXT_APPOINTMENTS } from './conversa'
+import { createAgendaDeps } from './agendamento/repo'
 import { historyBody, historyRole } from './contexto'
 
 function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
 }
 
-const CONV_COLUMNS = 'id, clinic_id, phone, patient_id, contact_name, handler, last_message_at'
+const CONV_COLUMNS = 'id, clinic_id, phone, patient_id, contact_name, handler, last_message_at, offers, booking_draft, searches'
 
 export function createAgentDeps(admin: SupabaseClient): AgentDeps {
   const aiDeps = createAiDeps(admin, WA_AI_OPTIONS)
   return {
+    agenda: createAgendaDeps(admin),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 
     async loadConversation(id) {
@@ -78,7 +80,7 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
     async nextAppointments(clinicId, patientId, now) {
       const { data, error } = await admin
         .from('appointments')
-        .select('start_time, professionals(name)')
+        .select('id, start_time, procedure, professionals(name)')
         .eq('clinic_id', clinicId)
         .eq('patient_id', patientId)
         .gt('start_time', now.toISOString())
@@ -86,9 +88,9 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
         .order('start_time', { ascending: true })
         .limit(MAX_NEXT_APPOINTMENTS)
       check(error)
-      return ((data ?? []) as unknown as { start_time: string; professionals: { name: string } | { name: string }[] | null }[]).map((a) => {
+      return ((data ?? []) as unknown as { id: string; start_time: string; procedure: string | null; professionals: { name: string } | { name: string }[] | null }[]).map((a) => {
         const prof = Array.isArray(a.professionals) ? a.professionals[0] : a.professionals
-        return { start: a.start_time, professional: prof?.name ?? null }
+        return { id: a.id, start: a.start_time, procedure: a.procedure ?? null, professional: prof?.name ?? null }
       })
     },
 
@@ -159,7 +161,7 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
       return (data?.created_at as string | undefined) ?? null
     },
 
-    async sendAgentMessage(conv, body) {
+    async sendAgentMessage(conv, body, extra) {
       const { data, error } = await admin
         .from('whatsapp_connections')
         .select('instance, token, status')
@@ -175,6 +177,7 @@ export function createAgentDeps(admin: SupabaseClient): AgentDeps {
         direction: 'out',
         phone: conv.phone,
         body,
+        ...(extra ? { appointment_id: extra.appointmentId, agent_action: extra.agentAction } : {}),
       }
       const res = await sendNow(admin, { instance: data.instance as string, token: data.token as string }, row)
       if (!res.ok) return false

@@ -4,6 +4,9 @@ import { NO_KEY_ERROR } from '@/lib/ia/erros'
 import { simulateAgent } from '@/lib/agente/agente'
 import { MAX_INCOMING_CHARS } from '@/lib/agente/conversa'
 import { createAgentDeps } from '@/lib/agente/repo'
+import type { Oferta } from '@/lib/agente/agendamento/ofertas'
+import { ofertasParaResposta } from '@/lib/agente/agendamento/rotas'
+import { normalizeMessagingConfig } from '@/lib/messaging/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,10 +18,16 @@ export async function POST(req: NextRequest) {
     if (!texto || texto.length > MAX_INCOMING_CHARS) return { status: 422, body: { error: 'Mensagem vazia ou longa demais' } }
     const r = await simulateAgent(createAgentDeps(admin), clinicId, texto, new Date())
     if (r === 'no_key') return { status: NO_KEY_ERROR.status, body: { error: NO_KEY_ERROR.error } }
-    const d = r as Record<string, unknown>
+    const d = r as Record<string, unknown> & { ofertas?: Oferta[] }
+    let tz = 'America/Sao_Paulo'
+    if (d.ofertas?.length) {
+      const { data, error } = await admin.from('clinics').select('messaging_config').eq('id', clinicId).single()
+      if (error) throw new Error(error.message)
+      tz = normalizeMessagingConfig((data as { messaging_config: unknown }).messaging_config).timezone
+    }
     return {
       status: 200,
-      body: { acao: d.acao, resposta: d.resposta ?? null, nome: d.nome ?? null, motivo: d.motivo ?? null },
+      body: { acao: d.acao, resposta: d.resposta ?? null, nome: d.nome ?? null, motivo: d.motivo ?? null, ofertas: ofertasParaResposta(d.ofertas, tz) },
     }
   })
 }
