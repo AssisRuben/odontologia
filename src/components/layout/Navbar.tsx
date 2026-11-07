@@ -116,8 +116,13 @@ export function Navbar() {
             <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
               <Bell className="w-4 h-4" />
             </button>
-            <Link href="/mensagens" className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
+            <Link
+              href="/mensagens"
+              className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              aria-label={pendingChats > 0 ? `Mensagens: ${pendingChats} conversa(s) aguardando` : 'Mensagens'}
+            >
               <MessageSquare className="w-4 h-4" />
+              {pendingChats > 0 && <CountBadge value={pendingChats} />}
             </Link>
             <Link href="/configuracoes" className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
               <Settings className="w-4 h-4" />
@@ -137,10 +142,11 @@ export function Navbar() {
             </button>
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
-              aria-label="Mais opções"
+              className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              aria-label={pendingChats > 0 ? `Mais opções: ${pendingChats} conversa(s) aguardando` : 'Mais opções'}
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {!mobileOpen && pendingChats > 0 && <CountBadge value={pendingChats} />}
             </button>
           </div>
         </div>
@@ -218,5 +224,14 @@ export function Navbar() {
         </button>
       </nav>
     </>
+  )
+}
+
+/** Número vermelho sobre um ícone (ex.: conversas aguardando a recepção). */
+function CountBadge({ value }: { value: number }) {
+  return (
+    <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+      {value > 99 ? '99+' : value}
+    </span>
   )
 }
