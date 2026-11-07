@@ -95,6 +95,14 @@ function estadoDe(c: AgentConversation) {
   return { ...c, offers: c.offers ?? [], booking_draft: c.booking_draft ?? null, searches: c.searches ?? [] }
 }
 
+/** As ofertas mostradas à IA ainda são as da conversa? (outra execução pode ter feito nova busca) */
+function mesmasOfertas(a: Oferta[], b: Oferta[]): boolean {
+  return a.length === b.length && a.every((o, i) => {
+    const x = b[i]
+    return o.n === x.n && o.start === x.start && o.professional_id === x.professional_id && o.expires_at === x.expires_at
+  })
+}
+
 function resultadoDe(r: ResultadoAgenda): AgentResult {
   if (r.handoff) return 'handed_off'
   if (r.agentAction === 'marcada') return 'booked'
@@ -211,7 +219,10 @@ export async function runAgent(
   let agenda: ResultadoAgenda | null = null
   if (isAgenda(decision)) {
     try {
-      agenda = await executarAgenda(deps.agenda, estadoDe(fresh), ctxAgenda!, decision, now())
+      const estado = estadoDe(fresh)
+      // M4: a IA escolheu entre ofertas que já foram trocadas: conta como vencida (nova busca).
+      if (!mesmasOfertas(conv.offers ?? [], estado.offers)) estado.offers = []
+      agenda = await executarAgenda(deps.agenda, estado, ctxAgenda!, decision, now())
     } catch (e) {
       console.error('[agente] falha na agenda:', e instanceof Error ? e.name : 'erro')
       return fail(inputTokens, outputTokens)

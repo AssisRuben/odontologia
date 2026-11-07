@@ -47,7 +47,7 @@ function make(over: Partial<AgentDeps> = {}, out: Out | Error = reply) {
       carregar: vi.fn(async () => ({ profissionais: [prof], ocupados: [] })),
       salvarEstado: vi.fn(async () => {}),
       criarPaciente: vi.fn(async () => 'p9'),
-      ligarPaciente: vi.fn(async () => {}),
+      ligarPaciente: vi.fn(async (_c: string, _i: string, p: string) => p),
       contarFuturasWhatsapp: vi.fn(async () => 0),
       gravar: vi.fn(async () => ({ ok: true as const, id: 'a1' })),
       desmarcar: vi.fn(async () => true),
@@ -279,6 +279,24 @@ describe('runAgent agenda', () => {
     expect(deps.sendAgentMessage).not.toHaveBeenCalled()
     expect(deps.markUnread).toHaveBeenCalledWith('c1')
     expect(deps.recordUsage).toHaveBeenCalledWith('k1', expect.objectContaining({ ok: false }))
+  })
+  it('ofertas mudaram durante a IA: a escolha conta como vencida e busca de novo (M4)', async () => {
+    const nova = { ...offer, start: '2026-11-11T13:00:00Z', end: '2026-11-11T13:30:00Z', expires_at: '2026-11-06T16:30:00Z' }
+    const { deps } = make({
+      ...patientDeps,
+      loadConversation: vi.fn().mockResolvedValueOnce(pconv).mockResolvedValueOnce({ ...pconv, offers: [nova] }),
+    }, marcar)
+    expect(await run(deps)).toBe('offered')
+    expect(deps.agenda.gravar).not.toHaveBeenCalled()
+    const body = (vi.mocked(deps.sendAgentMessage).mock.calls[0] as unknown[])[1] as string
+    expect(body.startsWith('Esses horários expiraram. Vou buscar de novo.')).toBe(true)
+  })
+  it('ofertas iguais na releitura: marca normalmente (M4)', async () => {
+    const { deps } = make({
+      ...patientDeps,
+      loadConversation: vi.fn().mockResolvedValueOnce(pconv).mockResolvedValueOnce({ ...pconv, offers: [{ ...offer }] }),
+    }, marcar)
+    expect(await run(deps)).toBe('booked')
   })
   it('recepção assumiu durante a IA: não grava', async () => {
     const { deps } = make({

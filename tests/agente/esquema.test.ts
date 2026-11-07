@@ -19,6 +19,15 @@ describe('AGENT_SYSTEM agendamento', () => {
     expect(AGENT_SYSTEM).toContain('nome (em guardar_nome e, para contato novo, em marcar; senão null)')
     expect(AGENT_SYSTEM).not.toContain('somente em guardar_nome')
   })
+
+  it('R9: em marcar/remarcar/desmarcar a resposta é só uma frase curta e neutra', () => {
+    expect(AGENT_SYSTEM).toContain("Em marcar, remarcar e desmarcar, a resposta é só uma frase curta e neutra (ex.: 'Um momento.')")
+  })
+
+  it('M6: buscar_horarios também quando o paciente pede outras opções ou dias', () => {
+    expect(AGENT_SYSTEM).not.toContain('e ainda não há opções vigentes')
+    expect(AGENT_SYSTEM).toContain('ou pede outras opções, outro dia ou outro período')
+  })
 })
 
 const pref = (o = {}) => ({ dias_semana: null, periodo: null, a_partir_de: null, profissional: null, ...o })

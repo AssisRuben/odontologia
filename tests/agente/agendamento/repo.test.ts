@@ -106,4 +106,16 @@ describe('createAgendaDeps', () => {
     expect(queries[1].calls).toContainEqual(['eq', 'clinic_id', 'k1'])
     expect(queries[1].calls).toContainEqual(['is', 'patient_id', null])
   })
+
+  it('ligarPaciente devolve o paciente ligado; se outro ligou antes, relê a conversa (M3)', async () => {
+    const ok = fakeAdmin(() => ({ data: [{ id: 'c1' }], error: null }))
+    expect(await createAgendaDeps(ok.admin).ligarPaciente('k1', 'c1', 'pa')).toBe('pa')
+    expect(ok.queries[0].calls).toContainEqual(['select', 'id'])
+    expect(ok.queries).toHaveLength(1)
+
+    const outro = fakeAdmin((_q, i) => (i === 0 ? { data: [], error: null } : { data: { patient_id: 'pb' }, error: null }))
+    expect(await createAgendaDeps(outro.admin).ligarPaciente('k1', 'c1', 'pa')).toBe('pb')
+    expect(outro.queries[1].calls).toContainEqual(['eq', 'clinic_id', 'k1'])
+    expect(outro.queries[1].calls).toContainEqual(['eq', 'id', 'c1'])
+  })
 })

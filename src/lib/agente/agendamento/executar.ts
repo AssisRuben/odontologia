@@ -30,7 +30,8 @@ export interface AgendaDeps {
   carregar(clinicId: string, from: Date, to: Date): Promise<{ profissionais: (ProfissionalAgenda & { whatsappBooking: boolean })[]; ocupados: Ocupado[] }>
   salvarEstado(clinicId: string, conversationId: string, estado: { offers: Oferta[]; booking_draft: BookingDraft | null; searches: string[] }): Promise<void>
   criarPaciente(clinicId: string, nome: string, phone: string): Promise<string>
-  ligarPaciente(clinicId: string, conversationId: string, patientId: string): Promise<void>
+  /** Liga o paciente à conversa (se ainda sem paciente) e devolve o paciente que ficou ligado a ela. */
+  ligarPaciente(clinicId: string, conversationId: string, patientId: string): Promise<string>
   contarFuturasWhatsapp(clinicId: string, patientId: string, now: Date): Promise<number>
   gravar(args: GravarArgs): Promise<GravarResultado>
   desmarcar(clinicId: string, patientId: string, appointmentId: string): Promise<boolean>
@@ -75,6 +76,9 @@ export const MOTIVO_REMARCAR = 'Remarcação em cima da hora'
 export const MOTIVO_DESMARCAR = 'Cancelamento em cima da hora'
 export const MOTIVO_ALTERADA = 'Consulta alterada pela clínica'
 
+/** R9: nas passagens vindas da agenda o texto é do app, não da IA. */
+export const TEXTO_PASSAGEM = 'Vou passar sua conversa para a recepção, que já te responde.'
+
 function norm(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
@@ -103,7 +107,7 @@ export async function executarAgenda(
     return Number.isFinite(t) && now.getTime() - t < DAY_MS
   })
 
-  const passar = (motivo: string): ResultadoAgenda => ({ texto: d.resposta, handoff: motivo, appointmentId: null, agentAction: null })
+  const passar = (motivo: string): ResultadoAgenda => ({ texto: TEXTO_PASSAGEM, handoff: motivo, appointmentId: null, agentAction: null })
   const ativo = (nome: string | null | undefined): TipoConsulta | null => {
     if (!nome) return null
     const q = norm(nome)
@@ -147,7 +151,9 @@ export async function executarAgenda(
       booking_draft: { tipo: tipo.nome, replace_appointment_id: args.replaceId },
       searches: [...buscasRecentes, now.toISOString()],
     })
-    return { texto: juntar(d.resposta, args.aviso, textoLista(offers, tz, relaxou)), handoff: null, appointmentId: null, agentAction: null }
+    // R9: só a busca pedida pela IA leva a resposta dela como introdução; a nova busca automática leva só o aviso.
+    const intro = args.automatica ? null : d.resposta
+    return { texto: juntar(intro, args.aviso, textoLista(offers, tz, relaxou)), handoff: null, appointmentId: null, agentAction: null }
   }
 
   /** Oferta escolhida ainda vigente e fora da antecedência mínima. */
@@ -179,7 +185,7 @@ export async function executarAgenda(
     }
     await deps.salvarEstado(conv.clinic_id, conv.id, { offers: [], booking_draft: null, searches: buscasRecentes })
     const confirmacao = replaceId ? textoRemarcada(o, tz) : textoMarcada(o, clinic.address, tz)
-    return { texto: juntar(d.resposta, confirmacao), handoff: null, appointmentId: r.id, agentAction: replaceId ? 'remarcada' : 'marcada' }
+    return { texto: confirmacao, handoff: null, appointmentId: r.id, agentAction: replaceId ? 'remarcada' : 'marcada' }
   }
 
   switch (d.acao) {
@@ -214,9 +220,13 @@ export async function executarAgenda(
       if (!patientId) {
         const nome = nomeCompleto(d.nome) ?? nomeCompleto(conv.contact_name)
         if (!nome) return { texto: TEXTO_NOME, handoff: null, appointmentId: null, agentAction: null }
-        patientId = await deps.criarPaciente(conv.clinic_id, nome, conv.phone)
-        await deps.ligarPaciente(conv.clinic_id, conv.id, patientId)
-      } else if ((await deps.contarFuturasWhatsapp(conv.clinic_id, patientId, now)) >= MAX_FUTURE_WA_APPOINTMENTS) {
+        const criado = await deps.criarPaciente(conv.clinic_id, nome, conv.phone)
+        // M3: outra execução pode ter ligado um paciente à conversa antes: marca para ele.
+        const ligado = await deps.ligarPaciente(conv.clinic_id, conv.id, criado)
+        if (ligado === criado) return gravarOferta(o, criado, null)
+        patientId = ligado
+      }
+      if ((await deps.contarFuturasWhatsapp(conv.clinic_id, patientId, now)) >= MAX_FUTURE_WA_APPOINTMENTS) {
         return passar(MOTIVO_LIMITE)
       }
       return gravarOferta(o, patientId, null)
@@ -239,7 +249,7 @@ export async function executarAgenda(
       if (!c || !conv.patient_id || !foraDaAntecedencia(c)) return passar(MOTIVO_DESMARCAR)
       const ok = await deps.desmarcar(conv.clinic_id, conv.patient_id, c.id)
       if (!ok) return passar(MOTIVO_DESMARCAR)
-      return { texto: juntar(d.resposta, textoDesmarcada(c, tz)), handoff: null, appointmentId: c.id, agentAction: 'desmarcada' }
+      return { texto: textoDesmarcada(c, tz), handoff: null, appointmentId: c.id, agentAction: 'desmarcada' }
     }
   }
 }

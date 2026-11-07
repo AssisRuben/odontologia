@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { executarAgenda, type AgendaDeps, type EstadoConversa, type ContextoAgenda } from '@/lib/agente/agendamento/executar'
+import { executarAgenda, TEXTO_PASSAGEM, type AgendaDeps, type EstadoConversa, type ContextoAgenda } from '@/lib/agente/agendamento/executar'
 import { criarOfertas, TEXTO_NOME, TEXTO_VENCIDA, TEXTO_OCUPADO, TEXTO_FECHO, type Oferta } from '@/lib/agente/agendamento/ofertas'
 import { TIPOS_PADRAO, REGRAS_PADRAO } from '@/lib/agente/agendamento/config'
 import type { AgentDecision } from '@/lib/agente/esquema'
@@ -21,7 +21,7 @@ function makeDeps(over: Partial<AgendaDeps> = {}) {
     carregar: vi.fn<AgendaDeps['carregar']>(async () => ({ profissionais: [prof], ocupados: [] })),
     salvarEstado: vi.fn<AgendaDeps['salvarEstado']>(async () => {}),
     criarPaciente: vi.fn<AgendaDeps['criarPaciente']>(async () => 'pac-novo'),
-    ligarPaciente: vi.fn<AgendaDeps['ligarPaciente']>(async () => {}),
+    ligarPaciente: vi.fn<AgendaDeps['ligarPaciente']>(async (_c, _i, patientId) => patientId),
     contarFuturasWhatsapp: vi.fn<AgendaDeps['contarFuturasWhatsapp']>(async () => 0),
     gravar: vi.fn<AgendaDeps['gravar']>(async () => ({ ok: true as const, id: 'ap-novo' })),
     desmarcar: vi.fn<AgendaDeps['desmarcar']>(async () => true),
@@ -95,7 +95,7 @@ describe('buscar_horarios', () => {
   it('tipo fora da lista → recepção', async () => {
     const deps = makeDeps()
     const r = await executarAgenda(deps, conv(), ctx(), buscar('Clareamento'), now)
-    expect(r).toEqual({ texto: 'Vou ver os horários.', handoff: 'Tipo de consulta fora da lista', appointmentId: null, agentAction: null })
+    expect(r).toEqual({ texto: TEXTO_PASSAGEM, handoff: 'Tipo de consulta fora da lista', appointmentId: null, agentAction: null })
     expect(deps.salvarEstado).not.toHaveBeenCalled()
   })
 
@@ -118,7 +118,7 @@ describe('buscar_horarios', () => {
     const deps = makeDeps({ carregar: vi.fn(async () => ({ profissionais: [{ ...prof, whatsappBooking: false }], ocupados: [] })) })
     const r = await executarAgenda(deps, conv(), ctx(), buscar(), now)
     expect(r.handoff).toBe('Sem horário disponível')
-    expect(r.texto).toBe('Vou ver os horários.')
+    expect(r.texto).toBe('Vou passar sua conversa para a recepção, que já te responde.')
   })
 
   it('profissional fora do tipo não entra', async () => {
@@ -169,7 +169,7 @@ describe('marcar', () => {
       start: '2026-11-10T12:00:00Z', end: '2026-11-10T12:30:00Z', procedure: 'Avaliação', replaceId: null,
     })
     expect(r).toEqual({
-      texto: 'Certo!\n\nPronto! Avaliação marcada para terça-feira, 10/11, às 9h com Dr. Carlos Mendes. Endereço: Rua A, 10.',
+      texto: 'Pronto! Avaliação marcada para terça-feira, 10/11, às 9h com Dr. Carlos Mendes. Endereço: Rua A, 10.',
       handoff: null, appointmentId: 'ap-novo', agentAction: 'marcada',
     })
     expect(deps.salvarEstado).toHaveBeenCalledWith('k1', 'conv1', { offers: [], booking_draft: null, searches: [] })
@@ -183,7 +183,7 @@ describe('marcar', () => {
     expect(deps.gravar).not.toHaveBeenCalled()
     expect(deps.carregar).toHaveBeenCalledTimes(1)
     expect(r.handoff).toBeNull()
-    expect(r.texto.startsWith(`Certo!\n\n${TEXTO_VENCIDA}\n\n1) `)).toBe(true)
+    expect(r.texto.startsWith(`${TEXTO_VENCIDA}\n\n1) `)).toBe(true)
     const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { offers: Oferta[] }])[2]
     expect(estado.offers.length).toBeGreaterThan(0)
     expect(estado.offers[0].tipo).toBe('Avaliação')
@@ -235,6 +235,22 @@ describe('marcar', () => {
     const r = await executarAgenda(deps, conv({ offers: ofertaBase }), ctx(), marcar(1), now)
     expect(deps.contarFuturasWhatsapp).toHaveBeenCalledWith('k1', 'pac1', now)
     expect(r.handoff).toBe('Limite de consultas pelo WhatsApp')
+    expect(r.texto).toBe(TEXTO_PASSAGEM)
+    expect(deps.gravar).not.toHaveBeenCalled()
+  })
+
+  it('contato novo ligado em paralelo: marca para o paciente já ligado (M3)', async () => {
+    const deps = makeDeps({ ligarPaciente: vi.fn(async () => 'pac-outro') })
+    const r = await executarAgenda(deps, conv({ patient_id: null, offers: ofertaBase }), ctx(), marcar(1, 'Maria Souza'), now)
+    expect(deps.contarFuturasWhatsapp).toHaveBeenCalledWith('k1', 'pac-outro', now)
+    expect(deps.gravar).toHaveBeenCalledWith(expect.objectContaining({ patientId: 'pac-outro' }))
+    expect(r.agentAction).toBe('marcada')
+  })
+
+  it('contato novo ligado em paralelo com limite atingido → recepção (M3)', async () => {
+    const deps = makeDeps({ ligarPaciente: vi.fn(async () => 'pac-outro'), contarFuturasWhatsapp: vi.fn(async () => 2) })
+    const r = await executarAgenda(deps, conv({ patient_id: null, offers: ofertaBase }), ctx(), marcar(1, 'Maria Souza'), now)
+    expect(r.handoff).toBe('Limite de consultas pelo WhatsApp')
     expect(deps.gravar).not.toHaveBeenCalled()
   })
 
@@ -245,7 +261,7 @@ describe('marcar', () => {
     expect(deps.carregar).toHaveBeenCalledTimes(1)
     expect(r.handoff).toBeNull()
     expect(r.agentAction).toBeNull()
-    expect(r.texto.startsWith(`Certo!\n\n${TEXTO_OCUPADO}\n\n1) `)).toBe(true)
+    expect(r.texto.startsWith(`${TEXTO_OCUPADO}\n\n1) `)).toBe(true)
 
     // segunda vez: a nova busca não acha nada → recepção
     const deps2 = makeDeps({
@@ -254,7 +270,7 @@ describe('marcar', () => {
     })
     const r2 = await executarAgenda(deps2, conv({ offers: ofertaBase }), ctx(), marcar(1), now)
     expect(deps2.gravar).toHaveBeenCalledTimes(1)
-    expect(r2).toEqual({ texto: 'Certo!', handoff: 'Sem horário disponível', appointmentId: null, agentAction: null })
+    expect(r2).toEqual({ texto: TEXTO_PASSAGEM, handoff: 'Sem horário disponível', appointmentId: null, agentAction: null })
   })
 
   it('marcar com remarcação em andamento remarca (R4)', async () => {
@@ -264,7 +280,7 @@ describe('marcar', () => {
     expect(deps.gravar).toHaveBeenCalledWith(expect.objectContaining({ replaceId: 'ap1', start: '2026-11-10T11:30:00Z' }))
     expect(deps.contarFuturasWhatsapp).not.toHaveBeenCalled()
     expect(r).toEqual({
-      texto: 'Certo!\n\nPronto! Sua consulta foi remarcada para terça-feira, 10/11, às 8h30 com Dr. Carlos Mendes.',
+      texto: 'Pronto! Sua consulta foi remarcada para terça-feira, 10/11, às 8h30 com Dr. Carlos Mendes.',
       handoff: null, appointmentId: 'ap-novo', agentAction: 'remarcada',
     })
   })
@@ -327,7 +343,7 @@ describe('remarcar', () => {
     expect(deps.gravar).toHaveBeenCalledWith(expect.objectContaining({ replaceId: 'ap1', start: '2026-11-10T11:30:00Z', procedure: 'Avaliação' }))
     expect(deps.contarFuturasWhatsapp).not.toHaveBeenCalled()
     expect(r).toEqual({
-      texto: 'Vamos lá.\n\nPronto! Sua consulta foi remarcada para terça-feira, 10/11, às 8h30 com Dr. Carlos Mendes.',
+      texto: 'Pronto! Sua consulta foi remarcada para terça-feira, 10/11, às 8h30 com Dr. Carlos Mendes.',
       handoff: null, appointmentId: 'ap-novo', agentAction: 'remarcada',
     })
     expect(deps.salvarEstado).toHaveBeenCalledWith('k1', 'conv1', { offers: [], booking_draft: null, searches: [] })
@@ -337,7 +353,7 @@ describe('remarcar', () => {
     const deps = makeDeps({ gravar: vi.fn(async () => ({ ok: false as const, erro: 'CONSULTA_INVALIDA' as const })) })
     const r = await executarAgenda(deps, conv({ offers: ofertaBase }), ctx(), remarcar(1), now)
     expect(r.handoff).toBe('Consulta alterada pela clínica')
-    expect(r.texto).toBe('Vamos lá.')
+    expect(r.texto).toBe(TEXTO_PASSAGEM)
     expect(r.agentAction).toBeNull()
   })
 
@@ -363,7 +379,7 @@ describe('desmarcar', () => {
     const r = await executarAgenda(deps, conv(), ctx(), desmarcar(), now)
     expect(deps.desmarcar).toHaveBeenCalledWith('k1', 'pac1', 'ap1')
     expect(r).toEqual({
-      texto: 'Tudo bem.\n\nConsulta de 12/11 às 10h desmarcada. Se quiser marcar outra data, é só pedir.',
+      texto: 'Consulta de 12/11 às 10h desmarcada. Se quiser marcar outra data, é só pedir.',
       handoff: null, appointmentId: 'ap1', agentAction: 'desmarcada',
     })
   })
@@ -372,6 +388,7 @@ describe('desmarcar', () => {
     const deps = makeDeps()
     const r = await executarAgenda(deps, conv(), ctx({}, [{ alias: 'C1', consulta: consultaPerto }]), desmarcar(), now)
     expect(r.handoff).toBe('Cancelamento em cima da hora')
+    expect(r.texto).toBe(TEXTO_PASSAGEM)
     expect(deps.desmarcar).not.toHaveBeenCalled()
   })
 

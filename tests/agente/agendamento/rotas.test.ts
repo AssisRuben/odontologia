@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { normalizeAgentConfig } from '@/lib/agente/config'
 import {
-  prepararConfig, tiposDaClinica, validarAgenda, ofertasParaResposta,
+  prepararConfig, prepararConfigDaClinica, podarTipos, tiposDaClinica, validarAgenda, ofertasParaResposta,
 } from '@/lib/agente/agendamento/rotas'
 
 const P1 = '11111111-1111-4111-8111-111111111111'
@@ -41,6 +41,37 @@ describe('tiposDaClinica', () => {
   })
   it('ok quando todos são da clínica ou null', () => {
     expect(tiposDaClinica([T, { ...T, id: 'b', profissionais: null }], new Set([P1])).ok).toBe(true)
+  })
+})
+
+describe('podarTipos (R8)', () => {
+  it('remove ids que não são profissionais da clínica', () => {
+    expect(podarTipos([{ ...T, profissionais: [P1, P2] }], new Set([P1]))).toEqual([{ ...T, profissionais: [P1] }])
+  })
+  it('lista vazia após podar: ativo false, profissionais null', () => {
+    expect(podarTipos([T], new Set([P2]))).toEqual([{ ...T, profissionais: null, ativo: false }])
+  })
+  it('null fica null; tipo sem ids removidos fica igual', () => {
+    const N = { ...T, id: 'b', profissionais: null }
+    expect(podarTipos([N, T], new Set([P1]))).toEqual([N, T])
+  })
+})
+
+describe('prepararConfigDaClinica (R8)', () => {
+  it('corpo sem tipos: tipos salvos são podados, sem 422', () => {
+    const r = prepararConfigDaClinica(atual, { enabled: true }, new Set([P2]))
+    expect(r).toEqual({ ok: true, config: expect.objectContaining({ tipos: [{ ...T, profissionais: null, ativo: false }] }) })
+  })
+  it('id enviado no corpo que não é da clínica: 422', () => {
+    expect(prepararConfigDaClinica(atual, { tipos: [{ ...T, profissionais: [P2] }] }, new Set([P1])))
+      .toEqual({ ok: false, error: 'Tipo de consulta inválido' })
+  })
+  it('ids do corpo da clínica: ok', () => {
+    const r = prepararConfigDaClinica(atual, { tipos: [{ ...T, profissionais: [P2] }] }, new Set([P2]))
+    expect(r.ok && r.config.tipos).toEqual([{ ...T, profissionais: [P2] }])
+  })
+  it('corpo inválido continua 422', () => {
+    expect(prepararConfigDaClinica(atual, null, new Set([P1])).ok).toBe(false)
   })
 })
 

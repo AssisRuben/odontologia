@@ -57,6 +57,8 @@ export interface IncomingDeps {
   sendAutoReply(args: { clinicId: string; patientId: string | null; phone: string; body: string; appointmentId: string }): Promise<void>
   updateConnection(instance: string, status: ConnectionStatus, phone: string | null): Promise<void>
   agentEnabled(clinicId: string): Promise<boolean>
+  /** A conversa tem ofertas de horário ainda vigentes (expires_at > now)? */
+  hasActiveOffers(clinicId: string, conversationId: string, now: Date): Promise<boolean>
   /** Baixa e transcreve o áudio; registra o uso `transcricao_whatsapp`. */
   transcribeAudio(
     clinicId: string,
@@ -148,6 +150,8 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
 
   const reply = parseReply(text)
   if (!reply) return toAgent
+  // R7: com o agente ligado e uma lista de horários vigente, "1"/"2" escolhe a opção — vai para o agente.
+  if (agentOn && (await deps.hasActiveOffers(clinicId, conversationId, now))) return toAgent
 
   confirmations ??= await deps.recentConfirmations(clinicId, phone, since)
   const target = pickConfirmationTarget(confirmations, now)
@@ -411,6 +415,22 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       const { data, error } = await admin.from('clinics').select('agent_config').eq('id', clinicId).single()
       check(error)
       return normalizeAgentConfig(data!.agent_config).enabled
+    },
+
+    async hasActiveOffers(clinicId, conversationId, now) {
+      const { data, error } = await admin
+        .from('conversations')
+        .select('offers')
+        .eq('clinic_id', clinicId)
+        .eq('id', conversationId)
+        .maybeSingle()
+      check(error)
+      const offers = (data as { offers: { expires_at?: string }[] | null } | null)?.offers
+      if (!Array.isArray(offers)) return false
+      return offers.some((o) => {
+        const t = new Date(o?.expires_at ?? '').getTime()
+        return Number.isFinite(t) && t > now.getTime()
+      })
     },
 
     async transcribeAudio(clinicId, instance, token, media, seconds) {

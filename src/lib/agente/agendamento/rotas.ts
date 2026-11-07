@@ -40,6 +40,31 @@ export function tiposDaClinica(
   return { ok: true }
 }
 
+/** R8: tira dos tipos os profissionais que não são (mais) da clínica; lista que fica vazia desativa o tipo. */
+export function podarTipos(tipos: TipoConsulta[], idsDaClinica: Set<string>): TipoConsulta[] {
+  return tipos.map((t) => {
+    if (!t.profissionais) return t
+    const ficam = t.profissionais.filter((p) => idsDaClinica.has(p))
+    if (ficam.length === t.profissionais.length) return t
+    return ficam.length ? { ...t, profissionais: ficam } : { ...t, profissionais: null, ativo: false }
+  })
+}
+
+/** PUT: poda os tipos salvos, funde com o corpo e valida só os profissionais enviados no corpo. */
+export function prepararConfigDaClinica(
+  atual: AgentConfig,
+  body: unknown,
+  idsDaClinica: Set<string>,
+): { ok: true; config: AgentConfig } | { ok: false; error: string } {
+  const v = prepararConfig({ ...atual, tipos: podarTipos(atual.tipos, idsDaClinica) }, body)
+  if (!v.ok) return v
+  if ((body as Record<string, unknown>).tipos !== undefined) {
+    const ok = tiposDaClinica(v.config.tipos, idsDaClinica)
+    if (!ok.ok) return ok
+  }
+  return v
+}
+
 export function validarAgenda(
   body: unknown,
 ): { ok: true; whatsapp_booking: boolean; hours: WorkingHours } | { ok: false; error: string } {

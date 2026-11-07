@@ -3,7 +3,7 @@ import { withClinic } from '@/lib/ia/rotas'
 import { getAiForClinic } from '@/lib/ia/conexao'
 import { createAiDeps } from '@/lib/ia/repo'
 import { needsPrerequisites, normalizeAgentConfig } from '@/lib/agente/config'
-import { prepararConfig, tiposDaClinica } from '@/lib/agente/agendamento/rotas'
+import { podarTipos, prepararConfigDaClinica } from '@/lib/agente/agendamento/rotas'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,10 +22,11 @@ export async function GET() {
     if (connRes.error) throw new Error(connRes.error.message)
     const c = clinicRes.data as { name: string; address: string | null; phone: string | null; agent_config: unknown }
     const profs = (profRes.data ?? []) as { id: string; name: string; whatsapp_booking: boolean }[]
+    const config = normalizeAgentConfig(c.agent_config)
     return {
       status: 200,
       body: {
-        config: normalizeAgentConfig(c.agent_config),
+        config: { ...config, tipos: podarTipos(config.tipos, new Set(profs.map((p) => p.id))) },
         profissionais: profs.map((p) => ({ id: p.id, name: p.name })),
         profissionaisWhatsApp: profs.filter((p) => p.whatsapp_booking).length,
         clinica: { name: c.name, address: c.address ?? null, phone: c.phone ?? null },
@@ -40,18 +41,17 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   const body = await req.json().catch(() => null)
   return withClinic('agente config PUT', async ({ clinicId, admin }) => {
-    const { data: cur, error: curErr } = await admin.from('clinics').select('agent_config').eq('id', clinicId).single()
-    if (curErr) throw new Error(curErr.message)
-    const atual = normalizeAgentConfig((cur as { agent_config: unknown }).agent_config)
-    // Campos ausentes no corpo (ex.: tela da 6a) mantêm os valores salvos.
-    const v = prepararConfig(atual, body)
+    const [curRes, profRes] = await Promise.all([
+      admin.from('clinics').select('agent_config').eq('id', clinicId).single(),
+      admin.from('professionals').select('id').eq('clinic_id', clinicId),
+    ])
+    if (curRes.error) throw new Error(curRes.error.message)
+    if (profRes.error) throw new Error(profRes.error.message)
+    const atual = normalizeAgentConfig((curRes.data as { agent_config: unknown }).agent_config)
+    const ids = new Set(((profRes.data ?? []) as { id: string }[]).map((p) => p.id))
+    // Campos ausentes no corpo (ex.: tela da 6a) mantêm os valores salvos (podados de profissionais removidos).
+    const v = prepararConfigDaClinica(atual, body, ids)
     if (!v.ok) return { status: 422, body: { error: v.error } }
-    if (v.config.tipos.some((t) => t.profissionais)) {
-      const { data: profs, error: profErr } = await admin.from('professionals').select('id').eq('clinic_id', clinicId)
-      if (profErr) throw new Error(profErr.message)
-      const ok = tiposDaClinica(v.config.tipos, new Set(((profs ?? []) as { id: string }[]).map((p) => p.id)))
-      if (!ok.ok) return { status: 422, body: { error: ok.error } }
-    }
     // Só ao ligar: com o agente já ligado, editar textos/horários funciona mesmo com o WhatsApp caído.
     if (needsPrerequisites(atual, v.config)) {
       const [connRes, ai] = await Promise.all([

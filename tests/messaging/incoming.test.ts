@@ -27,6 +27,7 @@ function makeDeps(over: Partial<IncomingDeps> = {}) {
     sendAutoReply: vi.fn<IncomingDeps['sendAutoReply']>(async () => {}),
     updateConnection: vi.fn(async () => {}),
     agentEnabled: vi.fn(async () => false),
+    hasActiveOffers: vi.fn<IncomingDeps['hasActiveOffers']>(async () => false),
     transcribeAudio: vi.fn<IncomingDeps['transcribeAudio']>(async () => ({ ok: true, text: 'transcrito' })),
     upsertConversation: vi.fn<IncomingDeps['upsertConversation']>(async () => 'conv1'),
     outgoingKnown: vi.fn<IncomingDeps['outgoingKnown']>(async () => false),
@@ -210,6 +211,27 @@ describe('handleIncoming', () => {
     it('"1" sem confirmação recente vai para o agente', async () => {
       const d = makeDeps({ agentEnabled: on(), recentConfirmations: vi.fn(async () => []) })
       expect(await handleIncoming(incoming('1'), d, now)).toEqual({ result: 'stored', agent: { conversationId: 'conv1', messageId: 'in1' } })
+    })
+
+    it('R7: confirmação pendente + ofertas vigentes + "2" vai para o agente, sem mudar status', async () => {
+      const d = makeDeps({ agentEnabled: on(), hasActiveOffers: vi.fn(async () => true) })
+      expect(await handleIncoming(incoming('2'), d, now)).toEqual({ result: 'stored', agent: { conversationId: 'conv1', messageId: 'in1' } })
+      expect(d.hasActiveOffers).toHaveBeenCalledWith('c1', 'conv1', now)
+      expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+      expect(d.setReplyAction).not.toHaveBeenCalled()
+      expect(d.sendAutoReply).not.toHaveBeenCalled()
+    })
+
+    it('R7: confirmação pendente sem ofertas vigentes + "2" cancela como antes', async () => {
+      const d = makeDeps({ agentEnabled: on() })
+      expect(await handleIncoming(incoming('2'), d, now)).toEqual({ result: 'cancelled', agent: null })
+      expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'cancelled')
+    })
+
+    it('R7: agente desligado com ofertas: comportamento antigo (nem consulta ofertas)', async () => {
+      const d = makeDeps({ hasActiveOffers: vi.fn(async () => true) })
+      expect(await handleIncoming(incoming('2'), d, now)).toEqual({ result: 'cancelled', agent: null })
+      expect(d.hasActiveOffers).not.toHaveBeenCalled()
     })
 
     it('agente ligado + número desconhecido: guarda e devolve agent', async () => {

@@ -72,7 +72,12 @@ BEGIN
   RETURNING id INTO v_id;
 
   IF p_replace_id IS NOT NULL THEN
-    UPDATE appointments SET status = 'cancelled' WHERE id = p_replace_id;
+    UPDATE appointments SET status = 'cancelled'
+    WHERE id = p_replace_id AND clinic_id = p_clinic_id AND patient_id = p_patient_id
+      AND status IN ('scheduled','confirmed');
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'CONSULTA_INVALIDA';
+    END IF;
   END IF;
 
   RETURN v_id;

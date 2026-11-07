@@ -56,13 +56,24 @@ export function createAgendaDeps(admin: SupabaseClient): AgendaDeps {
     },
 
     async ligarPaciente(clinicId, conversationId, patientId) {
-      const { error } = await admin
+      const { data, error } = await admin
         .from('conversations')
         .update({ patient_id: patientId })
         .eq('id', conversationId)
         .eq('clinic_id', clinicId)
         .is('patient_id', null)
+        .select('id')
       check(error)
+      if (((data ?? []) as unknown[]).length > 0) return patientId
+      // Nenhuma linha: outra execução ligou um paciente antes; vale o que está na conversa.
+      const { data: conv, error: convErr } = await admin
+        .from('conversations')
+        .select('patient_id')
+        .eq('id', conversationId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      check(convErr)
+      return (conv as { patient_id: string | null } | null)?.patient_id ?? patientId
     },
 
     async contarFuturasWhatsapp(clinicId, patientId, now) {

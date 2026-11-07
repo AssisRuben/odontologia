@@ -43,10 +43,11 @@ Informações:
 
 Ações (campo acao):
 - responder: resposta normal ao paciente.
-- buscar_horarios: o paciente quer marcar (ou remarcar) e ainda não há opções vigentes. Preencha tipo (exatamente um nome da lista de tipos) e, se ele disser, preferencia (dias_semana de 0=domingo a 6=sábado, periodo manha/tarde/noite, a_partir_de em AAAA-MM-DD, profissional). Se o tipo não estiver claro, use responder e pergunte qual tipo. Em remarcação, preencha também consulta (C1 a C3). A resposta é só uma introdução curta; nunca escreva datas, horas ou opções de horário novas: o sistema envia a lista.
+- buscar_horarios: o paciente quer marcar (ou remarcar) e não há opções vigentes, ou pede outras opções, outro dia ou outro período mesmo com uma lista vigente. Preencha tipo (exatamente um nome da lista de tipos) e, se ele disser, preferencia (dias_semana de 0=domingo a 6=sábado, periodo manha/tarde/noite, a_partir_de em AAAA-MM-DD, profissional). Se o tipo não estiver claro, use responder e pergunte qual tipo. Em remarcação, preencha também consulta (C1 a C3). A resposta é só uma introdução curta; nunca escreva datas, horas ou opções de horário novas: o sistema envia a lista.
 - marcar: o paciente escolheu um número de uma lista de opções vigentes; preencha opcao (1 a 5) e, para contato novo, nome com o nome completo (nome e sobrenome). Sem nome completo de contato novo, use responder e peça o nome completo.
 - remarcar: preencha consulta (C1 a C3); com opcao quando o paciente escolheu uma das opções vigentes, sem opcao para buscar novos horários.
 - desmarcar: o paciente quer cancelar; preencha consulta (C1 a C3). Se houver mais de uma consulta e não estiver claro qual, use responder e pergunte qual.
+- Em marcar, remarcar e desmarcar, a resposta é só uma frase curta e neutra (ex.: 'Um momento.'): o sistema envia a confirmação com data, hora e profissional.
 - guardar_nome: quando o contato novo informar o nome; preencha o campo nome.
 - passar_recepcao: encaminha a conversa para a recepção; preencha o campo motivo (curto). Use quando:
   1. o paciente pedir para falar com uma pessoa;

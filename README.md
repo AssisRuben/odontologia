@@ -342,13 +342,15 @@ Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as 
 O agente também marca, remarca e desmarca consultas pelo WhatsApp.
 
 1. **Banco:** aplique [`supabase/2026-11-06-agente-agendamento.sql`](supabase/2026-11-06-agente-agendamento.sql) (pode rodar de novo) **antes** de publicar o código novo.
-2. **Profissionais:** em Configurações → Agente do WhatsApp, marque "Atende pelo WhatsApp" e defina o horário de cada profissional. Sem isso, ninguém aparece nas ofertas.
-3. **Tipos e regras:** na mesma tela, configure os tipos de consulta (nome, duração, quais profissionais) e as regras (antecedência mínima, dias à frente, intervalo entre horários).
+2. **Profissionais:** em Configurações → Profissionais, marque "Atende pelo WhatsApp" e defina o horário de cada profissional. Sem isso, ninguém aparece nas ofertas.
+3. **Tipos e regras:** em Configurações → Agente do WhatsApp, configure os tipos de consulta (nome, duração, quais profissionais) e as regras (antecedência mínima, dias à frente, intervalo entre horários).
+4. **Horário da clínica:** os horários oferecidos também ficam dentro do horário de funcionamento definido em Configurações → Agente do WhatsApp. Sem horário da clínica, nenhum horário é oferecido.
 
 Como funciona:
 
 - O agente oferece até 5 horários numerados; o paciente responde com o número e o agente confirma a consulta. As ofertas expiram em 2 horas.
 - Remarcar e desmarcar respeitam a antecedência mínima; em cima da hora, a conversa passa para a recepção.
+- Cada paciente pode ter no máximo 2 consultas futuras marcadas pelo WhatsApp; acima disso, a conversa passa para a recepção.
 - Contato novo (número que não é paciente) vira uma ficha, marcada como cadastrada pelo WhatsApp, para completar CPF e dados no atendimento.
 - Na agenda, consultas marcadas pelo agente têm o ícone do WhatsApp; na conversa, aparece o rótulo "Consulta marcada/remarcada/desmarcada" com link para o dia.
 

@@ -154,8 +154,13 @@ export default function ProfissionaisPage() {
     }
 
     if (profId && (editing || form.whatsapp)) {
-      const hours: Record<string, Periodos> = {}
-      for (const d of DIAS) if (semana[d.key].length) hours[d.key] = semana[d.key]
+      // Sem "Atende pelo WhatsApp" o horário editado não foi validado: mantém o salvo (normalizado).
+      let hours: Record<string, Periodos> = {}
+      if (form.whatsapp) {
+        for (const d of DIAS) if (semana[d.key].length) hours[d.key] = semana[d.key]
+      } else {
+        hours = normalizeWorkingHours(editing?.working_hours ?? null) as Record<string, Periodos>
+      }
       try {
         const res = await fetch(`/api/profissionais/${profId}/agenda`, {
           method: 'PUT',
