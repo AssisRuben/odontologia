@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
+import { TIPOS_PADRAO, REGRAS_PADRAO } from '@/lib/agente/agendamento/config'
 import { buildAgentContext, firstName, historyBody, historyRole, type AgentContextInput, type HistoryItem } from '@/lib/agente/contexto'
 
 const base = (over: Partial<AgentContextInput> = {}): AgentContextInput => ({
   clinic: {
     name: 'Sorriso', address: 'Rua A, 1', phone: '1133334444', insurances: ['Amil', 'Bradesco'],
-    config: { enabled: true, hours: { '1': ['08:00', '18:00'] }, info: 'Limpeza R$ 100' },
+    config: { enabled: true, hours: { '1': ['08:00', '18:00'] }, info: 'Limpeza R$ 100', tipos: TIPOS_PADRAO, agendamento: REGRAS_PADRAO },
     timezone: 'America/Sao_Paulo',
   },
   contact: { kind: 'patient', firstName: 'Ana' },

@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import { TIPOS_PADRAO, REGRAS_PADRAO } from '@/lib/agente/agendamento/config'
 import { normalizeAgentConfig, validateAgentConfig, formatHours, AGENT_INFO_MAX, needsPrerequisites } from '@/lib/agente/config'
 
 describe('normalizeAgentConfig', () => {
   it('null vira padrão', () => {
-    expect(normalizeAgentConfig(null)).toEqual({ enabled: false, hours: {}, info: '' })
+    expect(normalizeAgentConfig(null)).toEqual({ enabled: false, hours: {}, info: '', tipos: TIPOS_PADRAO, agendamento: REGRAS_PADRAO })
   })
   it('descarta dia com abre >= fecha e dia inexistente', () => {
     const c = normalizeAgentConfig({ enabled: true, hours: { '1': ['18:00', '08:00'], '9': ['08:00', '18:00'], '2': ['08:00', '12:00'] }, info: '' })
@@ -25,7 +26,7 @@ describe('validateAgentConfig', () => {
   })
   it('ok', () => {
     const r = validateAgentConfig({ enabled: true, hours: { '1': ['08:00', '18:00'] }, info: ' oi ' })
-    expect(r).toEqual({ ok: true, config: { enabled: true, hours: { '1': ['08:00', '18:00'] }, info: 'oi' } })
+    expect(r).toEqual({ ok: true, config: { enabled: true, hours: { '1': ['08:00', '18:00'] }, info: 'oi', tipos: TIPOS_PADRAO, agendamento: REGRAS_PADRAO } })
   })
 })
 
@@ -38,8 +39,8 @@ describe('formatHours', () => {
 })
 
 describe('needsPrerequisites', () => {
-  const off = { enabled: false, hours: {}, info: '' }
-  const on = { enabled: true, hours: {}, info: '' }
+  const off = normalizeAgentConfig({ enabled: false })
+  const on = normalizeAgentConfig({ enabled: true })
   it('só ao ligar (desligado → ligado)', () => {
     expect(needsPrerequisites(off, on)).toBe(true)
     expect(needsPrerequisites(on, { ...on, info: 'novo texto' })).toBe(false)

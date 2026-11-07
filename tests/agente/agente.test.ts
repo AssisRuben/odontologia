@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { normalizeAgentConfig } from '@/lib/agente/config'
 import { runAgent, simulateAgent, type AgentDeps, type AgentConversation } from '@/lib/agente/agente'
 import { AiError } from '@/lib/ia/erros'
 import { REASON_FLOOD, REASON_OPT_OUT } from '@/lib/agente/conversa'
@@ -22,7 +23,7 @@ function make(over: Partial<AgentDeps> = {}, out: Out | Error = reply) {
     latestIncomingId: vi.fn(async () => 'm1'),
     loadClinic: vi.fn(async () => ({
       name: 'Clínica', address: null, phone: null, insurances: [],
-      config: { enabled: true, hours: {}, info: '' }, timezone: 'America/Sao_Paulo', whatsappConnected: true,
+      config: normalizeAgentConfig({ enabled: true }), timezone: 'America/Sao_Paulo', whatsappConnected: true,
     })),
     loadPatient: vi.fn(async () => null),
     nextAppointments: vi.fn(async () => []),
@@ -53,8 +54,8 @@ describe('runAgent', () => {
   })
   it('disabled (desligado ou desconectado)', async () => {
     const base = { name: 'C', address: null, phone: null, insurances: [], timezone: 'America/Sao_Paulo' }
-    expect(await run(make({ loadClinic: vi.fn(async () => ({ ...base, config: { enabled: false, hours: {}, info: '' }, whatsappConnected: true })) }).deps)).toBe('disabled')
-    expect(await run(make({ loadClinic: vi.fn(async () => ({ ...base, config: { enabled: true, hours: {}, info: '' }, whatsappConnected: false })) }).deps)).toBe('disabled')
+    expect(await run(make({ loadClinic: vi.fn(async () => ({ ...base, config: normalizeAgentConfig({ enabled: false }), whatsappConnected: true })) }).deps)).toBe('disabled')
+    expect(await run(make({ loadClinic: vi.fn(async () => ({ ...base, config: normalizeAgentConfig({ enabled: true }), whatsappConnected: false })) }).deps)).toBe('disabled')
   })
   it('human recente não responde', async () => {
     const { deps } = make({ loadConversation: vi.fn(async () => ({ ...conv, handler: 'human' as const })) })
@@ -206,7 +207,7 @@ describe('runAgent', () => {
 describe('simulateAgent', () => {
   const clinic = {
     name: 'C', address: null, phone: null, insurances: [],
-    config: { enabled: true, hours: {}, info: '' }, timezone: 'America/Sao_Paulo', whatsappConnected: true,
+    config: normalizeAgentConfig({ enabled: true }), timezone: 'America/Sao_Paulo', whatsappConnected: true,
   }
   it('devolve a decisão e não envia nada', async () => {
     const { deps } = make()
