@@ -16,6 +16,8 @@ describe('AGENT_SYSTEM agendamento', () => {
   it('não manda mais agendamento para a recepção', () => {
     expect(AGENT_SYSTEM).not.toContain('quiser agendar, remarcar ou desmarcar')
     expect(AGENT_SYSTEM).toContain('buscar_horarios')
+    expect(AGENT_SYSTEM).toContain('nome (em guardar_nome e, para contato novo, em marcar; senão null)')
+    expect(AGENT_SYSTEM).not.toContain('somente em guardar_nome')
   })
 })
 

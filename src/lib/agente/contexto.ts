@@ -1,5 +1,6 @@
 import { formatHours, type AgentConfig } from './config'
 import { HISTORY_LIMIT } from './conversa'
+import { MAX_APPOINTMENT_ALIASES } from './agendamento/limites'
 import { diaCurto, type Oferta } from './agendamento/ofertas'
 
 export type HistoryItem = {
@@ -89,7 +90,7 @@ export function buildAgentContext(input: AgentContextInput): string {
   const contactLine = contact.kind === 'patient'
     ? `paciente ${contact.firstName}`
     : `contato novo (nome: ${contact.name || 'não informado'})`
-  const appts = consultas.slice(0, 3).map((c) => formatConsulta(c, clinic.timezone))
+  const appts = consultas.slice(0, MAX_APPOINTMENT_ALIASES).map((c) => formatConsulta(c, clinic.timezone))
   const lines = [
     `Clínica: ${clinic.name} · Endereço: ${clinic.address || 'não informado'} · Telefone: ${clinic.phone || 'não informado'}`,
     `Convênios aceitos: ${clinic.insurances.length ? clinic.insurances.join(', ') : 'nenhum cadastrado'}`,
