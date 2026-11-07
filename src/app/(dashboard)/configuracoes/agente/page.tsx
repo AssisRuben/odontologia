@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, CheckCircle2, Plus, Trash2 } from 'lucide-react'
+import { MAX_TIPOS } from '@/lib/agente/agendamento/config'
+import type { TipoConsulta, RegrasAgendamento } from '@/lib/agente/agendamento/config'
 
 type Hours = Record<string, [string, string] | undefined>
 
 interface View {
-  config: { enabled: boolean; hours: Hours; info: string }
+  config: { enabled: boolean; hours: Hours; info: string; tipos: TipoConsulta[]; agendamento: RegrasAgendamento }
+  profissionais: { id: string; name: string }[]
+  profissionaisWhatsApp: number
   clinica: { name: string; address: string | null; phone: string | null }
   convenios: string[]
   whatsappConectado: boolean
@@ -19,6 +23,17 @@ interface Teste {
   resposta: string | null
   nome: string | null
   motivo: string | null
+  ofertas: { n: number; texto: string }[] | null
+}
+
+const DURACOES = Array.from({ length: 16 }, (_, i) => (i + 1) * 15)
+function fmtDuracao(m: number) {
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  return h ? (r ? `${h}h${r}` : `${h}h`) : `${r} min`
+}
+function novoId() {
+  return `tipo-${crypto.randomUUID().slice(0, 8)}`
 }
 
 const MAX_INFO = 4000
@@ -57,6 +72,8 @@ export default function AgenteConfigPage() {
   const [enabled, setEnabled] = useState(false)
   const [hours, setHours] = useState<Hours>({})
   const [info, setInfo] = useState('')
+  const [tipos, setTipos] = useState<TipoConsulta[]>([])
+  const [regras, setRegras] = useState<RegrasAgendamento>({ antecedencia_h: 24, dias_a_frente: 30, intervalo_min: 30 })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
@@ -80,6 +97,8 @@ export default function AgenteConfigPage() {
       setEnabled(data.config.enabled)
       setHours(data.config.hours)
       setInfo(data.config.info)
+      setTipos(data.config.tipos)
+      setRegras(data.config.agendamento)
     } catch {
       if (mounted.current) setLoadError('Não foi possível carregar as configurações. Verifique sua conexão.')
     }
@@ -107,8 +126,43 @@ export default function AgenteConfigPage() {
     })
   }
 
+  function updTipo(id: string, patch: Partial<TipoConsulta>) {
+    setTipos(ts => ts.map(t => (t.id === id ? { ...t, ...patch } : t)))
+  }
+
+  function addTipo() {
+    setTipos(ts => (ts.length >= MAX_TIPOS ? ts : [...ts, { id: novoId(), nome: '', duracao_min: 30, profissionais: null, ativo: true }]))
+  }
+
+  function toggleProf(t: TipoConsulta, profId: string, on: boolean) {
+    const cur = t.profissionais ?? []
+    updTipo(t.id, { profissionais: on ? [...cur, profId] : cur.filter(x => x !== profId) })
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    for (const t of tipos) {
+      if (!t.nome.trim() || t.nome.trim().length > 60) {
+        setError('Todo tipo de consulta precisa de um nome com até 60 caracteres.')
+        return
+      }
+      if (t.profissionais && t.profissionais.length === 0) {
+        setError(`Escolha ao menos um profissional para "${t.nome.trim()}" ou marque "Todos os profissionais".`)
+        return
+      }
+    }
+    if (!tipos.some(t => t.ativo)) {
+      setError('Deixe ao menos um tipo de consulta ativo.')
+      return
+    }
+    if (!Number.isInteger(regras.antecedencia_h) || regras.antecedencia_h < 0 || regras.antecedencia_h > 168) {
+      setError('Antecedência mínima deve estar entre 0 e 168 horas.')
+      return
+    }
+    if (!Number.isInteger(regras.dias_a_frente) || regras.dias_a_frente < 1 || regras.dias_a_frente > 90) {
+      setError('Dias à frente deve estar entre 1 e 90.')
+      return
+    }
     for (const d of DIAS) {
       const r = hours[d.key]
       if (r && (!r[0] || !r[1] || r[0] >= r[1])) {
@@ -122,7 +176,7 @@ export default function AgenteConfigPage() {
       const res = await fetch('/api/agente/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled, hours, info }),
+        body: JSON.stringify({ enabled, hours, info, tipos: tipos.map(t => ({ ...t, nome: t.nome.trim() })), agendamento: regras }),
       })
       const data = await res.json().catch(() => ({})) as { error?: string }
       if (!mounted.current) return
@@ -253,6 +307,92 @@ export default function AgenteConfigPage() {
 
             <div className={cardCls}>
               <div>
+                <p className="text-sm font-semibold text-[#111827]">Tipos de consulta pelo WhatsApp</p>
+                <p className="text-sm text-[#6B7280]">O agente só marca os tipos ativos desta lista.</p>
+              </div>
+              {view.profissionaisWhatsApp === 0 && (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Nenhum profissional aceita agendamento pelo WhatsApp. Configure em <Link href="/configuracoes/profissionais" className={linkCls}>Profissionais</Link>.
+                </p>
+              )}
+              <div className="space-y-3">
+                {tipos.map((t, i) => (
+                  <div key={t.id} className="border border-[#E5E7EB] rounded-lg p-3 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input type="text" aria-label={`Nome do tipo ${i + 1}`} value={t.nome} maxLength={60}
+                        onChange={e => updTipo(t.id, { nome: e.target.value })} placeholder="Ex.: Limpeza"
+                        disabled={busy} className={`${inputCls} flex-1 min-w-40`} />
+                      <select aria-label={`Duração do tipo ${i + 1}`} value={t.duracao_min} disabled={busy}
+                        onChange={e => updTipo(t.id, { duracao_min: Number(e.target.value) })} className={timeCls}>
+                        {DURACOES.map(m => <option key={m} value={m}>{fmtDuracao(m)}</option>)}
+                      </select>
+                      <label className="flex items-center gap-1.5 text-sm text-[#6B7280]">
+                        <input type="checkbox" checked={t.ativo} disabled={busy}
+                          onChange={e => updTipo(t.id, { ativo: e.target.checked })} className="accent-[#3B82F6]" />
+                        Ativo
+                      </label>
+                      <button type="button" aria-label={`Remover tipo ${t.nome || i + 1}`} disabled={busy || tipos.length <= 1}
+                        onClick={() => setTipos(ts => ts.filter(x => x.id !== t.id))}
+                        className="p-1.5 rounded-lg text-[#6B7280] hover:bg-red-50 hover:text-red-500 disabled:opacity-40">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {view.profissionais.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#6B7280]">
+                        <label className="flex items-center gap-1.5">
+                          <input type="checkbox" checked={t.profissionais === null} disabled={busy}
+                            onChange={e => updTipo(t.id, { profissionais: e.target.checked ? null : [] })}
+                            className="accent-[#3B82F6]" />
+                          Todos os profissionais
+                        </label>
+                        {t.profissionais !== null && view.profissionais.map(p => (
+                          <label key={p.id} className="flex items-center gap-1.5">
+                            <input type="checkbox" checked={t.profissionais!.includes(p.id)} disabled={busy}
+                              onChange={e => toggleProf(t, p.id, e.target.checked)} className="accent-[#3B82F6]" />
+                            {p.name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={addTipo} disabled={busy || tipos.length >= MAX_TIPOS}
+                className="flex items-center gap-1.5 text-sm text-[#3B82F6] hover:underline disabled:opacity-40">
+                <Plus className="w-4 h-4" /> Adicionar tipo
+              </button>
+            </div>
+
+            <div className={cardCls}>
+              <p className="text-sm font-semibold text-[#111827]">Regras de agendamento</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <label htmlFor="regra-antecedencia" className="block text-[#6B7280] mb-1">Antecedência mínima (horas)</label>
+                  <input id="regra-antecedencia" type="number" min={0} max={168} step={1} value={Number.isNaN(regras.antecedencia_h) ? '' : regras.antecedencia_h} disabled={busy}
+                    onChange={e => setRegras(r => ({ ...r, antecedencia_h: e.target.value === '' ? NaN : Number(e.target.value) }))}
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label htmlFor="regra-dias" className="block text-[#6B7280] mb-1">Dias à frente</label>
+                  <input id="regra-dias" type="number" min={1} max={90} step={1} value={Number.isNaN(regras.dias_a_frente) ? '' : regras.dias_a_frente} disabled={busy}
+                    onChange={e => setRegras(r => ({ ...r, dias_a_frente: e.target.value === '' ? NaN : Number(e.target.value) }))}
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label htmlFor="regra-intervalo" className="block text-[#6B7280] mb-1">Intervalo entre horários</label>
+                  <select id="regra-intervalo" value={regras.intervalo_min} disabled={busy}
+                    onChange={e => setRegras(r => ({ ...r, intervalo_min: Number(e.target.value) as 15 | 30 | 60 }))}
+                    className={inputCls}>
+                    <option value={15}>15 min</option>
+                    <option value={30}>30 min</option>
+                    <option value={60}>60 min</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className={cardCls}>
+              <div>
                 <label htmlFor="agente-info" className="block text-sm font-semibold text-[#111827] mb-1">
                   Informações para o agente
                 </label>
@@ -310,6 +450,14 @@ export default function AgenteConfigPage() {
                   {teste.acao === 'passar_recepcao' && `Passaria para a recepção: ${teste.motivo ?? ''}`}
                 </p>
                 {teste.resposta && <p className="text-[#111827] whitespace-pre-wrap">{teste.resposta}</p>}
+                {teste.ofertas && teste.ofertas.length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-xs font-medium text-[#6B7280]">Ofertas de horário</p>
+                    <ul className="text-[#111827]">
+                      {teste.ofertas.map(o => <li key={o.n}>{o.texto}</li>)}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </form>
