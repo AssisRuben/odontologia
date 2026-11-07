@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     const p = Array.isArray(patients) ? patients[0] : patients
     const { data: msgs, error: msgErr } = await admin
       .from('messages')
-      .select('id, direction, type, body, transcribed, created_at, sent_at')
+      .select('id, direction, type, body, transcribed, created_at, sent_at, appointment_id, agent_action')
       .eq('clinic_id', clinicId)
       .eq('phone', conv.phone)
       .in('status', ['sent', 'received'])
@@ -37,12 +37,15 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     const mensagens = ((msgs ?? []) as {
       id: string; direction: 'in' | 'out'; type: string; body: string
       transcribed: boolean; created_at: string; sent_at: string | null
+      appointment_id: string | null; agent_action: string | null
     }[]).reverse().map((m) => ({
       id: m.id,
       role: historyRole(m),
       body: m.body,
       transcribed: !!m.transcribed,
       at: m.sent_at ?? m.created_at,
+      appointment_id: m.appointment_id ?? null,
+      agent_action: m.agent_action ?? null,
     }))
     const { error: readErr } = await admin.from('conversations').update({ unread: false }).eq('id', id).eq('clinic_id', clinicId)
     if (readErr) throw new Error(readErr.message)
