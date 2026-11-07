@@ -57,6 +57,14 @@ function usageRow(model: string, ok: boolean, input: number | null, output: numb
   return { kind: 'agente', model, audio_seconds: null, input_tokens: input, output_tokens: output, ok }
 }
 
+function contextoAgenda(clinic: AgentClinic) {
+  return {
+    tipos: clinic.config.tipos.filter((t) => t.ativo).map((t) => ({ nome: t.nome, duracao_min: t.duracao_min })),
+    ofertas: [],
+    antecedenciaH: clinic.config.agendamento.antecedencia_h,
+  }
+}
+
 function contextClinic(clinic: AgentClinic): AgentContextInput['clinic'] {
   return {
     name: clinic.name, address: clinic.address, phone: clinic.phone,
@@ -126,7 +134,10 @@ export async function runAgent(
       contact: patient
         ? { kind: 'patient', firstName: firstName(patient.name) }
         : { kind: 'new', name: conv.contact_name },
-      nextAppointments,
+      ...contextoAgenda(clinic),
+      consultas: nextAppointments.map((a, i) => ({
+        alias: `C${i + 1}`, start: a.start, procedure: null, professional: a.professional,
+      })),
       history,
       now: at,
     })
@@ -187,7 +198,8 @@ export async function simulateAgent(
   const user = buildAgentContext({
     clinic: contextClinic(clinic),
     contact: { kind: 'new', name: null },
-    nextAppointments: [],
+    ...contextoAgenda(clinic),
+    consultas: [],
     history: [{ role: 'paciente', body: texto }],
     now,
   })

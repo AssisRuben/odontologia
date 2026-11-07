@@ -9,7 +9,10 @@ const base = (over: Partial<AgentContextInput> = {}): AgentContextInput => ({
     timezone: 'America/Sao_Paulo',
   },
   contact: { kind: 'patient', firstName: 'Ana' },
-  nextAppointments: [],
+  tipos: [{ nome: 'Avaliação', duracao_min: 30 }, { nome: 'Retorno', duracao_min: 30 }],
+  consultas: [],
+  ofertas: [],
+  antecedenciaH: 24,
   history: [],
   now: new Date('2026-11-06T17:30:00Z'),
   ...over,
@@ -24,7 +27,7 @@ describe('buildAgentContext', () => {
     expect(t).toContain('Data e hora agora: sexta-feira, 06/11/2026 14:30')
     expect(t).toContain('Informações da clínica:\nLimpeza R$ 100')
     expect(t).toContain('Contato: paciente Ana')
-    expect(t).toContain('Próximas consultas: nenhuma')
+    expect(t).toContain('Próximas consultas do paciente: nenhuma')
   })
   it('valores ausentes', () => {
     const b = base()
@@ -40,19 +43,32 @@ describe('buildAgentContext', () => {
   it('contato novo com nome', () => {
     expect(buildAgentContext(base({ contact: { kind: 'new', name: 'Bia' } }))).toContain('contato novo (nome: Bia)')
   })
-  it('consultas: até 3, com e sem profissional', () => {
-    const appts = [
-      { start: '2026-11-10T17:00:00Z', professional: 'Dr. Lima' },
-      { start: '2026-11-11T12:00:00Z', professional: null },
-      { start: '2026-11-12T12:00:00Z', professional: 'Dra. X' },
-      { start: '2026-11-13T12:00:00Z', professional: 'Dra. Y' },
-      { start: '2026-11-14T12:00:00Z', professional: 'Dra. Z' },
+  it('tipos, consultas C1..C3, ofertas vigentes e antecedência', () => {
+    const consultas = [
+      { alias: 'C1', start: '2026-11-10T17:00:00Z', procedure: 'Avaliação', professional: 'Dr. Lima' },
+      { alias: 'C2', start: '2026-11-11T12:00:00Z', procedure: null, professional: null },
+      { alias: 'C3', start: '2026-11-12T12:00:00Z', procedure: 'Retorno', professional: 'Dra. X' },
+      { alias: 'C4', start: '2026-11-13T12:00:00Z', procedure: null, professional: 'Dra. Y' },
     ]
-    const t = buildAgentContext(base({ nextAppointments: appts }))
-    expect(t).toContain('10/11 14:00 com Dr. Lima')
-    expect(t).toContain('11/11 09:00;')
-    expect(t).toContain('12/11 09:00 com Dra. X')
-    expect(t).not.toContain('13/11')
+    const of = (n: number, start: string, expires_at: string) => ({
+      n, tipo: 'Avaliação', expires_at, professional_id: 'p', professional_name: 'Dr. Carlos', start, end: start,
+    })
+    const t = buildAgentContext(base({
+      consultas,
+      ofertas: [of(1, '2026-11-11T11:30:00Z', '2026-11-06T19:40:00Z'), of(2, '2026-11-12T13:00:00Z', '2026-11-06T19:40:00Z')],
+    }))
+    expect(t).toContain('Tipos de consulta que você pode marcar: Avaliação (30 min); Retorno (30 min)')
+    expect(t).toContain('Próximas consultas do paciente: C1 = ter 10/11 14:00 Avaliação com Dr. Lima; C2 = qua 11/11 09:00; C3 = qui 12/11 09:00 Retorno com Dra. X')
+    expect(t).not.toContain('C4')
+    expect(t).toContain('Opções oferecidas (válidas até 16:40): 1) qua 11/11 08:30 Dr. Carlos; 2) qui 12/11 10:00 Dr. Carlos')
+    expect(t).toContain('Antecedência mínima para marcar, remarcar ou desmarcar: 24 h')
+  })
+  it('sem tipos e ofertas vencidas', () => {
+    const of = { n: 1, tipo: 'A', expires_at: '2026-11-06T17:00:00Z', professional_id: 'p', professional_name: 'Dr. Carlos', start: '2026-11-11T11:30:00Z', end: '2026-11-11T12:00:00Z' }
+    const t = buildAgentContext(base({ tipos: [], ofertas: [of] }))
+    expect(t).toContain('Tipos de consulta que você pode marcar: nenhum (não marque; passe para a recepção)')
+    expect(t).toContain('Opções oferecidas: nenhuma')
+    expect(t).not.toContain('1) qua')
   })
   it('histórico: últimas 20 em ordem com rótulos', () => {
     const roles: HistoryItem['role'][] = ['paciente', 'assistente', 'equipe', 'automatica']
