@@ -50,6 +50,7 @@ describe('rótulos', () => {
     expect(KIND_LABELS).toEqual({
       confirmation: 'Confirmação', reminder: 'Lembrete', recall: 'Retorno', birthday: 'Aniversário',
       charge: 'Cobrança', payment_due: 'Lembrete de vencimento', budget: 'Orçamento', budget_reminder: 'Lembrete de orçamento', manual: 'Manual', auto_reply: 'Resposta automática', incoming: 'Recebida',
+      agent: 'Assistente', human: 'Equipe',
     })
   })
   it('status e respostas', () => {

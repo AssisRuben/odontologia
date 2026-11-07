@@ -4,7 +4,7 @@ import { todayYmd, zonedDateTime } from '@/lib/messaging/time'
 const TZ = 'America/Sao_Paulo'
 
 export type UsageRow = {
-  kind: 'transcricao' | 'evolucao' | 'anamnese'
+  kind: 'transcricao' | 'evolucao' | 'anamnese' | 'agente' | 'transcricao_whatsapp'
   model: string
   audio_seconds: number | null
   input_tokens: number | null
@@ -17,6 +17,8 @@ export function summarizeUsage(rows: UsageRow[]): {
   transcricoes: number
   evolucoes: number
   anamneses: number
+  agente: number
+  transcricoesWhatsapp: number
   estimatedUsd: number
 } {
   let seconds = 0
@@ -24,6 +26,8 @@ export function summarizeUsage(rows: UsageRow[]): {
   let transcricoes = 0
   let evolucoes = 0
   let anamneses = 0
+  let agente = 0
+  let transcricoesWhatsapp = 0
   for (const r of rows) {
     const audio = r.audio_seconds ?? 0
     seconds += audio
@@ -33,13 +37,17 @@ export function summarizeUsage(rows: UsageRow[]): {
     if (!r.ok) continue
     if (r.kind === 'transcricao') transcricoes++
     else if (r.kind === 'evolucao') evolucoes++
-    else anamneses++
+    else if (r.kind === 'anamnese') anamneses++
+    else if (r.kind === 'agente') agente++
+    else transcricoesWhatsapp++
   }
   return {
     audioMinutes: Math.round((seconds / 60) * 10) / 10,
     transcricoes,
     evolucoes,
     anamneses,
+    agente,
+    transcricoesWhatsapp,
     estimatedUsd: Math.round(usd * 100) / 100,
   }
 }

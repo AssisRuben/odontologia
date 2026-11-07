@@ -37,6 +37,7 @@ export interface Professional {
   specialty?: string
   color: string
   working_hours?: Record<string, unknown>
+  whatsapp_booking: boolean
   created_at: string
 }
 
@@ -70,6 +71,7 @@ export interface Patient {
   insurance_plan?: InsurancePlan
   notes?: string
   whatsapp_opt_out?: boolean
+  source: string | null
   payer_name?: string | null
   payer_cpf?: string | null
   created_at: string
@@ -114,6 +116,7 @@ export interface Appointment {
   procedure?: string
   notes?: string
   color?: string
+  source: string | null
   created_at: string
   patient?: Patient
   professional?: Professional
@@ -378,4 +381,36 @@ export interface BudgetSignature {
   user_agent: string | null
   signed_at: string
   approved_by: string | null
+}
+
+export interface ConversationOffer {
+  n: number
+  professional_id: string
+  professional_name: string
+  start: string
+  end: string
+  tipo: string
+  expires_at: string
+}
+
+export interface BookingDraft {
+  tipo: string
+  replace_appointment_id?: string
+}
+
+export interface Conversation {
+  id: string
+  clinic_id: string
+  phone: string
+  patient_id: string | null
+  contact_name: string | null
+  handler: 'agent' | 'human'
+  handoff_reason: string | null
+  handler_since: string
+  last_message_at: string
+  unread: boolean
+  offers: ConversationOffer[]
+  booking_draft: BookingDraft | null
+  searches: string[]
+  created_at: string
 }

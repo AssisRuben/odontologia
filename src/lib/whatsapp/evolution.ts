@@ -2,6 +2,7 @@ import { normalizePhone } from '@/lib/messaging/phone'
 import {
   PermanentSendError,
   TransientSendError,
+  type AudioMedia,
   type ConnectionStatus,
   type WebhookEvent,
   type WhatsAppProvider,
@@ -189,6 +190,27 @@ export class EvolutionProvider implements WhatsAppProvider {
     throw new PermanentSendError(`Evolution API recusou o envio (HTTP ${res.status})`)
   }
 
+  /**
+   * Baixa o áudio de uma mensagem recebida (Evolution v2 getBase64FromMediaMessage).
+   * Envia a mensagem completa do webhook: só com o id, a Evolution procura no próprio banco
+   * e responde "Message not found" quando a instância não guarda mensagens.
+   */
+  async getAudio(instance: string, token: string, media: AudioMedia) {
+    const res = await this.request('POST', `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`, token, {
+      message: { key: media.key, message: media.message },
+      convertToMp4: false,
+    })
+    if (!res.ok) throw new TransientSendError(`Evolution API: falha ao baixar áudio (HTTP ${res.status})`)
+    const { json } = await this.readJson(res)
+    const b64 = dig(json, 'base64')
+    if (typeof b64 !== 'string' || !b64) throw new TransientSendError('Evolution API: resposta sem base64 do áudio')
+    const mime = dig(json, 'mimetype')
+    return {
+      bytes: new Uint8Array(Buffer.from(b64, 'base64')),
+      mimetype: typeof mime === 'string' && mime ? mime : 'audio/ogg',
+    }
+  }
+
   parseWebhook(body: unknown): WebhookEvent | null {
     const b = asObject(body)
     if (!b || typeof b.instance !== 'string' || !b.instance) return null
@@ -203,7 +225,8 @@ export class EvolutionProvider implements WhatsAppProvider {
 
     if (event === 'messages.upsert') {
       const key = asObject(data.key)
-      if (!key || key.fromMe !== false) return null
+      if (!key || typeof key.fromMe !== 'boolean') return null
+      const fromMe = key.fromMe
       const id = key.id
       if (typeof id !== 'string' || !id) return null
       // Endereçamento LID: remoteJid é um id opaco (`...@lid`); o telefone vem em remoteJidAlt ou senderPn.
@@ -214,13 +237,31 @@ export class EvolutionProvider implements WhatsAppProvider {
           : key.remoteJid
       if (!isPhoneJid(jid)) return null
       const msg = asObject(data.message)
-      const text = msg?.conversation ?? asObject(msg?.extendedTextMessage)?.text
-      if (typeof text !== 'string' || !text.trim()) return null
-      const from = normalizePhone(jid.split('@')[0])
-      if (!from) return null
+      const rawText = msg?.conversation ?? asObject(msg?.extendedTextMessage)?.text
+      const hasText = typeof rawText === 'string' && rawText.trim() !== ''
+      const audioMsg = asObject(msg?.audioMessage)
+      if (!hasText && !audioMsg) return null
+      const phone = normalizePhone(jid.split('@')[0])
+      if (!phone) return null
       const ts = Number(data.messageTimestamp)
       const at = Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date()
-      return { kind: 'incoming', instance: b.instance, from, text, providerMessageId: id, at }
+      if (fromMe) {
+        const text = hasText ? (rawText as string) : '[áudio]'
+        return { kind: 'outgoing', instance: b.instance, to: phone, text, providerMessageId: id, at }
+      }
+      if (hasText) {
+        return { kind: 'incoming', instance: b.instance, from: phone, text: rawText as string, providerMessageId: id, at }
+      }
+      const secs = Number(audioMsg?.seconds)
+      return {
+        kind: 'incoming',
+        instance: b.instance,
+        from: phone,
+        text: '',
+        audio: { seconds: Number.isFinite(secs) && secs > 0 ? secs : 0, media: { key, message: msg as Json } },
+        providerMessageId: id,
+        at,
+      }
     }
     return null
   }

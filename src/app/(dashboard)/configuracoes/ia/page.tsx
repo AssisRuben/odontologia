@@ -10,7 +10,7 @@ interface View {
   conectado: boolean
   last4: string | null
   modelTier: Tier
-  usoMes: { audioMinutes: number; transcricoes: number; evolucoes: number; anamneses: number; estimatedUsd: number }
+  usoMes: { audioMinutes: number; transcricoes: number; evolucoes: number; anamneses: number; agente: number; transcricoesWhatsapp: number; estimatedUsd: number }
 }
 
 const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
@@ -212,6 +212,14 @@ export default function IaConfigPage() {
               <div>
                 <dt className="text-[#6B7280]">Preenchimentos de anamnese</dt>
                 <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.anamneses)}</dd>
+              </div>
+              <div>
+                <dt className="text-[#6B7280]">Respostas do agente no WhatsApp</dt>
+                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.agente)}</dd>
+              </div>
+              <div>
+                <dt className="text-[#6B7280]">Áudios do WhatsApp transcritos</dt>
+                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.transcricoesWhatsapp)}</dd>
               </div>
               <div>
                 <dt className="text-[#6B7280]">Custo estimado</dt>

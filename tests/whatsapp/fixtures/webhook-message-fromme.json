@@ -1,0 +1,1 @@
+{"event":"messages.upsert","instance":"clinic-abc","data":{"key":{"remoteJid":"5511987654321@s.whatsapp.net","fromMe":true,"id":"MSGOUT1"},"message":{"conversation":"Olá, confirmado!"},"messageType":"conversation","messageTimestamp":1762080100},"sender":"5511911112222@s.whatsapp.net"}

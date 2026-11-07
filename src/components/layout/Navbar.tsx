@@ -32,6 +32,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { clinicId } = useClinicStore()
   const [approvedBadge, setApprovedBadge] = useState(0)
+  const [pendingChats, setPendingChats] = useState(0)
 
   // Orçamentos aprovados nos últimos 30 dias que a recepção ainda não viu.
   const refreshBadge = useCallback(async () => {
@@ -50,7 +51,26 @@ export function Navbar() {
     return () => window.removeEventListener('orcamentos:seen', refreshBadge)
   }, [refreshBadge])
 
-  const badgeFor = (href: string) => (href === '/orcamentos' ? approvedBadge : 0)
+  // Conversas do WhatsApp aguardando a recepção.
+  const refreshChats = useCallback(async () => {
+    if (!clinicId) return
+    try {
+      const res = await fetch('/api/conversas/pendentes', { cache: 'no-store' })
+      if (!res.ok) return
+      const json = await res.json()
+      setPendingChats(typeof json.total === 'number' ? json.total : 0)
+    } catch { /* mantém o valor anterior */ }
+  }, [clinicId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshChats()
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refreshChats() }, 30_000)
+    window.addEventListener('conversas:seen', refreshChats)
+    return () => { clearInterval(t); window.removeEventListener('conversas:seen', refreshChats) }
+  }, [refreshChats, pathname])
+
+  const badgeFor = (href: string) => (href === '/orcamentos' ? approvedBadge : href === '/mensagens' ? pendingChats : 0)
 
   return (
     <>
@@ -96,8 +116,13 @@ export function Navbar() {
             <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
               <Bell className="w-4 h-4" />
             </button>
-            <Link href="/mensagens" className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
+            <Link
+              href="/mensagens"
+              className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              aria-label={pendingChats > 0 ? `Mensagens: ${pendingChats} conversa(s) aguardando` : 'Mensagens'}
+            >
               <MessageSquare className="w-4 h-4" />
+              {pendingChats > 0 && <CountBadge value={pendingChats} />}
             </Link>
             <Link href="/configuracoes" className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
               <Settings className="w-4 h-4" />
@@ -117,10 +142,11 @@ export function Navbar() {
             </button>
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
-              aria-label="Mais opções"
+              className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              aria-label={pendingChats > 0 ? `Mais opções: ${pendingChats} conversa(s) aguardando` : 'Mais opções'}
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {!mobileOpen && pendingChats > 0 && <CountBadge value={pendingChats} />}
             </button>
           </div>
         </div>
@@ -198,5 +224,14 @@ export function Navbar() {
         </button>
       </nav>
     </>
+  )
+}
+
+/** Número vermelho sobre um ícone (ex.: conversas aguardando a recepção). */
+function CountBadge({ value }: { value: number }) {
+  return (
+    <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+      {value > 99 ? '99+' : value}
+    </span>
   )
 }

@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import TabConversas from '@/components/mensagens/TabConversas'
 import TabAutomaticas from '@/components/mensagens/TabAutomaticas'
 import TabHistorico from '@/components/mensagens/TabHistorico'
 
-type Tab = 'automaticas' | 'historico'
+type Tab = 'conversas' | 'automaticas' | 'historico'
 
 const tabs: { id: Tab; label: string }[] = [
+  { id: 'conversas', label: 'Conversas' },
   { id: 'automaticas', label: 'Automáticas' },
   { id: 'historico', label: 'Histórico' },
 ]
 
 export default function MensagensPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('automaticas')
+  const [activeTab, setActiveTab] = useState<Tab>('conversas')
 
   return (
     <div className="h-[calc(100vh-56px)] flex flex-col">
@@ -33,7 +35,8 @@ export default function MensagensPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={`flex-1 min-h-0 ${activeTab === 'conversas' ? 'p-3 sm:p-6' : 'overflow-y-auto p-6'}`}>
+        {activeTab === 'conversas' && <TabConversas />}
         {activeTab === 'automaticas' && <TabAutomaticas />}
         {activeTab === 'historico' && <TabHistorico />}
       </div>

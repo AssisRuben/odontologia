@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus, Users, SlidersHorizontal, X, PanelLeftClose, PanelLeftOpen, MessageCircleOff } from 'lucide-react'
 import { format, addWeeks, subWeeks, addDays, subDays, startOfWeek, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -16,7 +17,23 @@ import { useWhatsAppStatus, formatNoticeTime } from '@/components/agenda/useWhat
 import type { Appointment, Professional, Patient, InsurancePlan } from '@/types'
 import { cn } from '@/lib/utils'
 
+function dataInicial(raw: string | null): Date {
+  const m = raw ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw) : null
+  if (!m) return new Date()
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return d.getMonth() !== Number(m[2]) - 1 ? new Date() : d
+}
+
 export default function AgendaPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgendaConteudo />
+    </Suspense>
+  )
+}
+
+function AgendaConteudo() {
+  const searchParams = useSearchParams()
   const { clinicId, loading: clinicLoading } = useClinicStore()
   const [view, setView] = useState<'timeGridWeek' | 'timeGridDay'>('timeGridWeek')
 
@@ -29,7 +46,7 @@ export default function AgendaPage() {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(() => dataInicial(searchParams.get('data')))
   const [agendaState, setAgendaState] = useState<{ appointments: Appointment[]; version: number }>({ appointments: [], version: 0 })
   const appointments = agendaState.appointments
   const [professionals, setProfessionals] = useState<Professional[]>([])

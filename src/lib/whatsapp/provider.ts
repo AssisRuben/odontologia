@@ -1,7 +1,19 @@
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
+/** Mensagem de áudio como veio no webhook (key + message), usada para baixar o arquivo. */
+export type AudioMedia = { key: Record<string, unknown>; message: Record<string, unknown> }
+
 export type WebhookEvent =
-  | { kind: 'incoming'; instance: string; from: string; text: string; providerMessageId: string; at: Date }
+  | {
+      kind: 'incoming'
+      instance: string
+      from: string
+      text: string
+      audio?: { seconds: number; media: AudioMedia }
+      providerMessageId: string
+      at: Date
+    }
+  | { kind: 'outgoing'; instance: string; to: string; text: string; providerMessageId: string; at: Date }
   | { kind: 'connection'; instance: string; status: ConnectionStatus; phone: string | null }
 
 export interface WhatsAppProvider {
@@ -9,6 +21,7 @@ export interface WhatsAppProvider {
   getStatus(instance: string, token: string): Promise<{ status: ConnectionStatus; phone: string | null }>
   disconnect(instance: string, token: string): Promise<void>
   sendText(instance: string, token: string, to: string, text: string): Promise<{ providerMessageId: string }>
+  getAudio(instance: string, token: string, media: AudioMedia): Promise<{ bytes: Uint8Array; mimetype: string }>
   parseWebhook(body: unknown): WebhookEvent | null
 }
 

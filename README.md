@@ -306,6 +306,79 @@ Grave ou dite a evolução do atendimento e a anamnese; a IA organiza o texto e 
 
 ---
 
+## Agente de IA no WhatsApp
+
+Um assistente que responde pelo WhatsApp da clínica: tira dúvidas, informa as próximas consultas do paciente e passa para a recepção quando for preciso. Vem desligado.
+
+### 1. Banco, pré-requisitos e como ligar
+
+1. No SQL Editor do Supabase, aplique [`supabase/2026-11-06-agente-whatsapp.sql`](supabase/2026-11-06-agente-whatsapp.sql) (pode rodar de novo sem problema). **Aplique o SQL ANTES de publicar (deploy) o código novo.** A confirmação por "1"/"2" que já existe agora lê `clinics.agent_config` e a tabela `conversations`; sem o SQL, as confirmações deixam de funcionar.
+2. Pré-requisitos: WhatsApp conectado (Configurações → Mensagens) e chave da OpenAI cadastrada (Configurações → Inteligência artificial).
+3. Para ligar: Configurações → Agente do WhatsApp.
+4. A rota do webhook (`src/app/api/webhooks/evolution`) agora usa `maxDuration = 60` e `after()`: responde ao WhatsApp na hora e termina o trabalho do agente depois. Confira se a hospedagem permite 60 s por função.
+5. A instância da Evolution precisa entregar `messages.upsert` também das mensagens enviadas pela clínica (`fromMe`): confira se o webhook da instância está inscrito em `messages.upsert`. É isso que permite detectar "respondido pelo celular".
+6. Desative a saudação e a mensagem de ausência do WhatsApp Business: o agente responde no lugar delas. (Uma mensagem do celular da clínica até 10 s depois da mensagem do paciente é tratada como saudação automática: fica no histórico, mas não tira a conversa do agente.)
+
+### O que o app faz
+
+- **Responde pacientes e contatos novos** com as informações que a clínica escreve na configuração do agente.
+- **Entende áudios** do paciente (transcreve com a OpenAI).
+- **Informa as próximas consultas** (até 3) de quem é paciente cadastrado.
+- **Passa para a recepção** quando o assunto foge do que sabe, quando o paciente pede, com muitas mensagens seguidas ou se a recepção responder pelo celular.
+- **Caixa de conversas** em Mensagens → Conversas, com filtro "Aguardando recepção", resposta direta, assumir/devolver ao agente e cadastro do paciente. O menu mostra um contador de conversas aguardando.
+- **Pausa e retoma sozinho:** depois de 12 h sem atividade, o agente volta a atender.
+- **Paciente que não quer WhatsApp:** se a ficha do paciente estiver marcada para não receber WhatsApp, o agente não responde e passa a conversa para a recepção. Um pedido feito só na conversa não muda essa marcação.
+
+### O que não faz
+
+- Agendamento: só como descrito em "Agendamento pelo agente", logo abaixo.
+- Só fala de valores se eles estiverem no texto que a clínica escreveu na configuração do agente.
+- Não dá diagnósticos nem orientação clínica.
+- Só responde a quem escreveu: não envia mensagens por conta própria.
+- Limita-se a 30 respostas por conversa a cada 24 h.
+
+### Agendamento pelo agente
+
+O agente também marca, remarca e desmarca consultas pelo WhatsApp.
+
+1. **Banco:** aplique [`supabase/2026-11-06-agente-agendamento.sql`](supabase/2026-11-06-agente-agendamento.sql) (pode rodar de novo) **antes** de publicar o código novo.
+2. **Profissionais:** em Configurações → Profissionais, marque "Atende pelo WhatsApp" e defina o horário de cada profissional. Sem isso, ninguém aparece nas ofertas.
+3. **Tipos e regras:** em Configurações → Agente do WhatsApp, configure os tipos de consulta (nome, duração, quais profissionais) e as regras (antecedência mínima, dias à frente, intervalo entre horários).
+4. **Horário da clínica:** os horários oferecidos também ficam dentro do horário de funcionamento definido em Configurações → Agente do WhatsApp. Sem horário da clínica, nenhum horário é oferecido.
+
+Como funciona:
+
+- O agente oferece até 5 horários numerados; o paciente responde com o número e o agente confirma a consulta. As ofertas expiram em 2 horas.
+- Remarcar e desmarcar respeitam a antecedência mínima; em cima da hora, a conversa passa para a recepção.
+- Cada paciente pode ter no máximo 2 consultas futuras marcadas pelo WhatsApp; acima disso, a conversa passa para a recepção.
+- Contato novo (número que não é paciente) vira uma ficha, marcada como cadastrada pelo WhatsApp, para completar CPF e dados no atendimento.
+- Na agenda, consultas marcadas pelo agente têm o ícone do WhatsApp; na conversa, aparece o rótulo "Consulta marcada/remarcada/desmarcada" com link para o dia.
+
+O que não faz:
+
+- Feriados e bloqueios dedicados.
+- Lista de espera.
+- Sinal ou pagamento antecipado.
+- Sala ou cadeira.
+- Agendar para outra pessoa (passa para a recepção).
+- Vários procedimentos numa consulta.
+- Lembrete diferente para consultas marcadas pelo WhatsApp.
+
+### Custo estimado
+
+- Resposta de texto: cerca de US$ 0,001 no modelo Econômico.
+- Áudio: US$ 0,0045 por minuto (áudios de até 5 min).
+- O uso do mês aparece em Configurações → Inteligência artificial.
+
+### LGPD
+
+- Com o agente ligado, mensagens de números desconhecidos são guardadas na caixa de conversas (com o agente desligado, não são).
+- O áudio não é salvo: só o texto transcrito.
+- Vão à OpenAI: o texto das últimas 20 mensagens da conversa (cobranças e orçamentos vão sem o texto, só a indicação de que houve uma mensagem automática), as informações da clínica e, para pacientes, o primeiro nome e as próximas consultas. CPF, e-mail e endereço não vão.
+- Vale o mesmo cuidado da seção anterior: aceitar o DPA da OpenAI e mencionar o uso de IA na política de privacidade.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`

@@ -6,6 +6,31 @@ import { ChevronLeft, Plus, Pencil, Trash2, X, CheckCircle2 } from 'lucide-react
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import type { Professional } from '@/types'
+import { normalizeWorkingHours } from '@/lib/agente/agendamento/config'
+
+type Periodos = [string, string][]
+type Semana = Record<string, Periodos>
+
+const DIAS: { key: string; label: string }[] = [
+  { key: '1', label: 'Segunda' },
+  { key: '2', label: 'Terça' },
+  { key: '3', label: 'Quarta' },
+  { key: '4', label: 'Quinta' },
+  { key: '5', label: 'Sexta' },
+  { key: '6', label: 'Sábado' },
+  { key: '0', label: 'Domingo' },
+]
+const timeCls = 'h-9 px-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] disabled:opacity-40'
+
+function paraSemana(raw: unknown): Semana {
+  const n = normalizeWorkingHours(raw)
+  const out: Semana = {}
+  for (const d of DIAS) {
+    const r = n[d.key as keyof typeof n]
+    out[d.key] = r ? r.map(x => [x[0], x[1]] as [string, string]) : []
+  }
+  return out
+}
 
 const COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
@@ -17,9 +42,10 @@ interface FormState {
   cro: string
   specialty: string
   color: string
+  whatsapp: boolean
 }
 
-const emptyForm: FormState = { name: '', cro: '', specialty: '', color: COLORS[0] }
+const emptyForm: FormState = { name: '', cro: '', specialty: '', color: COLORS[0], whatsapp: false }
 
 export default function ProfissionaisPage() {
   const { clinicId } = useClinicStore()
@@ -28,6 +54,7 @@ export default function ProfissionaisPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Professional | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
+  const [semana, setSemana] = useState<Semana>(() => paraSemana(null))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -45,13 +72,15 @@ export default function ProfissionaisPage() {
   function openNew() {
     setEditing(null)
     setForm(emptyForm)
+    setSemana(paraSemana(null))
     setError('')
     setShowForm(true)
   }
 
   function openEdit(p: Professional) {
     setEditing(p)
-    setForm({ name: p.name, cro: p.cro || '', specialty: p.specialty || '', color: p.color })
+    setForm({ name: p.name, cro: p.cro || '', specialty: p.specialty || '', color: p.color, whatsapp: !!p.whatsapp_booking })
+    setSemana(paraSemana(p.working_hours))
     setError('')
     setShowForm(true)
   }
@@ -62,12 +91,50 @@ export default function ProfissionaisPage() {
     setError('')
   }
 
+  function setPeriodo(day: string, idx: number, pos: 0 | 1, value: string) {
+    setSemana(s => ({ ...s, [day]: s[day].map((r, i) => (i === idx ? (pos === 0 ? [value, r[1]] : [r[0], value]) as [string, string] : r)) }))
+  }
+
+  function setNaoAtende(day: string, off: boolean) {
+    setSemana(s => ({ ...s, [day]: off ? [] : [['08:00', '12:00']] }))
+  }
+
+  function addPeriodo(day: string) {
+    setSemana(s => (s[day].length >= 2 ? s : { ...s, [day]: [...s[day], ['14:00', '18:00']] }))
+  }
+
+  function removePeriodo(day: string, idx: number) {
+    setSemana(s => ({ ...s, [day]: s[day].filter((_, i) => i !== idx) }))
+  }
+
+  function copiarSegunda() {
+    const seg = () => semana['1'].map(r => [r[0], r[1]] as [string, string])
+    setSemana(s => ({ ...s, '2': seg(), '3': seg(), '4': seg(), '5': seg() }))
+  }
+
+  function validarSemana(): string {
+    for (const d of DIAS) {
+      const ps = semana[d.key]
+      for (const r of ps) {
+        if (!r[0] || !r[1] || r[0] >= r[1]) return `Horário de ${d.label} inválido: o início deve ser antes do fim.`
+      }
+      if (ps.length === 2) {
+        const o = [...ps].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+        if (o[0][1] > o[1][0]) return `Os períodos de ${d.label} não podem se sobrepor.`
+      }
+    }
+    return ''
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) { setError('Nome é obrigatório.'); return }
+    const erroSemana = form.whatsapp ? validarSemana() : ''
+    if (erroSemana) { setError(erroSemana); return }
     setError('')
     setSaving(true)
     const supabase = createClient()
+    let profId: string | null = editing?.id ?? null
 
     if (editing) {
       const { error: err } = await supabase.from('professionals').update({
@@ -76,11 +143,43 @@ export default function ProfissionaisPage() {
       }).eq('id', editing.id)
       if (err) { setError(`Erro: ${err.message}`); setSaving(false); return }
     } else {
-      const { error: err } = await supabase.from('professionals').insert({
+      const { data: novo, error: err } = await supabase.from('professionals').insert({
         clinic_id: clinicId, name: form.name.trim(),
         cro: form.cro || null, specialty: form.specialty || null, color: form.color,
-      })
-      if (err) { setError(`Erro: ${err.message}`); setSaving(false); return }
+      }).select('*').single()
+      if (err || !novo) { setError(`Erro: ${err?.message ?? 'não foi possível criar'}`); setSaving(false); return }
+      profId = (novo as Professional).id
+      setEditing(novo as Professional)
+      load()
+    }
+
+    if (profId && (editing || form.whatsapp)) {
+      // Sem "Atende pelo WhatsApp" o horário editado não foi validado: mantém o salvo (normalizado).
+      let hours: Record<string, Periodos> = {}
+      if (form.whatsapp) {
+        for (const d of DIAS) if (semana[d.key].length) hours[d.key] = semana[d.key]
+      } else {
+        hours = normalizeWorkingHours(editing?.working_hours ?? null) as Record<string, Periodos>
+      }
+      try {
+        const res = await fetch(`/api/profissionais/${profId}/agenda`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ whatsapp_booking: form.whatsapp, working_hours: hours }),
+        })
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        if (!res.ok) {
+          setError(data.error || 'Não foi possível salvar o horário.')
+          setSaving(false)
+          load()
+          return
+        }
+      } catch {
+        setError('Não foi possível salvar o horário. Verifique sua conexão.')
+        setSaving(false)
+        load()
+        return
+      }
     }
 
     setSaving(false)
@@ -156,7 +255,7 @@ export default function ProfissionaisPage() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeForm} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
               <h2 className="text-base font-semibold text-[#111827]">
                 {editing ? 'Editar profissional' : 'Novo profissional'}
@@ -200,7 +299,58 @@ export default function ProfissionaisPage() {
                   ))}
                 </div>
               </div>
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+              <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
+                <label className="flex items-center justify-between gap-3 text-sm font-medium text-[#111827]">
+                  Atende pelo WhatsApp
+                  <input type="checkbox" role="switch" checked={form.whatsapp}
+                    onChange={e => setForm(f => ({ ...f, whatsapp: e.target.checked }))}
+                    className="w-5 h-5 accent-[#3B82F6]" />
+                </label>
+                {form.whatsapp && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-[#6B7280]">Horários que o agente pode oferecer</p>
+                      <button type="button" onClick={copiarSegunda} className="text-xs text-[#3B82F6] hover:underline">
+                        Copiar segunda para os dias úteis
+                      </button>
+                    </div>
+                    {DIAS.map(d => {
+                      const ps = semana[d.key]
+                      return (
+                        <div key={d.key} className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="w-16 text-[#111827]">{d.label}</span>
+                          <label className="flex items-center gap-1.5 text-[#6B7280]">
+                            <input type="checkbox" checked={ps.length === 0}
+                              onChange={e => setNaoAtende(d.key, e.target.checked)} className="accent-[#3B82F6]" />
+                            Não atende
+                          </label>
+                          {ps.map((r, i) => (
+                            <span key={i} className="flex items-center gap-1">
+                              <input type="time" aria-label={`${d.label}: período ${i + 1} começa às`} value={r[0]}
+                                onChange={e => setPeriodo(d.key, i, 0, e.target.value)} className={timeCls} />
+                              <span className="text-[#6B7280]">às</span>
+                              <input type="time" aria-label={`${d.label}: período ${i + 1} termina às`} value={r[1]}
+                                onChange={e => setPeriodo(d.key, i, 1, e.target.value)} className={timeCls} />
+                              {ps.length > 1 && (
+                                <button type="button" aria-label={`${d.label}: remover período ${i + 1}`}
+                                  onClick={() => removePeriodo(d.key, i)} className="p-1 text-[#9CA3AF] hover:text-red-500">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                          {ps.length > 0 && ps.length < 2 && (
+                            <button type="button" onClick={() => addPeriodo(d.key)} className="text-xs text-[#3B82F6] hover:underline">
+                              + período
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={closeForm}
                   className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
