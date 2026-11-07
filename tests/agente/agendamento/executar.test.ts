@@ -72,7 +72,8 @@ describe('buscar_horarios', () => {
     const r = await executarAgenda(deps, conv(), ctx(), buscar('avaliacao'), now)
     expect(r.handoff).toBeNull()
     expect(deps.carregar).toHaveBeenCalledWith('k1', now, new Date(now.getTime() + 31 * 24 * H))
-    const [id, estado] = deps.salvarEstado.mock.calls[0] as unknown as [string, { offers: Oferta[]; booking_draft: unknown; searches: string[] }]
+    const [clinicId, id, estado] = deps.salvarEstado.mock.calls[0] as unknown as [string, string, { offers: Oferta[]; booking_draft: unknown; searches: string[] }]
+    expect(clinicId).toBe('k1')
     expect(id).toBe('conv1')
     expect(estado.offers).toHaveLength(5)
     expect(estado.offers[0].tipo).toBe('Avaliação')
@@ -87,7 +88,7 @@ describe('buscar_horarios', () => {
     const velha = new Date(now.getTime() - 25 * H).toISOString()
     const recente = new Date(now.getTime() - H).toISOString()
     await executarAgenda(deps, conv({ searches: [velha, recente] }), ctx(), buscar(), now)
-    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, { searches: string[] }])[1]
+    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { searches: string[] }])[2]
     expect(estado.searches).toEqual([recente, now.toISOString()])
   })
 
@@ -130,8 +131,32 @@ describe('buscar_horarios', () => {
   it('com consulta guarda replace_appointment_id', async () => {
     const deps = makeDeps()
     await executarAgenda(deps, conv(), ctx(), buscar('Retorno', 'C1'), now)
-    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, { booking_draft: unknown }])[1]
+    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { booking_draft: unknown }])[2]
     expect(estado.booking_draft).toEqual({ tipo: 'Retorno', replace_appointment_id: 'ap1' })
+  })
+})
+
+describe('buscar_horarios e rascunho (R6)', () => {
+  const estadoDe = (deps: ReturnType<typeof makeDeps>) =>
+    (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { booking_draft: unknown }])[2]
+
+  it('busca sem consulta zera replace_appointment_id do rascunho', async () => {
+    const deps = makeDeps()
+    await executarAgenda(deps, conv({ booking_draft: { tipo: 'Retorno', replace_appointment_id: 'ap1' } }), ctx(), buscar(), now)
+    expect(estadoDe(deps).booking_draft).toEqual({ tipo: 'Avaliação', replace_appointment_id: null })
+  })
+
+  it('busca com consulta que não existe mais → recepção', async () => {
+    const deps = makeDeps()
+    const r = await executarAgenda(deps, conv(), ctx({}, []), buscar('Retorno', 'C1'), now)
+    expect(r.handoff).toBe('Consulta alterada pela clínica')
+    expect(deps.carregar).not.toHaveBeenCalled()
+  })
+
+  it('busca com consulta dentro da antecedência → recepção', async () => {
+    const deps = makeDeps()
+    const r = await executarAgenda(deps, conv(), ctx({}, [{ alias: 'C1', consulta: consultaPerto }]), buscar('Retorno', 'C1'), now)
+    expect(r.handoff).toBe('Remarcação em cima da hora')
   })
 })
 
@@ -147,7 +172,7 @@ describe('marcar', () => {
       texto: 'Certo!\n\nPronto! Avaliação marcada para terça-feira, 10/11, às 9h com Dr. Carlos Mendes. Endereço: Rua A, 10.',
       handoff: null, appointmentId: 'ap-novo', agentAction: 'marcada',
     })
-    expect(deps.salvarEstado).toHaveBeenCalledWith('conv1', { offers: [], booking_draft: null, searches: [] })
+    expect(deps.salvarEstado).toHaveBeenCalledWith('k1', 'conv1', { offers: [], booking_draft: null, searches: [] })
     expect(deps.criarPaciente).not.toHaveBeenCalled()
   })
 
@@ -159,7 +184,7 @@ describe('marcar', () => {
     expect(deps.carregar).toHaveBeenCalledTimes(1)
     expect(r.handoff).toBeNull()
     expect(r.texto.startsWith(`Certo!\n\n${TEXTO_VENCIDA}\n\n1) `)).toBe(true)
-    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, { offers: Oferta[] }])[1]
+    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { offers: Oferta[] }])[2]
     expect(estado.offers.length).toBeGreaterThan(0)
     expect(estado.offers[0].tipo).toBe('Avaliação')
   })
@@ -174,7 +199,7 @@ describe('marcar', () => {
   it('opção vencida usa o tipo do rascunho', async () => {
     const deps = makeDeps()
     await executarAgenda(deps, conv({ booking_draft: { tipo: 'Retorno', replace_appointment_id: null } }), ctx(), marcar(1), now)
-    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, { offers: Oferta[] }])[1]
+    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { offers: Oferta[] }])[2]
     expect(estado.offers[0].tipo).toBe('Retorno')
   })
 
@@ -192,7 +217,7 @@ describe('marcar', () => {
     const deps = makeDeps()
     const r = await executarAgenda(deps, conv({ patient_id: null, offers: ofertaBase }), ctx(), marcar(1, '  Maria   Souza '), now)
     expect(deps.criarPaciente).toHaveBeenCalledWith('k1', 'Maria Souza', '5511999990000')
-    expect(deps.ligarPaciente).toHaveBeenCalledWith('conv1', 'pac-novo')
+    expect(deps.ligarPaciente).toHaveBeenCalledWith('k1', 'conv1', 'pac-novo')
     expect(deps.contarFuturasWhatsapp).not.toHaveBeenCalled()
     expect(deps.gravar).toHaveBeenCalledWith(expect.objectContaining({ patientId: 'pac-novo', replaceId: null }))
     expect(r.agentAction).toBe('marcada')
@@ -232,6 +257,41 @@ describe('marcar', () => {
     expect(r2).toEqual({ texto: 'Certo!', handoff: 'Sem horário disponível', appointmentId: null, agentAction: null })
   })
 
+  it('marcar com remarcação em andamento remarca (R4)', async () => {
+    const deps = makeDeps({ contarFuturasWhatsapp: vi.fn(async () => 5) })
+    const draft = { tipo: 'Avaliação', replace_appointment_id: 'ap1' }
+    const r = await executarAgenda(deps, conv({ offers: ofertaBase, booking_draft: draft }), ctx(), marcar(1), now)
+    expect(deps.gravar).toHaveBeenCalledWith(expect.objectContaining({ replaceId: 'ap1', start: '2026-11-10T11:30:00Z' }))
+    expect(deps.contarFuturasWhatsapp).not.toHaveBeenCalled()
+    expect(r).toEqual({
+      texto: 'Certo!\n\nPronto! Sua consulta foi remarcada para terça-feira, 10/11, às 8h30 com Dr. Carlos Mendes.',
+      handoff: null, appointmentId: 'ap-novo', agentAction: 'remarcada',
+    })
+  })
+
+  it('marcar com rascunho de consulta que sumiu → recepção (R6)', async () => {
+    const deps = makeDeps()
+    const draft = { tipo: 'Avaliação', replace_appointment_id: 'ap-sumiu' }
+    const r = await executarAgenda(deps, conv({ offers: ofertaBase, booking_draft: draft }), ctx(), marcar(1), now)
+    expect(r.handoff).toBe('Consulta alterada pela clínica')
+    expect(deps.gravar).not.toHaveBeenCalled()
+  })
+
+  it('marcar com rascunho de consulta dentro da antecedência → recepção (R6)', async () => {
+    const deps = makeDeps()
+    const draft = { tipo: 'Avaliação', replace_appointment_id: 'ap2' }
+    const r = await executarAgenda(deps, conv({ offers: ofertaBase, booking_draft: draft }), ctx({}, [{ alias: 'C1', consulta: consultaPerto }]), marcar(1), now)
+    expect(r.handoff).toBe('Remarcação em cima da hora')
+    expect(deps.gravar).not.toHaveBeenCalled()
+  })
+
+  it('marcar como remarcação com CONSULTA_INVALIDA → recepção (R5)', async () => {
+    const deps = makeDeps({ gravar: vi.fn(async () => ({ ok: false as const, erro: 'CONSULTA_INVALIDA' as const })) })
+    const draft = { tipo: 'Avaliação', replace_appointment_id: 'ap1' }
+    const r = await executarAgenda(deps, conv({ offers: ofertaBase, booking_draft: draft }), ctx(), marcar(1), now)
+    expect(r.handoff).toBe('Consulta alterada pela clínica')
+  })
+
   it('oferta dentro da antecedência conta como vencida', async () => {
     const deps = makeDeps()
     const perto = criarOfertas([{ professional_id: 'p1', professional_name: 'X', start: new Date(now.getTime() + H).toISOString(), end: new Date(now.getTime() + 2 * H).toISOString() }], 'Avaliação', now)
@@ -247,7 +307,7 @@ describe('remarcar', () => {
   it('remarcar sem opção guarda replace_appointment_id e busca', async () => {
     const deps = makeDeps()
     const r = await executarAgenda(deps, conv(), ctx(), remarcar(null), now)
-    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, { offers: Oferta[]; booking_draft: unknown }])[1]
+    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { offers: Oferta[]; booking_draft: unknown }])[2]
     expect(estado.booking_draft).toEqual({ tipo: 'Retorno', replace_appointment_id: 'ap1' })
     expect(estado.offers[0].tipo).toBe('Retorno')
     expect(r.texto).toContain(TEXTO_FECHO)
@@ -257,7 +317,7 @@ describe('remarcar', () => {
     const deps = makeDeps()
     const c = { ...consultaC1, procedure: 'Canal' }
     await executarAgenda(deps, conv(), ctx({}, [{ alias: 'C1', consulta: c }]), remarcar(null), now)
-    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, { booking_draft: { tipo: string } }])[1]
+    const estado = (deps.salvarEstado.mock.calls[0] as unknown as [string, string, { booking_draft: { tipo: string } }])[2]
     expect(estado.booking_draft.tipo).toBe('Avaliação')
   })
 
@@ -270,13 +330,13 @@ describe('remarcar', () => {
       texto: 'Vamos lá.\n\nPronto! Sua consulta foi remarcada para terça-feira, 10/11, às 8h30 com Dr. Carlos Mendes.',
       handoff: null, appointmentId: 'ap-novo', agentAction: 'remarcada',
     })
-    expect(deps.salvarEstado).toHaveBeenCalledWith('conv1', { offers: [], booking_draft: null, searches: [] })
+    expect(deps.salvarEstado).toHaveBeenCalledWith('k1', 'conv1', { offers: [], booking_draft: null, searches: [] })
   })
 
   it('remarcar consulta que mudou passa para a recepção', async () => {
     const deps = makeDeps({ gravar: vi.fn(async () => ({ ok: false as const, erro: 'CONSULTA_INVALIDA' as const })) })
     const r = await executarAgenda(deps, conv({ offers: ofertaBase }), ctx(), remarcar(1), now)
-    expect(r.handoff).toBe('Remarcação em cima da hora')
+    expect(r.handoff).toBe('Consulta alterada pela clínica')
     expect(r.texto).toBe('Vamos lá.')
     expect(r.agentAction).toBeNull()
   })

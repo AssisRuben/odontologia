@@ -28,9 +28,9 @@ export type GravarResultado = { ok: true; id: string } | { ok: false; erro: 'HOR
 
 export interface AgendaDeps {
   carregar(clinicId: string, from: Date, to: Date): Promise<{ profissionais: (ProfissionalAgenda & { whatsappBooking: boolean })[]; ocupados: Ocupado[] }>
-  salvarEstado(conversationId: string, estado: { offers: Oferta[]; booking_draft: BookingDraft | null; searches: string[] }): Promise<void>
+  salvarEstado(clinicId: string, conversationId: string, estado: { offers: Oferta[]; booking_draft: BookingDraft | null; searches: string[] }): Promise<void>
   criarPaciente(clinicId: string, nome: string, phone: string): Promise<string>
-  ligarPaciente(conversationId: string, patientId: string): Promise<void>
+  ligarPaciente(clinicId: string, conversationId: string, patientId: string): Promise<void>
   contarFuturasWhatsapp(clinicId: string, patientId: string, now: Date): Promise<number>
   gravar(args: GravarArgs): Promise<GravarResultado>
   desmarcar(clinicId: string, patientId: string, appointmentId: string): Promise<boolean>
@@ -73,6 +73,7 @@ export const MOTIVO_SEM_HORARIO = 'Sem horário disponível'
 export const MOTIVO_LIMITE = 'Limite de consultas pelo WhatsApp'
 export const MOTIVO_REMARCAR = 'Remarcação em cima da hora'
 export const MOTIVO_DESMARCAR = 'Cancelamento em cima da hora'
+export const MOTIVO_ALTERADA = 'Consulta alterada pela clínica'
 
 function norm(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -141,7 +142,7 @@ export async function executarAgenda(
     if (escolhidos.length === 0) return passar(MOTIVO_SEM_HORARIO)
 
     const offers = criarOfertas(escolhidos, tipo.nome, now)
-    await deps.salvarEstado(conv.id, {
+    await deps.salvarEstado(conv.clinic_id, conv.id, {
       offers,
       booking_draft: { tipo: tipo.nome, replace_appointment_id: args.replaceId },
       searches: [...buscasRecentes, now.toISOString()],
@@ -174,36 +175,47 @@ export async function executarAgenda(
     })
     if (!r.ok) {
       if (r.erro === 'HORARIO_OCUPADO') return buscarDeNovo(TEXTO_OCUPADO, o.tipo, replaceId)
-      return passar(replaceId ? MOTIVO_REMARCAR : MOTIVO_SEM_HORARIO)
+      return passar(replaceId ? MOTIVO_ALTERADA : MOTIVO_SEM_HORARIO)
     }
-    await deps.salvarEstado(conv.id, { offers: [], booking_draft: null, searches: buscasRecentes })
+    await deps.salvarEstado(conv.clinic_id, conv.id, { offers: [], booking_draft: null, searches: buscasRecentes })
     const confirmacao = replaceId ? textoRemarcada(o, tz) : textoMarcada(o, clinic.address, tz)
     return { texto: juntar(d.resposta, confirmacao), handoff: null, appointmentId: r.id, agentAction: replaceId ? 'remarcada' : 'marcada' }
   }
 
   switch (d.acao) {
     case 'buscar_horarios': {
-      let replaceId = conv.booking_draft?.replace_appointment_id ?? null
+      // R6: busca sem consulta é marcação nova; com consulta, remarcação daquela consulta.
+      let replaceId: string | null = null
       if (d.consulta) {
         const c = consultaDe(d.consulta)
-        if (c) {
-          if (!foraDaAntecedencia(c)) return passar(MOTIVO_REMARCAR)
-          replaceId = c.id
-        }
+        if (!c) return passar(MOTIVO_ALTERADA)
+        if (!foraDaAntecedencia(c)) return passar(MOTIVO_REMARCAR)
+        replaceId = c.id
       }
       return buscar({ tipoNome: d.tipo, preferencia: d.preferencia, replaceId, aviso: null, automatica: false })
     }
 
     case 'marcar': {
+      // R4/R6: remarcação em andamento (rascunho com consulta a substituir) → age como remarcar.
+      const draftId = conv.booking_draft?.replace_appointment_id ?? null
+      if (draftId) {
+        const c = ctx.consultas.find((x) => x.consulta.id === draftId)?.consulta ?? null
+        if (!c || !conv.patient_id) return passar(MOTIVO_ALTERADA)
+        if (!foraDaAntecedencia(c)) return passar(MOTIVO_REMARCAR)
+        const o = ofertaEscolhida(d.opcao)
+        if (!o) return buscarDeNovo(TEXTO_VENCIDA, tipoDaConversa(), c.id)
+        return gravarOferta(o, conv.patient_id, c.id)
+      }
+
       const o = ofertaEscolhida(d.opcao)
-      if (!o) return buscarDeNovo(TEXTO_VENCIDA, tipoDaConversa(), conv.booking_draft?.replace_appointment_id ?? null)
+      if (!o) return buscarDeNovo(TEXTO_VENCIDA, tipoDaConversa(), null)
 
       let patientId = conv.patient_id
       if (!patientId) {
         const nome = nomeCompleto(d.nome) ?? nomeCompleto(conv.contact_name)
         if (!nome) return { texto: TEXTO_NOME, handoff: null, appointmentId: null, agentAction: null }
         patientId = await deps.criarPaciente(conv.clinic_id, nome, conv.phone)
-        await deps.ligarPaciente(conv.id, patientId)
+        await deps.ligarPaciente(conv.clinic_id, conv.id, patientId)
       } else if ((await deps.contarFuturasWhatsapp(conv.clinic_id, patientId, now)) >= MAX_FUTURE_WA_APPOINTMENTS) {
         return passar(MOTIVO_LIMITE)
       }

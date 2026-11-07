@@ -36,11 +36,12 @@ export function createAgendaDeps(admin: SupabaseClient): AgendaDeps {
       }
     },
 
-    async salvarEstado(conversationId, estado) {
+    async salvarEstado(clinicId, conversationId, estado) {
       const { error } = await admin
         .from('conversations')
         .update({ offers: estado.offers, booking_draft: estado.booking_draft, searches: estado.searches })
         .eq('id', conversationId)
+        .eq('clinic_id', clinicId)
       check(error)
     },
 
@@ -54,8 +55,13 @@ export function createAgendaDeps(admin: SupabaseClient): AgendaDeps {
       return (data as { id: string }).id
     },
 
-    async ligarPaciente(conversationId, patientId) {
-      const { error } = await admin.from('conversations').update({ patient_id: patientId }).eq('id', conversationId)
+    async ligarPaciente(clinicId, conversationId, patientId) {
+      const { error } = await admin
+        .from('conversations')
+        .update({ patient_id: patientId })
+        .eq('id', conversationId)
+        .eq('clinic_id', clinicId)
+        .is('patient_id', null)
       check(error)
     },
 
