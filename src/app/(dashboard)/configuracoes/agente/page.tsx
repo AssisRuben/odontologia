@@ -151,10 +151,6 @@ export default function AgenteConfigPage() {
         return
       }
     }
-    if (!tipos.some(t => t.ativo)) {
-      setError('Deixe ao menos um tipo de consulta ativo.')
-      return
-    }
     if (!Number.isInteger(regras.antecedencia_h) || regras.antecedencia_h < 0 || regras.antecedencia_h > 168) {
       setError('Antecedência mínima deve estar entre 0 e 168 horas.')
       return

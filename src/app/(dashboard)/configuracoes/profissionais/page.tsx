@@ -129,7 +129,7 @@ export default function ProfissionaisPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) { setError('Nome é obrigatório.'); return }
-    const erroSemana = validarSemana()
+    const erroSemana = form.whatsapp ? validarSemana() : ''
     if (erroSemana) { setError(erroSemana); return }
     setError('')
     setSaving(true)
@@ -146,9 +146,11 @@ export default function ProfissionaisPage() {
       const { data: novo, error: err } = await supabase.from('professionals').insert({
         clinic_id: clinicId, name: form.name.trim(),
         cro: form.cro || null, specialty: form.specialty || null, color: form.color,
-      }).select('id').single()
+      }).select('*').single()
       if (err || !novo) { setError(`Erro: ${err?.message ?? 'não foi possível criar'}`); setSaving(false); return }
-      profId = novo.id as string
+      profId = (novo as Professional).id
+      setEditing(novo as Professional)
+      load()
     }
 
     if (profId && (editing || form.whatsapp)) {
