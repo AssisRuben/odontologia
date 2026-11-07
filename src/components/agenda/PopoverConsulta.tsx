@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2, Check, CheckCheck } from 'lucide-react'
+import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2, Check, CheckCheck, MessageCircle } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatPhone } from '@/lib/utils'
@@ -146,6 +146,13 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
             <div className="flex items-center gap-2 text-xs text-[#6B7280]">
               <Check className="w-3.5 h-3.5 shrink-0" />
               Confirmação enviada
+            </div>
+          )}
+
+          {apt.source === 'whatsapp' && (
+            <div className="flex items-center gap-2 text-xs text-[#6B7280]">
+              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+              Marcada pelo WhatsApp
             </div>
           )}
 

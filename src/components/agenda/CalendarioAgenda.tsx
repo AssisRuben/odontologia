@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import ptBRLocale from '@fullcalendar/core/locales/pt-br'
-import { Check, CheckCheck } from 'lucide-react'
+import { Check, CheckCheck, MessageCircle } from 'lucide-react'
 import type { Appointment } from '@/types'
 import { APPOINTMENT_STATUS_COLORS } from '@/types'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
@@ -158,6 +158,11 @@ export function CalendarioAgenda({
                     {indicator === 'confirmed'
                       ? <CheckCheck size={13} color="#86EFAC" strokeWidth={3} aria-label="Confirmada pelo WhatsApp" />
                       : <Check size={13} color="rgba(255,255,255,0.75)" strokeWidth={3} aria-label="Confirmação enviada" />}
+                  </span>
+                )}
+                {apt.source === 'whatsapp' && (
+                  <span title="Marcada pelo WhatsApp" style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }}>
+                    <MessageCircle size={13} color="rgba(255,255,255,0.9)" strokeWidth={2.5} aria-label="Marcada pelo WhatsApp" />
                   </span>
                 )}
                 {eventInfo.event.title}

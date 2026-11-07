@@ -206,6 +206,12 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
                   )}
                 </div>
 
+                {patient.source === 'whatsapp' && !patient.cpf && (
+                  <p className="mt-2 inline-flex items-center rounded-md bg-[#FEF3C7] px-2.5 py-1 text-xs font-medium text-[#92400E]">
+                    Cadastrado pelo WhatsApp — complete CPF e dados no atendimento
+                  </p>
+                )}
+
                 {/* Tags */}
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   {tags.map((tag) => (

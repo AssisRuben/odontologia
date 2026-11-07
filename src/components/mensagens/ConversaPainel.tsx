@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Mic } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, Mic } from 'lucide-react'
 import { format } from 'date-fns'
 import { MAX_REPLY_CHARS } from '@/lib/agente/conversa'
 import type { Conversation } from '@/types'
@@ -10,7 +10,10 @@ import { formatWhatsAppPhone } from './helpers'
 import ModalCadastrarContato from './ModalCadastrarContato'
 
 export type ConversaDetalhe = Conversation & { label: string }
-interface Msg { id: string; role: 'paciente' | 'assistente' | 'equipe' | 'automatica'; body: string; transcribed: boolean; at: string }
+interface Msg { id: string; role: 'paciente' | 'assistente' | 'equipe' | 'automatica'; body: string; transcribed: boolean; at: string
+  appointment_id?: string | null; agent_action?: 'marcada' | 'remarcada' | 'desmarcada' | null; appointment_date?: string | null }
+
+const ACTION_LABEL = { marcada: 'Consulta marcada', remarcada: 'Consulta remarcada', desmarcada: 'Consulta desmarcada' } as const
 
 const ROLE_LABEL: Record<string, string> = { assistente: 'Assistente', equipe: 'Equipe', automatica: 'Automática' }
 
@@ -147,6 +150,17 @@ export default function ConversaPainel({ id, onBack, onChanged }: Props) {
                   {m.transcribed && <Mic className="inline w-3.5 h-3.5 mr-1 text-[#6B7280]" aria-label="Áudio transcrito" />}
                   {m.body}
                 </p>
+                {m.agent_action && ACTION_LABEL[m.agent_action] && (
+                  m.appointment_date ? (
+                    <Link href={`/agenda?data=${m.appointment_date}`} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#3B82F6] hover:underline">
+                      <CalendarCheck className="w-3.5 h-3.5" />{ACTION_LABEL[m.agent_action]}
+                    </Link>
+                  ) : (
+                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#6B7280]">
+                      <CalendarCheck className="w-3.5 h-3.5" />{ACTION_LABEL[m.agent_action]}
+                    </span>
+                  )
+                )}
                 <p className="text-[10px] text-[#6B7280] mt-1 text-right">{format(new Date(m.at), 'dd/MM HH:mm')}</p>
               </div>
             </div>

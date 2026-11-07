@@ -4,6 +4,7 @@ import { INVALID_ID, NOT_FOUND } from '@/lib/agente/caixa'
 import { contactLabel } from '@/lib/agente/conversa'
 import { historyRole } from '@/lib/agente/contexto'
 import { normalizeAgentConfig } from '@/lib/agente/config'
+import { normalizeMessagingConfig } from '@/lib/messaging/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,18 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .order('id', { ascending: false })
       .limit(100)
     if (msgErr) throw new Error(msgErr.message)
+    const aptIds = [...new Set(((msgs ?? []) as { appointment_id: string | null }[]).map((m) => m.appointment_id).filter((x): x is string => !!x))]
+    const aptStart = new Map<string, string>()
+    if (aptIds.length > 0) {
+      const { data: apts, error: aptErr } = await admin
+        .from('appointments').select('id, start_time').eq('clinic_id', clinicId).in('id', aptIds)
+      if (aptErr) throw new Error(aptErr.message)
+      for (const a of (apts ?? []) as { id: string; start_time: string }[]) aptStart.set(a.id, a.start_time)
+    }
+    const { data: clinic, error: clinicErr } = await admin.from('clinics').select('agent_config, messaging_config').eq('id', clinicId).single()
+    if (clinicErr) throw new Error(clinicErr.message)
+    const tz = normalizeMessagingConfig((clinic as { messaging_config: unknown }).messaging_config).timezone
+    const dayOf = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
     const mensagens = ((msgs ?? []) as {
       id: string; direction: 'in' | 'out'; type: string; body: string
       transcribed: boolean; created_at: string; sent_at: string | null
@@ -46,11 +59,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       at: m.sent_at ?? m.created_at,
       appointment_id: m.appointment_id ?? null,
       agent_action: m.agent_action ?? null,
+      appointment_date: m.appointment_id && aptStart.has(m.appointment_id) ? dayOf(aptStart.get(m.appointment_id)!) : null,
     }))
     const { error: readErr } = await admin.from('conversations').update({ unread: false }).eq('id', id).eq('clinic_id', clinicId)
     if (readErr) throw new Error(readErr.message)
-    const { data: clinic, error: clinicErr } = await admin.from('clinics').select('agent_config').eq('id', clinicId).single()
-    if (clinicErr) throw new Error(clinicErr.message)
     return {
       status: 200,
       body: {
