@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const d = r as Record<string, unknown>
     return {
       status: 200,
-      body: { acao: d.acao, resposta: d.resposta ?? null, nome: d.nome ?? null, motivo: d.motivo ?? null },
+      body: { acao: d.acao, resposta: d.resposta ?? null, nome: d.nome ?? null, motivo: d.motivo ?? null, ofertas: d.ofertas ?? null },
     }
   })
 }
