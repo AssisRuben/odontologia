@@ -1847,6 +1847,8 @@ BEGIN
 
   UPDATE insurance_guide_items SET batch_id = p_batch_id
   WHERE id = ANY(p_item_ids) AND clinic_id = p_clinic_id AND batch_id IS NULL AND active
+    AND "authorization" IN ('autorizado','nao_exige')
+    AND treatment_id IN (SELECT id FROM treatments WHERE clinic_id = p_clinic_id AND status = 'completed')
     AND guide_id IN (SELECT id FROM insurance_guides
                      WHERE insurance_plan_id = v_plan_id AND clinic_id = p_clinic_id);
   GET DIAGNOSTICS v_count = ROW_COUNT;

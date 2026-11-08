@@ -143,6 +143,53 @@ describe('createConveniosRepo', () => {
     expect(enviado.queries).toHaveLength(1)
   })
 
+  it('itensSemLote pede a segunda página quando a primeira vem com 1000 linhas', async () => {
+    const linha = (n: number) => ({
+      id: `i${n}`, guide_id: 'g', active: true, authorization: 'autorizado', batch_id: null, executed_at: null, defer_until: null,
+      guide: { insurance_plan_id: 'pl' }, treatment: null,
+    })
+    const { repo, queries } = repoCom((q) => {
+      const r = q.calls.find((c) => c[0] === 'range') as [string, number, number]
+      return { data: r[1] === 0 ? Array.from({ length: 1000 }, (_, n) => linha(n)) : [linha(1000)], error: null }
+    })
+    const r = await repo.itensSemLote('c1')
+    expect(r).toHaveLength(1001)
+    expect(queries.map((q) => q.calls.find((c) => c[0] === 'range'))).toEqual([['range', 0, 999], ['range', 1000, 1999]])
+    expect(queries[0].calls).toContainEqual(['order', 'id'])
+  })
+
+  it('lotesComItens pagina os itens e usa o corte de 6 meses sem estourar o fim do mês', async () => {
+    const lote = { id: 'b1', insurance_plan_id: 'pl', period_start: '2026-10-16', period_end: '2026-11-15', due_date: '2026-11-25', status: 'aberto', plan: { id: 'pl', name: 'Amil' } }
+    const it = (n: number) => ({
+      id: `i${n}`, batch_id: 'b1', code: '1', name: 'n', teeth: [], value: '1.10', typed: false, executed_at: '2026-10-20',
+      guide: { patient_id: 'p', guide_number: null, password: null, insurance_card: null, patient: { name: 'Ana' } }, treatment: null,
+    })
+    const { repo, queries } = repoCom((q) => {
+      if (q.table === 'insurance_batches') return { data: [lote], error: null }
+      const r = q.calls.find((c) => c[0] === 'range') as [string, number, number]
+      return { data: r[1] === 0 ? Array.from({ length: 1000 }, (_, n) => it(n)) : [it(1000)], error: null }
+    })
+    const r = await repo.lotesComItens('c1', '2026-08-31')
+    expect(r[0].itens).toHaveLength(1001)
+    expect(r[0].total).toBe(1101.1)
+    expect(queries[0].calls).toContainEqual(['or', 'status.eq.aberto,and(status.eq.enviado,period_end.gte.2026-02-28)'])
+    expect(queries.filter((q) => q.table === 'insurance_guide_items')).toHaveLength(2)
+  })
+
+  it('dadosPendencias pagina os tratamentos concluídos', async () => {
+    const t = (n: number) => ({
+      id: `t${n}`, patient_id: 'p', procedure: 'x', insurance_plan_id: 'pl', insurance_procedure_id: null, patient: { name: 'Ana' }, proc: null,
+    })
+    const { repo, queries } = repoCom((q) => {
+      if (q.table !== 'treatments') return { data: [], error: null }
+      const r = q.calls.find((c) => c[0] === 'range') as [string, number, number]
+      return { data: r[1] === 0 ? Array.from({ length: 1000 }, (_, n) => t(n)) : [t(1000)], error: null }
+    })
+    const r = await repo.dadosPendencias('c1')
+    expect(r.tratamentos).toHaveLength(1001)
+    expect(queries.filter((q) => q.table === 'treatments' && q.calls.some((c) => c[0] === 'range'))).toHaveLength(2)
+  })
+
   it('itensSemLote traz só ativos fora de lote com a operadora da guia', async () => {
     const { repo, queries } = repoCom(() => ({
       data: [

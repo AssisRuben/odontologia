@@ -5,6 +5,8 @@ import type { BatchStatus, GuideStatus, GuideTooth, InsuranceBatch, ItemAuthoriz
 import type { ItemNovo, RespostaGuia, TratamentoParaGuia } from './guias'
 import { dataExecucao } from './prontidao'
 import type { montarPendencias } from './pendencias'
+import { mesesAntes } from './periodo'
+import { todayYmd } from '@/lib/messaging/time'
 
 type Erro = { message: string; code?: string }
 
@@ -55,10 +57,20 @@ export type LoteComItens = InsuranceBatch & {
 
 type DadosPendencias = Omit<Parameters<typeof montarPendencias>[0], 'hoje'>
 
-function seisMesesAtras(): string {
-  const d = new Date()
-  d.setUTCMonth(d.getUTCMonth() - 6)
-  return d.toISOString().slice(0, 10)
+const PAGINA = 1000
+
+/** Lê todas as linhas de uma consulta, página a página (o PostgREST corta em 1000). */
+async function lerTudo<T>(
+  pagina: (de: number, ate: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const todas: T[] = []
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await pagina(de, de + PAGINA - 1)
+    if (error) throw new Error(error.message)
+    const linhas = (data ?? []) as T[]
+    todas.push(...linhas)
+    if (linhas.length < PAGINA) return todas
+  }
 }
 
 function pedacos<T>(lista: T[], n: number): T[][] {
@@ -268,17 +280,20 @@ export function createConveniosRepo(admin: SupabaseClient) {
 
     /** Itens ativos fora de lote, com a operadora da guia e o tratamento. */
     async itensSemLote(clinicId: string): Promise<ItemSemLote[]> {
-      const { data, error } = await admin
-        .from('insurance_guide_items')
-        .select(
-          'id, guide_id, active, authorization, batch_id, executed_at, defer_until, guide:insurance_guides(insurance_plan_id), treatment:treatments(status, completed_at)',
-        )
-        .eq('clinic_id', clinicId)
-        .eq('active', true)
-        .is('batch_id', null)
-      if (error) throw new Error(error.message)
       type L = Omit<ItemSemLote, 'plan_id'> & { guide: { insurance_plan_id: string } | null }
-      return ((data ?? []) as unknown as L[])
+      const data = await lerTudo<L>((de, ate) =>
+        admin
+          .from('insurance_guide_items')
+          .select(
+            'id, guide_id, active, authorization, batch_id, executed_at, defer_until, guide:insurance_guides(insurance_plan_id), treatment:treatments(status, completed_at)',
+          )
+          .eq('clinic_id', clinicId)
+          .eq('active', true)
+          .is('batch_id', null)
+          .order('id')
+          .range(de, ate),
+      )
+      return data
         .filter((i) => i.guide)
         .map(({ guide, ...i }) => ({ ...i, plan_id: guide!.insurance_plan_id }))
     },
@@ -374,24 +389,35 @@ export function createConveniosRepo(admin: SupabaseClient) {
     },
 
     /** Lotes abertos e enviados nos últimos 6 meses, com itens, guia, paciente e carteirinha. */
-    async lotesComItens(clinicId: string): Promise<LoteComItens[]> {
-      const { data: lotes, error } = await admin
-        .from('insurance_batches')
-        .select('*, plan:insurance_plans(id, name)')
-        .eq('clinic_id', clinicId)
-        .or(`status.eq.aberto,and(status.eq.enviado,period_end.gte.${seisMesesAtras()})`)
-      if (error) throw new Error(error.message)
-      const base = (lotes ?? []) as unknown as (InsuranceBatch & { plan: { id: string; name: string } })[]
+    async lotesComItens(clinicId: string, hoje = todayYmd(new Date(), 'America/Sao_Paulo')): Promise<LoteComItens[]> {
+      const corte = mesesAntes(hoje, 6)
+      const base = await lerTudo<InsuranceBatch & { plan: { id: string; name: string } }>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select('*, plan:insurance_plans(id, name)')
+          .eq('clinic_id', clinicId)
+          .or(`status.eq.aberto,and(status.eq.enviado,period_end.gte.${corte})`)
+          .order('id')
+          .range(de, ate),
+      )
       if (base.length === 0) return []
 
-      const { data: itens, error: e2 } = await admin
-        .from('insurance_guide_items')
-        .select(
-          'id, batch_id, code, name, teeth, value, typed, executed_at, guide:insurance_guides(patient_id, guide_number, password, insurance_card, patient:patients(name)), treatment:treatments(completed_at)',
+      const itens: unknown[] = []
+      for (const grupo of pedacos(base.map((l) => l.id), 50)) {
+        itens.push(
+          ...(await lerTudo<unknown>((de, ate) =>
+            admin
+              .from('insurance_guide_items')
+              .select(
+                'id, batch_id, code, name, teeth, value, typed, executed_at, guide:insurance_guides(patient_id, guide_number, password, insurance_card, patient:patients(name)), treatment:treatments(completed_at)',
+              )
+              .eq('clinic_id', clinicId)
+              .in('batch_id', grupo)
+              .order('id')
+              .range(de, ate),
+          )),
         )
-        .eq('clinic_id', clinicId)
-        .in('batch_id', base.map((l) => l.id))
-      if (e2) throw new Error(e2.message)
+      }
       type L = {
         id: string
         batch_id: string
@@ -411,7 +437,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
         treatment: { completed_at: string | null } | null
       }
       const porLote = new Map<string, LoteComItens['itens']>()
-      for (const i of (itens ?? []) as unknown as L[]) {
+      for (const i of itens as L[]) {
         const lista = porLote.get(i.batch_id) ?? []
         lista.push({
           id: i.id,
@@ -437,15 +463,6 @@ export function createConveniosRepo(admin: SupabaseClient) {
 
     /** Entrada de `montarPendencias` (sem `hoje`). */
     async dadosPendencias(clinicId: string): Promise<DadosPendencias> {
-      const { data: trats, error: e1 } = await admin
-        .from('treatments')
-        .select(
-          'id, patient_id, procedure, insurance_plan_id, insurance_procedure_id, patient:patients(name), proc:insurance_plan_procedures(insurance_plan_id)',
-        )
-        .eq('clinic_id', clinicId)
-        .not('insurance_plan_id', 'is', null)
-        .eq('status', 'completed')
-      if (e1) throw new Error(e1.message)
       type T = {
         id: string
         patient_id: string
@@ -455,20 +472,32 @@ export function createConveniosRepo(admin: SupabaseClient) {
         patient: { name: string } | null
         proc: { insurance_plan_id: string } | null
       }
-      const tratamentos = (trats ?? []) as unknown as T[]
+      const tratamentos = await lerTudo<T>((de, ate) =>
+        admin
+          .from('treatments')
+          .select(
+            'id, patient_id, procedure, insurance_plan_id, insurance_procedure_id, patient:patients(name), proc:insurance_plan_procedures(insurance_plan_id)',
+          )
+          .eq('clinic_id', clinicId)
+          .not('insurance_plan_id', 'is', null)
+          .eq('status', 'completed')
+          .order('id')
+          .range(de, ate),
+      )
 
       const autorizacao = new Map<string, ItemAuthorization>()
       for (const grupo of pedacos(tratamentos.map((t) => t.id), 100)) {
-        const { data, error } = await admin
-          .from('insurance_guide_items')
-          .select('treatment_id, authorization')
-          .eq('clinic_id', clinicId)
-          .eq('active', true)
-          .in('treatment_id', grupo)
-        if (error) throw new Error(error.message)
-        for (const r of (data ?? []) as { treatment_id: string; authorization: ItemAuthorization }[]) {
-          autorizacao.set(r.treatment_id, r.authorization)
-        }
+        const itens = await lerTudo<{ treatment_id: string; authorization: ItemAuthorization }>((de, ate) =>
+          admin
+            .from('insurance_guide_items')
+            .select('treatment_id, authorization')
+            .eq('clinic_id', clinicId)
+            .eq('active', true)
+            .in('treatment_id', grupo)
+            .order('id')
+            .range(de, ate),
+        )
+        for (const r of itens) autorizacao.set(r.treatment_id, r.authorization)
       }
 
       const pend: DadosPendencias['tratamentos'] = []
@@ -480,14 +509,6 @@ export function createConveniosRepo(admin: SupabaseClient) {
         pend.push({ id: t.id, patient_id: t.patient_id, patient_name: t.patient?.name ?? '', procedure: t.procedure, situacao })
       }
 
-      const { data: guias, error: e3 } = await admin
-        .from('insurance_guides')
-        .select(
-          'id, patient_id, status, requested_at, password_valid_until, patient:patients(name), plan:insurance_plans(name), items:insurance_guide_items(batch_id, active)',
-        )
-        .eq('clinic_id', clinicId)
-        .in('status', ['aguardando', 'liberada'])
-      if (e3) throw new Error(e3.message)
       type G = {
         id: string
         patient_id: string
@@ -498,7 +519,18 @@ export function createConveniosRepo(admin: SupabaseClient) {
         plan: { name: string } | null
         items: { batch_id: string | null; active: boolean }[] | null
       }
-      const guiasOut = ((guias ?? []) as unknown as G[]).map((g) => ({
+      const guias = await lerTudo<G>((de, ate) =>
+        admin
+          .from('insurance_guides')
+          .select(
+            'id, patient_id, status, requested_at, password_valid_until, patient:patients(name), plan:insurance_plans(name), items:insurance_guide_items(batch_id, active)',
+          )
+          .eq('clinic_id', clinicId)
+          .in('status', ['aguardando', 'liberada'])
+          .order('id')
+          .range(de, ate),
+      )
+      const guiasOut = guias.map((g) => ({
         id: g.id,
         patient_id: g.patient_id,
         patient_name: g.patient?.name ?? '',
@@ -509,14 +541,17 @@ export function createConveniosRepo(admin: SupabaseClient) {
         temItemSemLote: (g.items ?? []).some((i) => i.active && i.batch_id === null),
       }))
 
-      const { data: lotes, error: e4 } = await admin
-        .from('insurance_batches')
-        .select('id, period_end, status, due_date, plan:insurance_plans(name)')
-        .eq('clinic_id', clinicId)
-        .eq('status', 'aberto')
-      if (e4) throw new Error(e4.message)
       type B = { id: string; period_end: string; status: BatchStatus; due_date: string; plan: { name: string } | null }
-      const lotesOut = ((lotes ?? []) as unknown as B[]).map((l) => ({
+      const lotes = await lerTudo<B>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select('id, period_end, status, due_date, plan:insurance_plans(name)')
+          .eq('clinic_id', clinicId)
+          .eq('status', 'aberto')
+          .order('id')
+          .range(de, ate),
+      )
+      const lotesOut = lotes.map((l) => ({
         id: l.id,
         plan_name: l.plan?.name ?? '',
         period_end: l.period_end,

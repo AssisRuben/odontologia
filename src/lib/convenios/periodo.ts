@@ -43,3 +43,13 @@ export function proximoPeriodo(end: string, closingDay: number): { start: string
 export function prazo(end: string, submissionDays: number): string {
   return somarDias(end, submissionDays)
 }
+
+/** Mesma data `n` meses antes, com o dia limitado ao último dia do mês de destino. */
+export function mesesAntes(ymd: string, n: number): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const total = y * 12 + (m - 1) - n
+  const ano = Math.floor(total / 12)
+  const mes0 = total - ano * 12
+  const ultimo = new Date(Date.UTC(ano, mes0 + 1, 0)).getUTCDate()
+  return deUtc(Date.UTC(ano, mes0, Math.min(d, ultimo)))
+}
