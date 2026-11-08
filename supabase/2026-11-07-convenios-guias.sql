@@ -353,7 +353,7 @@ BEGIN
   WHERE id = p_batch_id AND clinic_id = p_clinic_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LOTE_INVALIDO'; END IF;
-  IF v_status = 'enviado' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
+  IF v_status <> 'aberto' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
 
   UPDATE insurance_guide_items SET batch_id = p_batch_id
   WHERE id = ANY(p_item_ids) AND clinic_id = p_clinic_id AND batch_id IS NULL AND active
@@ -383,7 +383,7 @@ BEGIN
   WHERE id = p_batch_id AND clinic_id = p_clinic_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LOTE_INVALIDO'; END IF;
-  IF v_status = 'enviado' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
+  IF v_status <> 'aberto' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
 
   UPDATE insurance_guide_items
   SET batch_id = NULL, typed = FALSE, defer_until = p_defer_until
@@ -407,7 +407,7 @@ BEGIN
   WHERE id = p_batch_id AND clinic_id = p_clinic_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LOTE_INVALIDO'; END IF;
-  IF v_status = 'enviado' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
+  IF v_status <> 'aberto' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
   IF NOT EXISTS (SELECT 1 FROM insurance_guide_items
                  WHERE batch_id = p_batch_id AND clinic_id = p_clinic_id) THEN
     RAISE EXCEPTION 'LOTE_VAZIO';
