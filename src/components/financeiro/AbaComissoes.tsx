@@ -31,6 +31,7 @@ export default function AbaComissoes() {
   const [extratoDe, setExtratoDe] = useState<ResumoDentista | null>(null)
   const [pagarDe, setPagarDe] = useState<ResumoDentista | null>(null)
   const seq = useRef(0)
+  const mesRef = useRef(mes)
 
   const carregar = useCallback(async (m: string) => {
     const mine = ++seq.current
@@ -47,8 +48,10 @@ export default function AbaComissoes() {
   }, [])
 
   useEffect(() => {
+    mesRef.current = mes
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDados(null)
+    setErro('')
     carregar(mes)
   }, [mes, carregar])
 
@@ -65,7 +68,7 @@ export default function AbaComissoes() {
     } catch {
       setErro('Não foi possível concluir a ação. Verifique a conexão.')
     }
-    await carregar(mes)
+    await carregar(mesRef.current)
     setBusyId(null)
   }
 
@@ -91,13 +94,13 @@ export default function AbaComissoes() {
   return (
     <div className="space-y-4 max-w-6xl">
       <div className="flex items-center gap-3">
-        <button onClick={() => setMes(mesAnterior(mes))} aria-label="Mês anterior"
-          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <button onClick={() => setMes(mesAnterior(mes))} aria-label="Mês anterior" disabled={!!busyId}
+          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] disabled:opacity-40">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-base font-semibold text-[#111827] w-28 text-center">{rotuloMes(mes)}</span>
-        <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês"
-          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês" disabled={!!busyId}
+          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] disabled:opacity-40">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
