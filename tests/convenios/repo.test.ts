@@ -271,4 +271,35 @@ describe('createConveniosRepo', () => {
     expect(queries[0].calls).toContainEqual(['is', 'batch_id', null])
     expect(queries[0].calls).toContainEqual(['eq', 'clinic_id', 'c1'])
   })
+
+  it('registrarPagamento traduz os itens para o formato da RPC e propaga o erro do banco', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 2, error: null })
+    const { repo } = repoCom(() => ({ data: null, error: null }), rpc)
+    await repo.registrarPagamento('c1', 'b1', {
+      paidAt: '2026-11-07', deposit: 10, itens: [{ id: 'i1', paidValue: 10, glosaCode: null, glosaNote: null }],
+    })
+    expect(rpc).toHaveBeenCalledWith('register_batch_payment', {
+      p_clinic_id: 'c1', p_batch_id: 'b1', p_paid_at: '2026-11-07', p_deposit: 10,
+      p_items: [{ id: 'i1', paid_value: 10, glosa_code: null, glosa_note: null }],
+    })
+    rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'LOTE_NAO_ENVIADO', details: 'x' } })
+    await expect(repo.desfazerPagamento('c1', 'b1')).rejects.toEqual({ code: 'P0001', message: 'LOTE_NAO_ENVIADO' })
+  })
+
+  it('buscarMotivos: prefixo para dígitos, nome para texto, mínimo 2 caracteres', async () => {
+    const { repo, queries } = repoCom(() => ({ data: [{ code: '1705', name: 'x' }], error: null }))
+    expect(await repo.buscarMotivos(' 1 ')).toEqual([])
+    await repo.buscarMotivos('17')
+    await repo.buscarMotivos('50%_')
+    expect(queries).toHaveLength(2)
+    expect(queries[0].calls).toContainEqual(['like', 'code', '17%'])
+    expect(queries[1].calls).toContainEqual(['ilike', 'name', '%50  %'])
+  })
+
+  it('erroDoBanco: textos próprios da rota valem antes dos padrões', () => {
+    expect(erroDoBanco({ code: '23503' })).toBeNull()
+    expect(erroDoBanco({ message: 'VALOR_INVALIDO' })).toEqual({ status: 422, error: 'Valor pago inválido' })
+    expect(erroDoBanco({ message: 'VALOR_INVALIDO' }, { VALOR_INVALIDO: { status: 422, error: 'Valor recuperado inválido' } }))
+      .toEqual({ status: 422, error: 'Valor recuperado inválido' })
+  })
 })

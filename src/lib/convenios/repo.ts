@@ -7,6 +7,8 @@ import { dataExecucao } from './prontidao'
 import type { montarPendencias } from './pendencias'
 import { mesesAntes } from './periodo'
 import { todayYmd } from '@/lib/messaging/time'
+import { dataPrevista, prazoRecurso, totaisLote } from './pagamentos/calculo'
+import type { ItemPagamento } from './pagamentos/validar'
 
 type Erro = { message: string; code?: string }
 
@@ -56,6 +58,56 @@ export type LoteComItens = InsuranceBatch & {
 }
 
 type DadosPendencias = Omit<Parameters<typeof montarPendencias>[0], 'hoje'>
+
+export type ItemRecurso = {
+  id: string
+  glosa_value: number
+  appeal_status: AppealStatus
+  recovered_value: number | null
+  recovered_payment_id: string | null
+  lote_status: BatchStatus | null
+}
+
+export type Pagamentos = {
+  aguardando: {
+    id: string
+    plan_id: string
+    plan_name: string
+    period_end: string
+    protocol: string | null
+    sent_at: string
+    total: number
+    data_prevista: string
+    atrasado: boolean
+  }[]
+  glosas: {
+    item_id: string
+    batch_id: string
+    patient_name: string
+    code: string
+    name: string
+    glosa_code: string | null
+    glosa_reason: string | null
+    glosa_note: string | null
+    value: number
+    glosa_value: number
+    paid_at: string
+    prazo_recurso: string
+    appeal_status: AppealStatus
+    appeal_at: string | null
+    appeal_result_at: string | null
+    recovered_value: number | null
+  }[]
+  pagos: {
+    id: string
+    plan_id: string
+    plan_name: string
+    period_end: string
+    paid_at: string
+    deposit_amount: number | null
+    totais: ReturnType<typeof totaisLote>
+  }[]
+}
 
 const PAGINA = 1000
 
@@ -459,6 +511,266 @@ export function createConveniosRepo(admin: SupabaseClient) {
         const lista = (porLote.get(l.id) ?? []).sort((a, b) => a.patient_name.localeCompare(b.patient_name, 'pt-BR'))
         return { ...l, itens: lista, total: Math.round(lista.reduce((s, i) => s + i.value, 0) * 100) / 100 }
       })
+    },
+
+    /** null = lote não existe na clínica. Inclui todos os itens com esse batch_id (ativos ou não). */
+    async itensDoLote(
+      clinicId: string,
+      batchId: string,
+    ): Promise<{ status: BatchStatus; itens: { id: string; value: number }[] } | null> {
+      const { data: lote, error: e1 } = await admin
+        .from('insurance_batches')
+        .select('status')
+        .eq('id', batchId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (e1) throw new Error(e1.message)
+      if (!lote) return null
+      const linhas = await lerTudo<{ id: string; value: number | string | null }>((de, ate) =>
+        admin
+          .from('insurance_guide_items')
+          .select('id, value')
+          .eq('clinic_id', clinicId)
+          .eq('batch_id', batchId)
+          .order('id')
+          .range(de, ate),
+      )
+      return {
+        status: (lote as { status: BatchStatus }).status,
+        itens: linhas.map((i) => ({ id: i.id, value: Number(i.value ?? 0) })),
+      }
+    },
+
+    async registrarPagamento(
+      clinicId: string,
+      batchId: string,
+      d: { paidAt: string; deposit: number; itens: ItemPagamento[] },
+    ): Promise<void> {
+      const { error } = await admin.rpc('register_batch_payment', {
+        p_clinic_id: clinicId,
+        p_batch_id: batchId,
+        p_paid_at: d.paidAt,
+        p_deposit: d.deposit,
+        p_items: d.itens.map((i) => ({
+          id: i.id,
+          paid_value: i.paidValue,
+          glosa_code: i.glosaCode,
+          glosa_note: i.glosaNote,
+        })),
+      })
+      if (error) lancar(error)
+    },
+
+    async desfazerPagamento(clinicId: string, batchId: string): Promise<void> {
+      const { error } = await admin.rpc('undo_batch_payment', { p_clinic_id: clinicId, p_batch_id: batchId })
+      if (error) lancar(error)
+    },
+
+    async itemRecurso(clinicId: string, itemId: string): Promise<ItemRecurso | null> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .select('id, glosa_value, appeal_status, recovered_value, recovered_payment_id, batch:insurance_batches(status)')
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data) return null
+      const i = data as unknown as {
+        id: string
+        glosa_value: number | string | null
+        appeal_status: AppealStatus
+        recovered_value: number | string | null
+        recovered_payment_id: string | null
+        batch: { status: BatchStatus } | null
+      }
+      return {
+        id: i.id,
+        glosa_value: Number(i.glosa_value ?? 0),
+        appeal_status: i.appeal_status,
+        recovered_value: i.recovered_value === null ? null : Number(i.recovered_value),
+        recovered_payment_id: i.recovered_payment_id,
+        lote_status: i.batch?.status ?? null,
+      }
+    },
+
+    /** false = item não estava glosado e sem recurso. */
+    async recorrer(clinicId: string, itemId: string, appealAt: string, appealText: string): Promise<boolean> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .update({ appeal_status: 'em_recurso', appeal_at: appealAt, appeal_text: appealText })
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .eq('appeal_status', 'nenhum')
+        .gt('glosa_value', 0)
+        .select('id')
+      if (error) throw new Error(error.message)
+      return !!data?.length
+    },
+
+    /** false = item não estava em recurso. */
+    async registrarResultado(
+      clinicId: string,
+      itemId: string,
+      r: { resultado: 'aceito' | 'negado'; resultAt: string; recoveredValue: number | null },
+    ): Promise<boolean> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .update({ appeal_status: r.resultado, appeal_result_at: r.resultAt, recovered_value: r.recoveredValue })
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .eq('appeal_status', 'em_recurso')
+        .select('id')
+      if (error) throw new Error(error.message)
+      return !!data?.length
+    },
+
+    async receberRecurso(clinicId: string, itemId: string, value: number, receivedAt: string): Promise<void> {
+      const { error } = await admin.rpc('receive_appeal', {
+        p_clinic_id: clinicId,
+        p_item_id: itemId,
+        p_value: value,
+        p_received_at: receivedAt,
+      })
+      if (error) lancar(error)
+    },
+
+    /** Lotes aguardando pagamento, glosas em aberto e lotes pagos nos últimos 6 meses. */
+    async pagamentos(clinicId: string, hoje = todayYmd(new Date(), 'America/Sao_Paulo')): Promise<Pagamentos> {
+      const corte = mesesAntes(hoje, 6)
+      type L = {
+        id: string
+        insurance_plan_id: string
+        period_end: string
+        status: BatchStatus
+        protocol: string | null
+        sent_at: string | null
+        paid_at: string | null
+        deposit_amount: number | string | null
+        plan: { id: string; name: string; payment_days: number | null; appeal_days: number | null } | null
+      }
+      const lotes = await lerTudo<L>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select(
+            'id, insurance_plan_id, period_end, status, protocol, sent_at, paid_at, deposit_amount, plan:insurance_plans(id, name, payment_days, appeal_days)',
+          )
+          .eq('clinic_id', clinicId)
+          .or(`status.eq.enviado,and(status.eq.pago,paid_at.gte.${corte})`)
+          .order('id')
+          .range(de, ate),
+      )
+      if (lotes.length === 0) return { aguardando: [], glosas: [], pagos: [] }
+
+      type I = {
+        id: string
+        batch_id: string
+        code: string
+        name: string
+        value: number | string | null
+        paid_value: number | string | null
+        glosa_value: number | string | null
+        glosa_code: string | null
+        glosa_note: string | null
+        appeal_status: AppealStatus
+        appeal_at: string | null
+        appeal_result_at: string | null
+        recovered_value: number | string | null
+        recovered_payment_id: string | null
+        guide: { patient: { name: string } | null } | null
+        reason: { name: string } | null
+      }
+      const itens: I[] = []
+      for (const grupo of pedacos(lotes.map((l) => l.id), 50)) {
+        itens.push(
+          ...(await lerTudo<I>((de, ate) =>
+            admin
+              .from('insurance_guide_items')
+              .select(
+                'id, batch_id, code, name, value, paid_value, glosa_value, glosa_code, glosa_note, appeal_status, appeal_at, appeal_result_at, recovered_value, recovered_payment_id, guide:insurance_guides(patient:patients(name)), reason:glosa_reasons(name)',
+              )
+              .eq('clinic_id', clinicId)
+              .in('batch_id', grupo)
+              .order('id')
+              .range(de, ate),
+          )),
+        )
+      }
+      const porLote = new Map<string, I[]>()
+      for (const i of itens) {
+        const l = porLote.get(i.batch_id) ?? []
+        l.push(i)
+        porLote.set(i.batch_id, l)
+      }
+      const num = (v: number | string | null) => (v === null ? null : Number(v))
+      const out: Pagamentos = { aguardando: [], glosas: [], pagos: [] }
+      for (const l of lotes) {
+        const lista = porLote.get(l.id) ?? []
+        const base = { id: l.id, plan_id: l.insurance_plan_id, plan_name: l.plan?.name ?? '', period_end: l.period_end }
+        if (l.status === 'enviado' && l.sent_at) {
+          const previsto = dataPrevista(l.sent_at, l.plan?.payment_days ?? 30)
+          out.aguardando.push({
+            ...base,
+            protocol: l.protocol,
+            sent_at: l.sent_at,
+            total: totaisLote(lista.map((i) => ({ value: Number(i.value ?? 0), paid_value: null })), null).enviado,
+            data_prevista: previsto,
+            atrasado: hoje > previsto,
+          })
+          continue
+        }
+        if (l.status !== 'pago' || !l.paid_at) continue
+        const deposit = num(l.deposit_amount)
+        out.pagos.push({
+          ...base,
+          paid_at: l.paid_at,
+          deposit_amount: deposit,
+          totais: totaisLote(
+            lista.map((i) => ({ value: Number(i.value ?? 0), paid_value: num(i.paid_value) })),
+            deposit,
+          ),
+        })
+        for (const i of lista) {
+          const g = Number(i.glosa_value ?? 0)
+          if (g <= 0) continue
+          const aberto =
+            i.appeal_status === 'nenhum' ||
+            i.appeal_status === 'em_recurso' ||
+            (i.appeal_status === 'aceito' && !i.recovered_payment_id)
+          if (!aberto) continue
+          out.glosas.push({
+            item_id: i.id,
+            batch_id: l.id,
+            patient_name: i.guide?.patient?.name ?? '',
+            code: i.code,
+            name: i.name,
+            glosa_code: i.glosa_code,
+            glosa_reason: i.reason?.name ?? null,
+            glosa_note: i.glosa_note,
+            value: Number(i.value ?? 0),
+            glosa_value: g,
+            paid_at: l.paid_at,
+            prazo_recurso: prazoRecurso(l.paid_at, l.plan?.appeal_days ?? 30),
+            appeal_status: i.appeal_status,
+            appeal_at: i.appeal_at,
+            appeal_result_at: i.appeal_result_at,
+            recovered_value: num(i.recovered_value),
+          })
+        }
+      }
+      return out
+    },
+
+    /** Busca na Tabela 38: só dígitos = prefixo do código; senão trecho do nome. Até 20; exige 2+ caracteres. */
+    async buscarMotivos(q: string): Promise<{ code: string; name: string }[]> {
+      const termo = q.trim().slice(0, 60)
+      if (termo.length < 2) return []
+      const base = admin.from('glosa_reasons').select('code, name')
+      const filtrada = /^\d+$/.test(termo)
+        ? base.like('code', `${termo}%`)
+        : base.ilike('name', `%${termo.replace(/[%_\\,()]/g, ' ')}%`)
+      const { data, error } = await filtrada.order('code').limit(20)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as { code: string; name: string }[]
     },
 
     /**
