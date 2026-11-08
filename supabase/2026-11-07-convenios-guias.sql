@@ -87,7 +87,7 @@ LANGUAGE plpgsql
 AS $fn$
 BEGIN
   IF NEW.status = 'completed' THEN
-    NEW.completed_at := COALESCE(NEW.completed_at, CURRENT_DATE);
+    NEW.completed_at := COALESCE(NEW.completed_at, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date);
   ELSE
     NEW.completed_at := NULL;
   END IF;
@@ -139,11 +139,13 @@ CREATE TABLE IF NOT EXISTS insurance_guides (
   password             TEXT,
   password_valid_until DATE,
   insurance_card       TEXT,
-  requested_at         DATE NOT NULL DEFAULT CURRENT_DATE,
+  requested_at         DATE NOT NULL DEFAULT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date,
   responded_at         TIMESTAMPTZ,
   notes                TEXT,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE insurance_guides ALTER COLUMN requested_at SET DEFAULT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
 
 CREATE INDEX IF NOT EXISTS insurance_guides_clinic_patient_idx ON insurance_guides (clinic_id, patient_id);
 
