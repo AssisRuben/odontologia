@@ -17,7 +17,7 @@ type LinhaTratamento = {
   status: TratamentoParaGuia['status']
   value: number | string | null
   treatment_teeth: { tooth_number: number; faces: string[] | null }[] | null
-  insurance_plan_procedures: { code: string; name: string; requires_authorization: boolean; active: boolean } | null
+  insurance_plan_procedures: { code: string; name: string; requires_authorization: boolean; active: boolean; insurance_plan_id: string } | null
 }
 
 export function createConveniosRepo(admin: SupabaseClient) {
@@ -26,7 +26,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
       const { data, error } = await admin
         .from('treatments')
         .select(
-          'id, patient_id, insurance_plan_id, status, value, treatment_teeth(tooth_number, faces), insurance_plan_procedures(code, name, requires_authorization, active)',
+          'id, patient_id, insurance_plan_id, status, value, treatment_teeth(tooth_number, faces), insurance_plan_procedures(code, name, requires_authorization, active, insurance_plan_id)',
         )
         .eq('clinic_id', clinicId)
         .in('id', treatmentIds)
@@ -53,7 +53,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           value: Number(t.value ?? 0),
           teeth,
           procedimento:
-            p && p.active ? { code: p.code, name: p.name, requires_authorization: p.requires_authorization } : null,
+            p && p.active && p.insurance_plan_id === t.insurance_plan_id ? { code: p.code, name: p.name, requires_authorization: p.requires_authorization } : null,
           emGuiaAtiva: emGuia.has(t.id),
         }
       })
@@ -163,15 +163,20 @@ export function createConveniosRepo(admin: SupabaseClient) {
     async item(
       clinicId: string,
       itemId: string,
-    ): Promise<{ id: string; batch_id: string | null; treatment_id: string | null } | null> {
+    ): Promise<{
+      id: string
+      batch_id: string | null
+      treatment_id: string | null
+      guide: { insurance_plan_id: string; patient_id: string } | null
+    } | null> {
       const { data, error } = await admin
         .from('insurance_guide_items')
-        .select('id, batch_id, treatment_id')
+        .select('id, batch_id, treatment_id, guide:insurance_guides(insurance_plan_id, patient_id)')
         .eq('id', itemId)
         .eq('clinic_id', clinicId)
         .maybeSingle()
       if (error) throw new Error(error.message)
-      return data as { id: string; batch_id: string | null; treatment_id: string | null } | null
+      return data as unknown as Awaited<ReturnType<ReturnType<typeof createConveniosRepo>['item']>>
     },
 
     async atualizarItem(

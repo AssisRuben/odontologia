@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 const EM_LOTE = { status: 409, body: { error: 'Item em lote não pode ser alterado' } }
 
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/guias/itens/[id]'>) {
   const { id } = await ctx.params
   const body = await req.json().catch(() => null)
   return withClinic('guias item PATCH', async ({ clinicId, admin }) => {

@@ -40,6 +40,9 @@ describe('parsers', () => {
       input: { patientId: id, insurancePlanId: id, professionalId: null, treatmentIds: [id] },
     })
     expect(parseCriarGuia({ patientId: 'x', insurancePlanId: id, treatmentIds: [] }).ok).toBe(false)
+    expect(parseCriarGuia({ patientId: id, insurancePlanId: id, treatmentIds: [] })).toEqual({ ok: false, error: 'Escolha ao menos um tratamento' })
+    const muitos = Array.from({ length: 31 }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, '0')}`)
+    expect(parseCriarGuia({ patientId: id, insurancePlanId: id, treatmentIds: muitos })).toEqual({ ok: false, error: 'Máximo de 30 itens por guia' })
     expect(parseExecutado({ executedAt: '2026-11-07' }).ok).toBe(true)
     expect(parseExecutado({ executedAt: 'ontem' }).ok).toBe(false)
   })
@@ -79,7 +82,7 @@ describe('createConveniosRepo', () => {
               {
                 id: 't1', patient_id: 'p', insurance_plan_id: 'pl', status: 'completed', value: '50.00',
                 treatment_teeth: [{ tooth_number: 11, faces: ['M'] }],
-                insurance_plan_procedures: { code: '8100', name: 'Consulta', requires_authorization: true, active: true },
+                insurance_plan_procedures: { code: '8100', name: 'Consulta', requires_authorization: true, active: true, insurance_plan_id: 'pl' },
               },
               { id: 't2', patient_id: 'p', insurance_plan_id: 'pl', status: 'planned', value: 5, treatment_teeth: [], insurance_plan_procedures: null },
             ],

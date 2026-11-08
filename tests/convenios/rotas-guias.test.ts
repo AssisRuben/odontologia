@@ -31,7 +31,7 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) }) as never
 const tratamento = (extra: Record<string, unknown> = {}) => ({
   id: TR, patient_id: PAT, insurance_plan_id: PLAN, status: 'completed', value: 80,
   treatment_teeth: [{ tooth_number: 11, faces: ['M'] }],
-  insurance_plan_procedures: { code: '8100', name: 'Consulta', requires_authorization: true, active: true },
+  insurance_plan_procedures: { code: '8100', name: 'Consulta', requires_authorization: true, active: true, insurance_plan_id: PLAN },
   ...extra,
 })
 
@@ -47,6 +47,7 @@ function dadosCriacao(over: Partial<Record<string, unknown>> = {}) {
   resolver = (q) => base[q.table]
 }
 
+const GUIDE = { insurance_plan_id: PLAN, patient_id: PAT }
 const corpo = { patientId: PAT, insurancePlanId: PLAN, treatmentIds: [TR] }
 
 beforeEach(() => {
@@ -155,7 +156,7 @@ describe('demais rotas', () => {
     resolver = (q) => {
       if (q.calls.some((c) => c[0] === 'update')) { updates.push(q); return { data: [{ id: ID }], error: null } }
       if (q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'maybeSingle')) {
-        return { data: { id: ID, batch_id: null, treatment_id: TR }, error: null }
+        return { data: { id: ID, batch_id: null, treatment_id: TR, guide: GUIDE }, error: null }
       }
       if (q.table === 'treatments') return { data: [tratamento()], error: null }
       return { data: [], error: null }
@@ -168,11 +169,31 @@ describe('demais rotas', () => {
       q.table === 'treatments'
         ? { data: [tratamento({ insurance_plan_procedures: null })], error: null }
         : q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'maybeSingle')
-          ? { data: { id: ID, batch_id: null, treatment_id: TR }, error: null }
+          ? { data: { id: ID, batch_id: null, treatment_id: TR, guide: GUIDE }, error: null }
           : { data: [], error: null }
     const r2 = await atualizar(req(), ctx(ID))
     expect(r2.status).toBe(422)
     expect(await r2.json()).toEqual({ error: 'Tratamento fora da tabela do convênio' })
+  })
+
+  it('atualizar: tratamento de outro convênio/paciente ou procedimento de outro plano → 422', async () => {
+    for (const guide of [{ insurance_plan_id: 'outro', patient_id: PAT }, { insurance_plan_id: PLAN, patient_id: 'outro' }]) {
+      resolver = (q) =>
+        q.table === 'treatments'
+          ? { data: [tratamento()], error: null }
+          : q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'maybeSingle')
+            ? { data: { id: ID, batch_id: null, treatment_id: TR, guide }, error: null }
+            : { data: [], error: null }
+      const res = await atualizar(req(), ctx(ID))
+      expect([res.status, (await res.json()).error]).toEqual([422, 'Tratamento fora da tabela do convênio'])
+    }
+    resolver = (q) =>
+      q.table === 'treatments'
+        ? { data: [tratamento({ insurance_plan_procedures: { code: '1', name: 'n', requires_authorization: false, active: true, insurance_plan_id: 'outro' } })], error: null }
+        : q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'maybeSingle')
+          ? { data: { id: ID, batch_id: null, treatment_id: TR, guide: GUIDE }, error: null }
+          : { data: [], error: null }
+    expect((await atualizar(req(), ctx(ID))).status).toBe(422)
   })
 
   it('PATCH executedAt: item em lote → 409, ok, inexistente → 404', async () => {
@@ -181,7 +202,7 @@ describe('demais rotas', () => {
     resolver = (q) =>
       q.calls.some((c) => c[0] === 'update')
         ? { data: [{ id: ID }], error: null }
-        : { data: { id: ID, batch_id: null, treatment_id: TR }, error: null }
+        : { data: { id: ID, batch_id: null, treatment_id: TR, guide: GUIDE }, error: null }
     expect((await executado(req({ executedAt: '2026-11-07' }), ctx(ID))).status).toBe(200)
     resolver = () => ({ data: null, error: null })
     expect((await executado(req({ executedAt: '2026-11-07' }), ctx(ID))).status).toBe(404)

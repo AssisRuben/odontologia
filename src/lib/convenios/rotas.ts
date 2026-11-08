@@ -22,6 +22,8 @@ export function parseCriarGuia(raw: unknown):
   }
   if (!Array.isArray(o.treatmentIds) || !o.treatmentIds.every(isUuid)) return { ok: false, error: 'Dados inválidos' }
   const treatmentIds = [...new Set(o.treatmentIds as string[])]
+  if (treatmentIds.length === 0) return { ok: false, error: 'Escolha ao menos um tratamento' }
+  if (treatmentIds.length > 30) return { ok: false, error: 'Máximo de 30 itens por guia' }
   return { ok: true, input: { patientId: o.patientId, insurancePlanId: o.insurancePlanId, professionalId, treatmentIds } }
 }
 

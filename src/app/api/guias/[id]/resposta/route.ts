@@ -6,7 +6,7 @@ import { validarResposta } from '@/lib/convenios/guias'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, ctx: RouteContext<'/api/guias/[id]/resposta'>) {
   const { id } = await ctx.params
   const body = await req.json().catch(() => null)
   return withClinic('guias resposta POST', async ({ clinicId, admin }) => {
