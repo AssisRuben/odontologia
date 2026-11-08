@@ -179,7 +179,7 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
       )}
       {lotes.map((l) => {
         const aberta = aberto === l.id
-        const enviado = l.status === 'enviado'
+        const enviado = l.status !== 'aberto'
         return (
           <section
             key={l.id}
@@ -205,7 +205,7 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
                     enviado ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#EFF6FF] text-[#1D4ED8]'
                   }`}
                 >
-                  {enviado ? 'Enviado' : 'Aberto'}
+                  {l.status === 'pago' ? 'Pago' : enviado ? 'Enviado' : 'Aberto'}
                 </span>
                 <p className="text-[#111827] font-medium mt-1">{formatCurrency(l.total)}</p>
               </div>

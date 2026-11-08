@@ -141,6 +141,8 @@ describe('createConveniosRepo', () => {
     const enviado = repoCom(() => ({ data: { status: 'enviado' }, error: null }))
     await expect(enviado.repo.marcarDigitado('c1', 'b1', 'i1', true)).rejects.toMatchObject({ message: 'LOTE_ENVIADO' })
     expect(enviado.queries).toHaveLength(1)
+    const pago = repoCom(() => ({ data: { status: 'pago' }, error: null }))
+    await expect(pago.repo.marcarDigitado('c1', 'b1', 'i1', true)).rejects.toMatchObject({ message: 'LOTE_ENVIADO' })
   })
 
   it('itensSemLote pede a segunda página quando a primeira vem com 1000 linhas', async () => {
@@ -172,7 +174,7 @@ describe('createConveniosRepo', () => {
     const r = await repo.lotesComItens('c1', '2026-08-31')
     expect(r[0].itens).toHaveLength(1001)
     expect(r[0].total).toBe(1101.1)
-    expect(queries[0].calls).toContainEqual(['or', 'status.eq.aberto,and(status.eq.enviado,period_end.gte.2026-02-28)'])
+    expect(queries[0].calls).toContainEqual(['or', 'status.eq.aberto,and(status.in.(enviado,pago),period_end.gte.2026-02-28)'])
     expect(queries.filter((q) => q.table === 'insurance_guide_items')).toHaveLength(2)
   })
 

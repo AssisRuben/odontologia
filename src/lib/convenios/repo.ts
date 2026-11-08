@@ -376,7 +376,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
         .maybeSingle()
       if (e1) throw new Error(e1.message)
       if (!lote) lancar({ code: 'P0001', message: 'LOTE_INVALIDO' })
-      if ((lote as { status: BatchStatus }).status === 'enviado') lancar({ code: 'P0001', message: 'LOTE_ENVIADO' })
+      if ((lote as { status: BatchStatus }).status !== 'aberto') lancar({ code: 'P0001', message: 'LOTE_ENVIADO' })
       const { data, error } = await admin
         .from('insurance_guide_items')
         .update({ typed })
@@ -388,7 +388,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
       return !!data?.length
     },
 
-    /** Lotes abertos e enviados nos últimos 6 meses, com itens, guia, paciente e carteirinha. */
+    /** Lotes abertos, enviados e pagos nos últimos 6 meses, com itens, guia, paciente e carteirinha. */
     async lotesComItens(clinicId: string, hoje = todayYmd(new Date(), 'America/Sao_Paulo')): Promise<LoteComItens[]> {
       const corte = mesesAntes(hoje, 6)
       const base = await lerTudo<InsuranceBatch & { plan: { id: string; name: string } }>((de, ate) =>
@@ -396,7 +396,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           .from('insurance_batches')
           .select('*, plan:insurance_plans(id, name)')
           .eq('clinic_id', clinicId)
-          .or(`status.eq.aberto,and(status.eq.enviado,period_end.gte.${corte})`)
+          .or(`status.eq.aberto,and(status.in.(enviado,pago),period_end.gte.${corte})`)
           .order('id')
           .range(de, ate),
       )
