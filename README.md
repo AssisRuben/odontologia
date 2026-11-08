@@ -421,7 +421,7 @@ Aplique o SQL ANTES de publicar (deploy) o código novo.
 - Item em lote não recebe nova resposta nem é cancelado; os demais itens da mesma guia seguem normalmente (cancelar a guia cancela só os itens fora de lote). Com item em lote, número, senha e validade da guia não mudam. Lote enviado não pode ser alterado.
 - Pendências olham tratamentos concluídos nos últimos 6 meses; procedimento desativado na tabela conta como fora da tabela.
 - Convênio com guias não pode ser excluído: desative-o.
-- Lotes enviados aparecem por 6 meses.
+- Lotes abertos e enviados aparecem sempre; lotes pagos aparecem por 6 meses.
 
 ### Pagamento e glosas
 
@@ -435,12 +435,13 @@ Depois de enviar o lote, o app acompanha o pagamento da operadora, as glosas e o
 **Como usar:**
 
 1. **Prazos:** em Configurações → Convênios, informe em cada operadora o prazo de pagamento e o prazo de recurso, em dias (padrão 30; de 0 a 180).
-2. **Registrar pagamento:** em Convênios → Pagamentos, abra o lote enviado e informe a data do depósito. "Tudo pago" preenche cada item com o valor integral; nos itens com glosa, informe o valor pago e o motivo (código da ANS; observação de até 200 caracteres). A conferência compara a soma dos itens com o valor depositado.
+2. **Registrar pagamento:** em Convênios → Pagamentos (ou no botão "Registrar pagamento" do lote enviado, na aba Lotes), abra o lote e informe a data do depósito. "Tudo pago" preenche cada item com o valor integral; nos itens com glosa, informe o valor pago e o motivo (código da ANS; observação de até 200 caracteres). A conferência compara a soma dos itens com o valor depositado.
 3. **Financeiro:** o pagamento gera um recebimento "Convênio" por paciente (descrição "operadora — lote mm/aaaa"), que também entra no livro-caixa.
-4. **Recurso:** no item glosado, "Recorrer" registra a justificativa (até 2000 caracteres). Depois registre o resultado: aceito (com o valor recuperado) ou negado (glosa definitiva). O valor de recurso aceito é recebido em um novo recebimento "operadora — recurso de glosa código".
-5. **Ficha do paciente:** os itens de lote pago mostram a situação (Pago, Glosado · código, Em recurso, Recuperado, Glosa definitiva).
-6. **Pendências:** lotes com pagamento atrasado, prazo de recurso vencendo (5 dias) ou vencido, e recurso aceito sem recebimento há mais de 30 dias.
-7. **Desfazer pagamento:** cancela os recebimentos do lote e volta o lote a "aguardando pagamento". Fica bloqueado se algum recurso já tiver o valor recebido.
+4. **Recurso:** no item glosado, "Recorrer" registra a justificativa (até 2000 caracteres). Depois registre o resultado: aceito (com o valor recuperado) ou negado (glosa definitiva). O valor de recurso aceito é recebido em um novo recebimento "operadora — recurso de glosa código"; até lá o item fica "Aceito — aguardando pagamento". Se decidir não recorrer, "Não recorrer" torna a glosa definitiva e tira o alerta de prazo. Glosas em recurso ou aceitas sem recebimento continuam na lista mesmo depois de 6 meses.
+5. **Pagos:** o bloco "Pagos (últimos 6 meses)" mostra, por lote, o valor enviado, pago e glosado.
+6. **Ficha do paciente:** os itens de lote pago mostram a situação (Pago, Glosado · código, Em recurso, Aceito — aguardando pagamento, Recuperado, Glosa definitiva).
+7. **Pendências:** lotes com pagamento atrasado, prazo de recurso vencendo (5 dias) ou vencido, e recurso aceito sem recebimento há mais de 30 dias.
+8. **Desfazer pagamento:** cancela os recebimentos do lote, apaga as glosas e os recursos registrados nele e volta o lote a "aguardando pagamento". Fica bloqueado se algum recurso já tiver o valor recebido.
 
 **O que não faz:**
 
