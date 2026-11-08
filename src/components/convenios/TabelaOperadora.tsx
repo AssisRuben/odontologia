@@ -83,9 +83,10 @@ export function TabelaOperadora({ plan }: Props) {
         const safe = q.replace(/[%_,()\\]/g, ' ')
         req = req.ilike('name', `%${safe}%`)
       }
-      const { data } = await req.order('code').limit(20)
+      const { data, error: err } = await req.order('code').limit(20)
       if (!cancelled) {
-        setResults((data ?? []) as TussProcedure[])
+        if (err) { setError(`Erro na busca: ${err.message}`); setResults([]) }
+        else setResults((data ?? []) as TussProcedure[])
         setSearching(false)
       }
     }, 300)
@@ -126,12 +127,14 @@ export function TabelaOperadora({ plan }: Props) {
   async function update(item: InsurancePlanProcedure, patch: Partial<Pick<InsurancePlanProcedure, 'value' | 'requires_authorization' | 'active'>>) {
     setError('')
     const supabase = createClient()
-    const { error: err } = await supabase
+    const { data, error: err } = await supabase
       .from('insurance_plan_procedures')
       .update(patch)
       .eq('id', item.id)
       .eq('clinic_id', plan.clinic_id)
+      .select('id')
     if (err) { setError(mensagemErro(err)); return }
+    if (!data || data.length === 0) { setError('Não foi possível salvar a alteração'); return }
     setItems(prev => prev.map(i => (i.id === item.id ? { ...i, ...patch } : i)))
   }
 
