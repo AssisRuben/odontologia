@@ -94,3 +94,17 @@ Unitários: alocação (dois tratamentos de dentistas diferentes, pagamento parc
 ## Documentação
 
 README, seção nova "Comissões": rodar o script, configurar percentuais e o passo a passo do fechamento.
+
+## Ajustes após a revisão final
+
+Decididos pelo usuário depois da revisão de todo o branch (achados 1 e 2).
+
+**A. Mês inicial por dentista.** Nova coluna `professionals.commission_start DATE` (nula ou dia 1 do mês, CHECK), criada na mesma migração com `ADD COLUMN IF NOT EXISTS`. A migração preenche o mês atual de São Paulo para quem já tem percentual e ainda não tem mês inicial (re-executável).
+- No cálculo, partes e descontos de laboratório com data anterior ao mês inicial são ignorados por completo (nem "do mês" nem ajuste). Fechamentos anteriores ao mês inicial também não entram no ajuste. Mês anterior ao início → extrato zerado.
+- Percentual com mês inicial nulo → sem comissão (zeros), e o resumo marca `semInicio` para a tela mostrar "Sem mês inicial" com o link para Configurações.
+- `close_commission` recusa com `ANTES_DO_INICIO` quando o mês inicial é nulo ou o período é anterior a ele → 409 `'Mês anterior ao início da comissão'`. A rota verifica antes de chamar a RPC.
+- Configurações → Profissionais: campo "Comissão a partir de" (`<input type="month">`, salvo como `YYYY-MM-01`), que vem com o mês atual ao preencher o percentual e é obrigatório quando há percentual (`'Informe o mês inicial da comissão'`). Percentual convênio sem particular é recusado (`'Informe o percentual particular'`).
+
+**B. Mudança de percentual vale só daqui para frente.** Partes e descontos com data num mês que tem fechamento do dentista usam os percentuais congelados no `statement` desse fechamento (`percentual` para particular e laboratório, `percentualConvenio ?? percentual` para convênio e recurso); meses sem fechamento usam os percentuais atuais. Assim, estornos e recebimentos atrasados num mês fechado continuam virando ajuste, pelo percentual daquele mês, e mudar o percentual não gera ajuste sobre meses fechados.
+
+Também: a violação de unicidade (`23505`) em `close_commission` passa a responder 409 `'Este mês já foi fechado'`.

@@ -142,9 +142,9 @@ export default function AbaComissoes() {
                 return (
                   <tr key={d.professional_id}>
                     <td className="px-4 py-3 text-sm font-medium text-[#111827]">{d.nome}</td>
-                    {d.semPercentual ? (
+                    {d.semPercentual || d.semInicio ? (
                       <td colSpan={5} className="px-4 py-3 text-sm text-[#92400E]">
-                        Sem percentual.{' '}
+                        {d.semPercentual ? 'Sem percentual.' : 'Sem mês inicial.'}{' '}
                         <Link href="/configuracoes/profissionais" className="font-medium text-[#3B82F6] underline">Definir em Configurações</Link>
                       </td>
                     ) : (

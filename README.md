@@ -464,9 +464,12 @@ No SQL Editor do Supabase, rode [`supabase/2026-11-08-comissoes.sql`](supabase/2
 Em Configurações → Profissionais, edite cada dentista e informe:
 
 - **% comissão particular** (0 a 100, até 2 casas);
-- **% comissão convênio** (opcional; vazio = igual ao particular). Vale também para recursos de glosa.
+- **% comissão convênio** (opcional; vazio = igual ao particular). Vale também para recursos de glosa. Só pode ser preenchido junto com o particular;
+- **Comissão a partir de** (mês; obrigatório quando há percentual). Ao preencher o percentual, o campo já vem com o mês atual. Recebimentos, itens de convênio e laboratório anteriores a esse mês **não entram** na comissão, nem como ajuste: o que já foi pago ao dentista fora do sistema não é pago de novo. Meses anteriores aparecem zerados e não podem ser fechados ("Mês anterior ao início da comissão").
 
-Dentista sem percentual aparece em Financeiro → Comissões como "Sem percentual", sem valores.
+Ao rodar o script, quem já tem percentual recebe como mês inicial o mês atual (em São Paulo); ajuste em Configurações se a comissão deve começar em outro mês.
+
+Dentista sem percentual aparece em Financeiro → Comissões como "Sem percentual", sem valores; com percentual e sem mês inicial, como "Sem mês inicial".
 
 ### 3. Como o cálculo funciona
 
@@ -476,7 +479,7 @@ Dentista sem percentual aparece em Financeiro → Comissões como "Sem percentua
 - **Convênio:** o valor pago pela operadora a cada item (e o valor recuperado em recurso) comissiona o dentista do tratamento, com o percentual de convênio, na data do recebimento.
 - **Laboratório:** despesas de categoria "Laboratório" pagas, ligadas a um dentista, descontam o percentual particular do custo na comissão do mês do pagamento.
 - **Tratamento sem dentista** consome o recebimento, mas ninguém recebe comissão por ele.
-- Os percentuais usados são os de hoje; mudar o percentual recalcula só os meses ainda não fechados.
+- **Mudança de percentual vale daqui para frente.** Num mês já fechado, o cálculo usa sempre o percentual congelado no fechamento daquele mês; os meses não fechados usam o percentual atual. Mudar o percentual não gera ajuste sobre meses fechados.
 
 ### 4. Fechar, pagar, desfazer e reabrir
 
@@ -490,7 +493,7 @@ Em Financeiro → Comissões, escolha o mês (padrão: mês anterior). O mês co
 
 ### 5. Ajustes
 
-Mês fechado nunca muda. Estorno, recebimento atrasado, mudança de percentual ou mês anterior que não foi fechado entram como **"Ajustes de meses anteriores"** no mês seguinte (podem ser negativos; com total negativo ou zero não dá para fechar o mês).
+Mês fechado nunca muda. Estorno, recebimento atrasado ou mês anterior (desde o mês inicial) que não foi fechado entram como **"Ajustes de meses anteriores"** no mês seguinte (podem ser negativos; com total negativo ou zero não dá para fechar o mês). Um estorno ou recebimento atrasado com data num mês fechado é ajustado pelo percentual congelado daquele mês.
 
 ### O que não faz
 

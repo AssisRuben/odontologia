@@ -40,6 +40,8 @@ export interface Professional {
   whatsapp_booking: boolean
   commission_rate: number | null
   commission_rate_insurance: number | null
+  /** Dia 1 do mês a partir do qual há comissão (YYYY-MM-DD). */
+  commission_start: string | null
   created_at: string
 }
 
