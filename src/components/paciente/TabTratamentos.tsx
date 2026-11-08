@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/utils'
 import { todayYmd } from '@/lib/messaging/time'
 import { SecaoGuias } from '@/components/paciente/SecaoGuias'
 import { naTabela } from '@/lib/convenios/guias'
+import { dataValida } from '@/lib/convenios/cadastro'
 import type {
   Professional, InsurancePlan, Treatment, TreatmentStatus, InsuranceGuide, InsuranceGuideItem,
   InsurancePlanProcedure,
@@ -218,6 +219,9 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                     <div className="px-5 pb-4 bg-[#F9FAFB] border-t border-[#F3F4F6] space-y-3 pt-3">
                       {t.insurance_plan && (
                         <InfoLine label="Convênio" value={(t.insurance_plan as InsurancePlan).name} />
+                      )}
+                      {t.status === 'completed' && t.completed_at && (
+                        <InfoLine label="Executado em" value={format(parseISO(t.completed_at), 'dd/MM/yyyy')} />
                       )}
                       {t.notes && <InfoLine label="Observações" value={t.notes} />}
                       {teeth.length > 0 && (
@@ -758,6 +762,9 @@ function ModalEditarTratamento({
   const [procedureId, setProcedureId] = useState<string | null>(treatment.insurance_procedure_id ?? null)
   const [status, setStatus]           = useState<TreatmentStatus>(treatment.status)
   const [date, setDate]               = useState(treatment.date)
+  const [hoje]                        = useState(() => todayYmd(new Date(), 'America/Sao_Paulo'))
+  // Data de conclusão: conta para a comissão do dentista. Ao concluir agora, sugere hoje.
+  const [executedAt, setExecutedAt]   = useState(treatment.completed_at ?? hoje)
   const [value, setValue]             = useState(String(treatment.value || ''))
   const [professionalId, setProfId]   = useState(treatment.professional_id || '')
   const [insurancePlanId, setPlanId]  = useState(treatment.insurance_plan_id || '')
@@ -782,6 +789,10 @@ function ModalEditarTratamento({
 
   async function handleSave() {
     if (!procedure.trim()) { setError('Informe o procedimento.'); return }
+    if (status === 'completed' && (!dataValida(executedAt) || executedAt < '2000-01-01' || executedAt > hoje)) {
+      setError('Data de execução inválida (não pode ser no futuro).')
+      return
+    }
     setError('')
     setLoading(true)
     const supabase = createClient()
@@ -792,6 +803,7 @@ function ModalEditarTratamento({
         procedure: procedure.trim(),
         status,
         date,
+        completed_at: status === 'completed' ? executedAt : null,
         value: parseFloat(value) || 0,
         professional_id: professionalId || null,
         insurance_plan_id: insurancePlanId || null,
@@ -860,6 +872,17 @@ function ModalEditarTratamento({
                 </button>
               ))}
             </div>
+            {status === 'completed' && (
+              <div className="mt-3 max-w-[14rem]">
+                <label htmlFor="trat-executado" className="block text-sm font-medium text-[#111827] mb-1">Executado em</label>
+                <input
+                  id="trat-executado" type="date" value={executedAt} max={hoje}
+                  onChange={e => setExecutedAt(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                />
+                <p className="text-xs text-[#6B7280] mt-1">Usada na comissão do dentista.</p>
+              </div>
+            )}
           </div>
 
           {/* Procedimento */}

@@ -3,12 +3,13 @@ import { CATEGORIES, toCategory, categoryLabel, defaultGroup, groupLabel } from 
 
 describe('categorias', () => {
   it('every category has label and group as in spec', () => {
-    expect(CATEGORIES).toHaveLength(16)
+    expect(CATEGORIES).toHaveLength(17)
     for (const c of CATEGORIES) expect(c.label.length).toBeGreaterThan(0)
     expect(defaultGroup('salarios')).toBe('pessoal')
     expect(defaultGroup('emolumentos')).toBe('emolumentos')
     expect(defaultGroup('equipamentos')).toBeNull()
     expect(defaultGroup('tarifas')).toBe('custeio')
+    expect(defaultGroup('comissoes')).toBe('custeio')
   })
 
   it('toCategory falls back to outras', () => {
@@ -20,6 +21,7 @@ describe('categorias', () => {
 
   it('categoryLabel resolves labels with fallback', () => {
     expect(categoryLabel('material')).toBe('Material odontológico')
+    expect(categoryLabel('comissoes')).toBe('Comissões de dentistas')
     expect(categoryLabel('xyz')).toBe('Outras')
   })
 

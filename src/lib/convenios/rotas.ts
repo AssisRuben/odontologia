@@ -68,7 +68,7 @@ const ERROS: Record<string, { status: number; error: string }> = {
   RECURSO_INVALIDO: { status: 409, error: 'Recurso não está aceito ou já foi recebido' },
 }
 
-type Mapa = Record<string, { status: number; error: string }>
+export type Mapa = Record<string, { status: number; error: string }>
 
 /** Textos próprios de uma rota (chave = mensagem ou código do erro); valem antes dos padrões. */
 export const ERROS_PAGAMENTO: Mapa = {

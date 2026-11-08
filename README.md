@@ -451,6 +451,64 @@ Depois de enviar o lote, o app acompanha o pagamento da operadora, as glosas e o
 
 ---
 
+## Comissões
+
+Comissão dos dentistas por percentual sobre o que a clínica efetivamente recebeu, com fechamento mensal, pagamento e extrato imprimível.
+
+### 1. Banco
+
+No SQL Editor do Supabase, rode [`supabase/2026-11-08-comissoes.sql`](supabase/2026-11-08-comissoes.sql) (pode rodar de novo sem problema), ANTES de publicar o código novo.
+
+### 2. Percentuais
+
+Em Configurações → Profissionais, edite cada dentista e informe:
+
+- **% comissão particular** (0 a 100, até 2 casas);
+- **% comissão convênio** (opcional; vazio = igual ao particular). Vale também para recursos de glosa. Só pode ser preenchido junto com o particular;
+- **Comissão a partir de** (mês; obrigatório quando há percentual). Ao preencher o percentual, o campo já vem com o mês atual. Recebimentos, itens de convênio e laboratório anteriores a esse mês **não entram** na comissão, nem como ajuste: o que já foi pago ao dentista fora do sistema não é pago de novo. Meses anteriores aparecem zerados e não podem ser fechados ("Mês anterior ao início da comissão").
+
+Ao rodar o script, quem já tem percentual recebe como mês inicial o mês atual (em São Paulo); ajuste em Configurações se a comissão deve começar em outro mês.
+
+Dentista sem percentual aparece em Financeiro → Comissões como "Sem percentual", sem valores; com percentual e sem mês inicial, como "Sem mês inicial".
+
+### 3. Como o cálculo funciona
+
+- **Só conta o que foi recebido.** O valor pago pelo paciente (recebimentos "pago", exceto convênio) quita os tratamentos concluídos do mais antigo para o mais novo, paciente por paciente. Cada pedaço quitado vira uma linha do extrato, com a data do recebimento (ou da conclusão do tratamento, se o paciente pagou antes).
+- **Adiantamento:** o que o paciente pagou antes de o tratamento ser concluído fica como crédito e só vira comissão quando o tratamento é concluído.
+- **Data de conclusão:** é o dia em que o tratamento foi marcado como concluído. Para corrigir, edite o tratamento na ficha do paciente e ajuste "Executado em" (não aceita data futura). Mudar a data de um tratamento de um mês já fechado gera ajuste no mês seguinte.
+- **Taxa do Asaas:** a base é o valor líquido (descontadas as taxas) quando o recebimento tem valor líquido registrado.
+- **Convênio:** o valor pago pela operadora a cada item (e o valor recuperado em recurso) comissiona o dentista do tratamento, com o percentual de convênio, na data do recebimento.
+- **Laboratório:** despesas de categoria "Laboratório" pagas, ligadas a um dentista, descontam o percentual particular do custo na comissão do mês do pagamento.
+- **Tratamento sem dentista** consome o recebimento, mas ninguém recebe comissão por ele.
+- **Mudança de percentual vale daqui para frente.** Num mês já fechado, o cálculo usa sempre o percentual congelado no fechamento daquele mês; os meses não fechados usam o percentual atual. Mudar o percentual não gera ajuste sobre meses fechados.
+
+### 4. Fechar, pagar, desfazer e reabrir
+
+Em Financeiro → Comissões, escolha o mês (padrão: mês anterior). O mês corrente mostra valores parciais e não pode ser fechado.
+
+1. **Ver extrato:** mostra cada parte (data, paciente, tratamento, origem, base, %, comissão), os descontos de laboratório, os ajustes e o total. **Imprimir** gera só o extrato.
+2. **Fechar mês:** congela o extrato do dentista (só mês encerrado e total maior que zero).
+3. **Marcar como pago:** informe a data e a forma de pagamento. Isso cria uma despesa paga "Comissão — nome — mm/aaaa" (categoria "Comissões de dentistas", grupo custeio), que entra no livro-caixa.
+4. **Desfazer pagamento:** apaga a despesa e volta o mês a "fechado".
+5. **Reabrir:** apaga o fechamento (não é possível com o mês pago nem se houver um mês posterior fechado).
+
+### 5. Ajustes
+
+Mês fechado nunca muda. Estorno, recebimento atrasado ou mês anterior (desde o mês inicial) que não foi fechado entram como **"Ajustes de meses anteriores"** no mês seguinte (podem ser negativos; com total negativo ou zero não dá para fechar o mês). Um estorno ou recebimento atrasado com data num mês fechado é ajustado pelo percentual congelado daquele mês.
+
+### O que não faz
+
+- Não define percentual por procedimento.
+- Não deixa o dentista ver só a própria comissão (não há perfis de acesso).
+- Não calcula RPA nem retenção de impostos.
+- Não controla adiantamentos ao dentista.
+- Não trata metas e bônus.
+- Não liga um recebimento a um tratamento específico manualmente.
+
+Confirme com o contador se a comissão paga a dentistas é dedutível no Carnê-Leão da sua clínica antes de depender dessa despesa na declaração.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`
