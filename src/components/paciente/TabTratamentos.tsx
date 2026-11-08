@@ -555,7 +555,7 @@ function ModalNovoTratamento({
               <ProcedimentoPicker
                 key={insurancePlanId}
                 planId={insurancePlanId} text={procedure} required
-                onText={v => { setProcedure(v); setProcedureId(null) }}
+                onText={setProcedure}
                 onPick={p => { setProcedure(p.name); setProcedureId(p.id); setValue(String(p.value)) }}
                 placeholder="Busque por código ou nome na tabela da operadora"
               />
@@ -855,7 +855,7 @@ function ModalEditarTratamento({
               <ProcedimentoPicker
                 key={insurancePlanId}
                 planId={insurancePlanId} text={procedure}
-                onText={v => { setProcedure(v); setProcedureId(null) }}
+                onText={setProcedure}
                 onPick={p => { setProcedure(p.name); setProcedureId(p.id); setValue(String(p.value)) }}
                 placeholder="Busque por código ou nome na tabela da operadora"
               />
