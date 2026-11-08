@@ -6,6 +6,8 @@ import { formatCurrency } from '@/lib/utils'
 import { todayYmd } from '@/lib/messaging/time'
 import { diasEntre } from '@/lib/convenios/periodo'
 import type { BatchStatus, GuideTooth } from '@/types'
+import type { Pagamentos } from '@/lib/convenios/repo'
+import { ModalPagamentoLote } from './ModalPagamentoLote'
 
 type ItemLote = {
   id: string
@@ -76,6 +78,8 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
   const [erro, setErro] = useState('')
   const [aberto, setAberto] = useState<string | null>(loteInicial)
   const [enviando, setEnviando] = useState<Lote | null>(null)
+  const [pagando, setPagando] = useState<Lote | null>(null)
+  const [pagos, setPagos] = useState<Record<string, Pagamentos['pagos'][number]>>({})
   const rolou = useRef(false)
 
   const carregar = useCallback(async () => {
@@ -88,6 +92,14 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
       }
       setErro('')
       setLotes(json.lotes ?? [])
+      // Dados do pagamento (data e totais) vêm da rota de pagamentos; se falhar, o lote só não mostra os totais.
+      try {
+        const rp = await fetch('/api/convenios/pagamentos', { cache: 'no-store' })
+        const jp = await rp.json().catch(() => ({}))
+        if (rp.ok) setPagos(Object.fromEntries((jp.pagos ?? []).map((p: Pagamentos['pagos'][number]) => [p.id, p])))
+      } catch {
+        /* sem totais */
+      }
     } catch {
       setErro('Não foi possível carregar os lotes')
     }
@@ -179,7 +191,7 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
       )}
       {lotes.map((l) => {
         const aberta = aberto === l.id
-        const enviado = l.status === 'enviado'
+        const enviado = l.status !== 'aberto'
         return (
           <section
             key={l.id}
@@ -205,7 +217,7 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
                     enviado ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#EFF6FF] text-[#1D4ED8]'
                   }`}
                 >
-                  {enviado ? 'Enviado' : 'Aberto'}
+                  {l.status === 'pago' ? 'Pago' : enviado ? 'Enviado' : 'Aberto'}
                 </span>
                 <p className="text-[#111827] font-medium mt-1">{formatCurrency(l.total)}</p>
               </div>
@@ -217,6 +229,13 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
                   <p className="text-sm text-[#374151]">
                     Protocolo <strong>{l.protocol}</strong>
                     {l.sent_at ? ` · enviado em ${dmy(l.sent_at.slice(0, 10))}` : ''}
+                  </p>
+                )}
+                {l.status === 'pago' && pagos[l.id] && (
+                  <p className="text-sm text-[#374151]">
+                    Pago em {dmy(pagos[l.id].paid_at.slice(0, 10))} · enviado {formatCurrency(pagos[l.id].totais.enviado)} ·
+                    pago {formatCurrency(pagos[l.id].totais.pago)} · glosado {formatCurrency(pagos[l.id].totais.glosado)}
+                    {pagos[l.id].deposit_amount !== null ? ` · depositado ${formatCurrency(pagos[l.id].deposit_amount!)}` : ''}
                   </p>
                 )}
                 {l.itens.length === 0 && <p className="text-sm text-[#6B7280]">Lote sem itens.</p>}
@@ -287,6 +306,16 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
                         Marcar como enviado
                       </button>
                     )}
+                    {l.status === 'enviado' && (
+                      <button
+                        type="button"
+                        onClick={() => setPagando(l)}
+                        disabled={l.itens.length === 0}
+                        className="px-3 py-2 text-sm rounded-lg bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-50"
+                      >
+                        Registrar pagamento
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -295,6 +324,23 @@ export function AbaLotes({ loteInicial }: { loteInicial: string | null }) {
         )
       })}
 
+      {pagando && (
+        <ModalPagamentoLote
+          lote={{ id: pagando.id, plano: pagando.plan.name, periodEnd: pagando.period_end }}
+          itens={pagando.itens.map((i) => ({
+            id: i.id,
+            patient_name: i.patient_name,
+            code: i.code,
+            name: i.name,
+            value: i.value,
+          }))}
+          onClose={() => setPagando(null)}
+          onSaved={async () => {
+            setPagando(null)
+            await carregar()
+          }}
+        />
+      )}
       {enviando && (
         <ModalEnvio
           lote={enviando}

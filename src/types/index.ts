@@ -49,6 +49,8 @@ export interface InsurancePlan {
   provider_code: string | null
   closing_day: number | null
   submission_days: number
+  payment_days: number
+  appeal_days: number
   active: boolean
   created_at: string
 }
@@ -341,7 +343,14 @@ export type ItemAuthorization = 'pendente' | 'autorizado' | 'negado' | 'nao_exig
 
 export type GuideTooth = { tooth: number; faces: string[] }
 
-export type BatchStatus = 'aberto' | 'enviado'
+export type BatchStatus = 'aberto' | 'enviado' | 'pago'
+
+export type AppealStatus = 'nenhum' | 'em_recurso' | 'aceito' | 'negado'
+
+export interface GlosaReason {
+  code: string
+  name: string
+}
 
 export interface InsuranceGuide {
   id: string
@@ -378,6 +387,17 @@ export interface InsuranceGuideItem {
   batch_id: string | null
   defer_until: string | null
   typed: boolean
+  paid_value: number | null
+  glosa_value: number | null
+  glosa_code: string | null
+  glosa_note: string | null
+  payment_id: string | null
+  appeal_status: AppealStatus
+  appeal_at: string | null
+  appeal_text: string | null
+  appeal_result_at: string | null
+  recovered_value: number | null
+  recovered_payment_id: string | null
   created_at: string
 }
 
@@ -391,6 +411,8 @@ export interface InsuranceBatch {
   status: BatchStatus
   protocol: string | null
   sent_at: string | null
+  paid_at: string | null
+  deposit_amount: number | null
   created_at: string
 }
 

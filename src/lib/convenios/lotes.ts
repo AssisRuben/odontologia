@@ -5,7 +5,7 @@ import { periodoDe, proximoPeriodo, prazo } from './periodo'
 
 type Periodo = { start: string; end: string }
 
-/** Período do lote em que o item entra; períodos já enviados são pulados. */
+/** Período do lote em que o item entra; períodos de lote fechado (enviado ou pago) são pulados. */
 export function destinoDoItem(
   execucao: string,
   deferUntil: string | null,
@@ -13,7 +13,7 @@ export function destinoDoItem(
   lotes: { period_end: string; status: BatchStatus }[],
 ): Periodo {
   const base = deferUntil && deferUntil > execucao ? deferUntil : execucao
-  const enviados = new Set(lotes.filter((l) => l.status === 'enviado').map((l) => l.period_end))
+  const enviados = new Set(lotes.filter((l) => l.status !== 'aberto').map((l) => l.period_end))
   let periodo = periodoDe(base, closingDay)
   while (enviados.has(periodo.end)) periodo = proximoPeriodo(periodo.end, closingDay)
   return periodo

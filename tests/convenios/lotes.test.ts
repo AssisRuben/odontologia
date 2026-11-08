@@ -9,6 +9,10 @@ describe('destinoDoItem', () => {
     const lotes = [{ period_end: '2026-03-10', status: 'enviado' as const }]
     expect(destinoDoItem('2026-03-05', null, 10, lotes)).toEqual({ start: '2026-03-11', end: '2026-04-10' })
   })
+  it('lote pago também desvia', () => {
+    const lotes = [{ period_end: '2026-03-10', status: 'pago' as const }]
+    expect(destinoDoItem('2026-03-05', null, 10, lotes).end).toBe('2026-04-10')
+  })
   it('lote aberto não desvia', () => {
     const lotes = [{ period_end: '2026-03-10', status: 'aberto' as const }]
     expect(destinoDoItem('2026-03-05', null, 10, lotes).end).toBe('2026-03-10')

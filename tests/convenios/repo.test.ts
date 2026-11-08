@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fakeAdmin, type Query } from '../fakeSupabase'
 import { createConveniosRepo } from '@/lib/convenios/repo'
+import { montarPendencias } from '@/lib/convenios/pendencias'
 import { erroDoBanco, parseEnvio, parseItemLote, parseCriarGuia, parseExecutado } from '@/lib/convenios/rotas'
 
 describe('erroDoBanco', () => {
@@ -141,6 +142,8 @@ describe('createConveniosRepo', () => {
     const enviado = repoCom(() => ({ data: { status: 'enviado' }, error: null }))
     await expect(enviado.repo.marcarDigitado('c1', 'b1', 'i1', true)).rejects.toMatchObject({ message: 'LOTE_ENVIADO' })
     expect(enviado.queries).toHaveLength(1)
+    const pago = repoCom(() => ({ data: { status: 'pago' }, error: null }))
+    await expect(pago.repo.marcarDigitado('c1', 'b1', 'i1', true)).rejects.toMatchObject({ message: 'LOTE_ENVIADO' })
   })
 
   it('itensSemLote pede a segunda página quando a primeira vem com 1000 linhas', async () => {
@@ -172,7 +175,7 @@ describe('createConveniosRepo', () => {
     const r = await repo.lotesComItens('c1', '2026-08-31')
     expect(r[0].itens).toHaveLength(1001)
     expect(r[0].total).toBe(1101.1)
-    expect(queries[0].calls).toContainEqual(['or', 'status.eq.aberto,and(status.eq.enviado,period_end.gte.2026-02-28)'])
+    expect(queries[0].calls).toContainEqual(['or', 'status.in.(aberto,enviado),and(status.eq.pago,period_end.gte.2026-02-28)'])
     expect(queries.filter((q) => q.table === 'insurance_guide_items')).toHaveLength(2)
   })
 
@@ -216,6 +219,91 @@ describe('createConveniosRepo', () => {
     expect(r.operadorasSemFechamento).toEqual([{ id: 'pl', name: 'Velha' }])
   })
 
+  it('dadosPendencias lê lotes enviados e glosas de lotes pagos, filtrando por clínica e paginando', async () => {
+    const item = (n: number) => ({
+      id: `i${n}`, batch_id: 'bp', glosa_code: '1801', appeal_status: 'nenhum', appeal_result_at: null, recovered_payment_id: null,
+      guide: { patient: { name: 'Ana' } },
+    })
+    const { repo, queries } = repoCom((q) => {
+      const status = q.calls.find((c) => c[0] === 'eq' && c[1] === 'status')
+      if (q.table === 'insurance_batches' && status?.[2] === 'enviado') {
+        return { data: [
+          { id: 'be', period_end: '2026-10-31', sent_at: '2026-10-05', plan: { name: 'Uniodonto', payment_days: 20 } },
+          { id: 'sem', period_end: '2026-10-31', sent_at: null, plan: { name: 'X', payment_days: 20 } },
+        ], error: null }
+      }
+      if (q.table === 'insurance_batches' && status?.[2] === 'pago') {
+        return { data: [{ id: 'bp', paid_at: '2026-10-20', plan: { appeal_days: 15 } }], error: null }
+      }
+      if (q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'gt')) {
+        const r = q.calls.find((c) => c[0] === 'range') as [string, number, number]
+        return { data: r[1] === 0 ? Array.from({ length: 1000 }, (_, n) => item(n)) : [item(1000)], error: null }
+      }
+      return { data: [], error: null }
+    })
+    const r = await repo.dadosPendencias('c1', '2026-11-07')
+    expect(r.lotesEnviados).toEqual([
+      { id: 'be', plan_name: 'Uniodonto', period_end: '2026-10-31', sent_at: '2026-10-05', payment_days: 20 },
+    ])
+    expect(r.glosas).toHaveLength(1001)
+    expect(r.glosas[0]).toEqual({
+      item_id: 'i0', patient_name: 'Ana', glosa_code: '1801', paid_at: '2026-10-20', appeal_days: 15,
+      appeal_status: 'nenhum', appeal_result_at: null, recovered_payment_id: null,
+    })
+    const pagos = queries.find((q) => q.table === 'insurance_batches' && q.calls.some((c) => c[0] === 'eq' && c[2] === 'pago'))!
+    expect(pagos.calls).toContainEqual(['eq', 'clinic_id', 'c1'])
+    expect(pagos.calls).toContainEqual(['gte', 'paid_at', '2026-05-07'])
+    const itens = queries.filter((q) => q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'gt'))
+    expect(itens).toHaveLength(2)
+    expect(itens[0].calls).toContainEqual(['eq', 'clinic_id', 'c1'])
+    expect(itens[0].calls).toContainEqual(['gt', 'glosa_value', 0])
+    expect(itens[0].calls).toContainEqual(['in', 'batch_id', ['bp']])
+  })
+
+  it('dadosPendencias lê recursos abertos de lotes pagos há mais de 6 meses, sem duplicar', async () => {
+    const velho = { status: 'pago', paid_at: '2026-04-01', plan: { appeal_days: 30 } }
+    const item = (id: string, batch: string, over: Record<string, unknown>) => ({
+      id, batch_id: batch, glosa_value: 40, glosa_code: '1705', appeal_status: 'nenhum', appeal_result_at: null,
+      recovered_payment_id: null, guide: { patient: { name: 'Bia' } }, batch: velho, ...over,
+    })
+    const { repo, queries } = repoCom((q) => {
+      const status = q.calls.find((c) => c[0] === 'eq' && c[1] === 'status')
+      if (q.table === 'insurance_batches' && status?.[2] === 'pago') {
+        return { data: [{ id: 'bp', paid_at: '2026-10-20', plan: { appeal_days: 15 } }], error: null }
+      }
+      if (q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'gt')) {
+        return { data: [item('recente', 'bp', { appeal_status: 'aceito', appeal_result_at: '2026-09-01' })], error: null }
+      }
+      if (q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'in' && c[1] === 'appeal_status')) {
+        return {
+          data: [
+            item('v1', 'bv', { appeal_status: 'aceito', appeal_result_at: '2026-06-01' }),
+            item('v2', 'bv', {}),
+            item('recente', 'bp', { appeal_status: 'aceito', appeal_result_at: '2026-09-01', batch: { ...velho, paid_at: '2026-10-20' } }),
+          ],
+          error: null,
+        }
+      }
+      return { data: [], error: null }
+    })
+    const r = await repo.dadosPendencias('c1', '2026-11-07')
+    expect(r.glosas.map((g) => g.item_id)).toEqual(['recente', 'v1'])
+    expect(r.glosas[1]).toEqual({
+      item_id: 'v1', patient_name: 'Bia', glosa_code: '1705', paid_at: '2026-04-01', appeal_days: 30,
+      appeal_status: 'aceito', appeal_result_at: '2026-06-01', recovered_payment_id: null,
+    })
+    const rec = queries.find((q) => q.table === 'insurance_guide_items' && q.calls.some((c) => c[0] === 'in' && c[1] === 'appeal_status'))!
+    expect(rec.calls).toContainEqual(['eq', 'clinic_id', 'c1'])
+    expect(rec.calls).toContainEqual(['in', 'appeal_status', ['em_recurso', 'aceito']])
+    expect(rec.calls).toContainEqual(['is', 'recovered_payment_id', null])
+    const p = montarPendencias({ ...r, hoje: '2026-11-07' })
+    expect(p.itens.filter((i) => i.tipo === 'recurso_sem_recebimento').map((i) => i.texto)).toEqual([
+      'Recurso aceito de Bia sem recebimento há 67 dias',
+      'Recurso aceito de Bia sem recebimento há 159 dias',
+    ])
+    expect(p.itens.some((i) => i.tipo === 'recurso_prazo')).toBe(false)
+  })
+
   it('itensSemLote traz só ativos fora de lote com a operadora da guia', async () => {
     const { repo, queries } = repoCom(() => ({
       data: [
@@ -227,5 +315,36 @@ describe('createConveniosRepo', () => {
     expect(r).toEqual([expect.objectContaining({ id: 'i1', plan_id: 'pl' })])
     expect(queries[0].calls).toContainEqual(['is', 'batch_id', null])
     expect(queries[0].calls).toContainEqual(['eq', 'clinic_id', 'c1'])
+  })
+
+  it('registrarPagamento traduz os itens para o formato da RPC e propaga o erro do banco', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 2, error: null })
+    const { repo } = repoCom(() => ({ data: null, error: null }), rpc)
+    await repo.registrarPagamento('c1', 'b1', {
+      paidAt: '2026-11-07', deposit: 10, itens: [{ id: 'i1', paidValue: 10, glosaCode: null, glosaNote: null }],
+    })
+    expect(rpc).toHaveBeenCalledWith('register_batch_payment', {
+      p_clinic_id: 'c1', p_batch_id: 'b1', p_paid_at: '2026-11-07', p_deposit: 10,
+      p_items: [{ id: 'i1', paid_value: 10, glosa_code: null, glosa_note: null }],
+    })
+    rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'LOTE_NAO_ENVIADO', details: 'x' } })
+    await expect(repo.desfazerPagamento('c1', 'b1')).rejects.toEqual({ code: 'P0001', message: 'LOTE_NAO_ENVIADO' })
+  })
+
+  it('buscarMotivos: prefixo para dígitos, nome para texto, mínimo 2 caracteres', async () => {
+    const { repo, queries } = repoCom(() => ({ data: [{ code: '1705', name: 'x' }], error: null }))
+    expect(await repo.buscarMotivos(' 1 ')).toEqual([])
+    await repo.buscarMotivos('17')
+    await repo.buscarMotivos('50%_')
+    expect(queries).toHaveLength(2)
+    expect(queries[0].calls).toContainEqual(['like', 'code', '17%'])
+    expect(queries[1].calls).toContainEqual(['ilike', 'name', '%50  %'])
+  })
+
+  it('erroDoBanco: textos próprios da rota valem antes dos padrões', () => {
+    expect(erroDoBanco({ code: '23503' })).toBeNull()
+    expect(erroDoBanco({ message: 'VALOR_INVALIDO' })).toEqual({ status: 422, error: 'Valor pago inválido' })
+    expect(erroDoBanco({ message: 'VALOR_INVALIDO' }, { VALOR_INVALIDO: { status: 422, error: 'Valor recuperado inválido' } }))
+      .toEqual({ status: 422, error: 'Valor recuperado inválido' })
   })
 })

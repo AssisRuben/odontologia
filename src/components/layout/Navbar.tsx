@@ -4,12 +4,15 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, Search, Bell, Settings, User, Stethoscope,
+  Menu, X, Settings, User, Stethoscope,
   Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
+import type { Pendencia } from '@/lib/convenios/pendencias'
+import { BuscaRapida } from './BuscaRapida'
+import { SinoPendencias } from './SinoPendencias'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
@@ -35,6 +38,7 @@ export function Navbar() {
   const [approvedBadge, setApprovedBadge] = useState(0)
   const [pendingChats, setPendingChats] = useState(0)
   const [convenioCount, setConvenioCount] = useState(0)
+  const [convenioItens, setConvenioItens] = useState<Pendencia[]>([])
 
   // Orçamentos aprovados nos últimos 30 dias que a recepção ainda não viu.
   const refreshBadge = useCallback(async () => {
@@ -80,6 +84,7 @@ export function Navbar() {
       if (!res.ok) return
       const json = await res.json()
       setConvenioCount(typeof json.contador === 'number' ? json.contador : 0)
+      setConvenioItens(Array.isArray(json.itens) ? json.itens : [])
     } catch { /* mantém o valor anterior */ }
   }, [clinicId])
 
@@ -134,12 +139,12 @@ export function Navbar() {
 
           {/* Desktop right icons */}
           <div className="hidden md:flex items-center gap-1 ml-auto">
-            <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
-              <Search className="w-4 h-4" />
-            </button>
-            <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
-              <Bell className="w-4 h-4" />
-            </button>
+            <BuscaRapida />
+            <SinoPendencias
+              conversas={pendingChats}
+              orcamentosAprovados={approvedBadge}
+              convenios={{ contador: convenioCount, itens: convenioItens }}
+            />
             <Link
               href="/mensagens"
               className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
@@ -158,9 +163,7 @@ export function Navbar() {
 
           {/* Mobile right side — só busca + avatar + "Mais" */}
           <div className="flex items-center gap-1 ml-auto md:hidden">
-            <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6]">
-              <Search className="w-4 h-4" />
-            </button>
+            <BuscaRapida />
             <button className="w-8 h-8 rounded-full bg-[#3B82F6] flex items-center justify-center text-white">
               <User className="w-4 h-4" />
             </button>

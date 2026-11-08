@@ -59,16 +59,38 @@ const ERROS: Record<string, { status: number; error: string }> = {
   LOTE_ENVIADO: { status: 409, error: 'Lote já enviado' },
   LOTE_VAZIO: { status: 409, error: 'Lote vazio' },
   ITEM_EM_LOTE: { status: 409, error: 'Item em lote não pode ser alterado' },
+  LOTE_NAO_ENVIADO: { status: 409, error: 'Lote não está aguardando pagamento' },
+  LOTE_NAO_PAGO: { status: 409, error: 'Lote não está pago' },
+  ITENS_INCOMPLETOS: { status: 422, error: 'Informe todos os itens do lote' },
+  MOTIVO_OBRIGATORIO: { status: 422, error: 'Informe o motivo da glosa' },
+  VALOR_INVALIDO: { status: 422, error: 'Valor pago inválido' },
+  RECURSO_RECEBIDO: { status: 409, error: 'Há recurso com valor já recebido neste lote' },
+  RECURSO_INVALIDO: { status: 409, error: 'Recurso não está aceito ou já foi recebido' },
 }
 
-export function erroDoBanco(e: { code?: string; message?: string }): { status: number; error: string } | null {
+type Mapa = Record<string, { status: number; error: string }>
+
+/** Textos próprios de uma rota (chave = mensagem ou código do erro); valem antes dos padrões. */
+export const ERROS_PAGAMENTO: Mapa = {
+  '23503': { status: 422, error: 'Motivo de glosa inválido' },
+}
+export const ERROS_RECURSO: Mapa = {
+  VALOR_INVALIDO: { status: 422, error: 'Valor recuperado inválido' },
+}
+
+export function erroDoBanco(
+  e: { code?: string; message?: string },
+  proprios: Mapa = {},
+): { status: number; error: string } | null {
+  const p = (e?.message && proprios[e.message]) || (e?.code && proprios[e.code])
+  if (p) return p
   if (e?.code === '23505') return { status: 409, error: 'Tratamento já está em outra guia' }
   return (e?.message && ERROS[e.message]) || null
 }
 
 /** Converte erro conhecido do banco em resposta; qualquer outro é relançado (vira 500). */
-export function respostaDeErro(e: unknown): { status: number; body: { error: string } } {
-  const m = erroDoBanco((e ?? {}) as { code?: string; message?: string })
+export function respostaDeErro(e: unknown, proprios: Mapa = {}): { status: number; body: { error: string } } {
+  const m = erroDoBanco((e ?? {}) as { code?: string; message?: string }, proprios)
   if (!m) throw e
   return { status: m.status, body: { error: m.error } }
 }

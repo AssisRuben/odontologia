@@ -19,6 +19,8 @@ export function PainelOperadora({ plan, onSaved }: Props) {
   const [provider, setProvider] = useState(plan.provider_code ?? '')
   const [closing, setClosing] = useState(plan.closing_day == null ? '' : String(plan.closing_day))
   const [days, setDays] = useState(String(plan.submission_days))
+  const [payDays, setPayDays] = useState(String(plan.payment_days ?? 30))
+  const [appealDays, setAppealDays] = useState(String(plan.appeal_days ?? 30))
   const [active, setActive] = useState(plan.active)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -32,6 +34,8 @@ export function PainelOperadora({ plan, onSaved }: Props) {
       provider_code: provider,
       closing_day: closing,
       submission_days: days,
+      payment_days: payDays,
+      appeal_days: appealDays,
       active,
     })
     if (!v.ok) { setError(v.error); return }
@@ -71,6 +75,14 @@ export function PainelOperadora({ plan, onSaved }: Props) {
           <div>
             <label className={LABEL}>Prazo de envio (dias)</label>
             <input value={days} onChange={e => { setDays(e.target.value); setSaved(false) }} inputMode="numeric" className={INPUT} />
+          </div>
+          <div>
+            <label className={LABEL}>Prazo de pagamento (dias)</label>
+            <input value={payDays} onChange={e => { setPayDays(e.target.value); setSaved(false) }} inputMode="numeric" className={INPUT} />
+          </div>
+          <div>
+            <label className={LABEL}>Prazo de recurso (dias)</label>
+            <input value={appealDays} onChange={e => { setAppealDays(e.target.value); setSaved(false) }} inputMode="numeric" className={INPUT} />
           </div>
         </div>
         <label className="flex items-center gap-2 cursor-pointer">

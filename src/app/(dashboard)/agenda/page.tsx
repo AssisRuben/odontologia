@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Users, SlidersHorizontal, X, PanelLeftClose, PanelLeftOpen, MessageCircleOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, Users, SlidersHorizontal, X, PanelLeftClose, PanelLeftOpen, MessageCircleOff } from 'lucide-react'
 import { format, addWeeks, subWeeks, addDays, subDays, startOfWeek, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,8 @@ import { PopoverConsulta } from '@/components/agenda/PopoverConsulta'
 import { ModalEditarConsulta } from '@/components/agenda/ModalEditarConsulta'
 import { ModalEvolucao } from '@/components/agenda/ModalEvolucao'
 import { useWhatsAppStatus, formatNoticeTime } from '@/components/agenda/useWhatsAppStatus'
+import { aguardandoHoje } from '@/lib/agenda/aguardando'
+import { formatHora, todayYmd } from '@/lib/messaging/time'
 import type { Appointment, Professional, Patient, InsurancePlan } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -59,7 +61,7 @@ function AgendaConteudo() {
   const [modalPatientId, setModalPatientId] = useState<string | undefined>()
   const [modalProfessionalId, setModalProfessionalId] = useState<string | undefined>()
   const [modalNotes, setModalNotes] = useState<string | undefined>()
-  const [waitingCount, setWaitingCount] = useState(0)
+  const [waitingOpen, setWaitingOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [popover, setPopover] = useState<{ apt: Appointment; rect: DOMRect } | null>(null)
@@ -102,7 +104,6 @@ function AgendaConteudo() {
     if (aptsRes.error) console.error('[loadData] appointments error:', aptsRes.error)
     if (aptsRes.data) {
       setAgendaState(prev => ({ appointments: aptsRes.data!, version: prev.version + 1 }))
-      setWaitingCount(aptsRes.data.filter((a) => a.status === 'waiting').length)
     }
   }, [clinicId])
 
@@ -136,6 +137,9 @@ function AgendaConteudo() {
   }, [filteredAppointments, view, currentDate])
   const { indicators, cancelNotices, tz: clinicTz } = useWhatsAppStatus(visibleAppointments, appointments)
 
+  // Sala de espera: só hoje e do profissional selecionado.
+  const waitingToday = aguardandoHoje(appointments, todayYmd(new Date(), clinicTz), clinicTz, selectedProfessional?.id)
+
   const noticeKey = cancelNotices.map((n) => n.appointment.id).join(',')
 
   function openNoticeAppointment(apt: Appointment, el: HTMLElement) {
@@ -155,17 +159,49 @@ function AgendaConteudo() {
     <>
       <MiniCalendario selectedDate={currentDate} onSelectDate={setCurrentDate} />
       <div className="border-t border-[#E5E7EB] p-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+        <button
+          onClick={() => setWaitingOpen((v) => !v)}
+          aria-expanded={waitingOpen}
+          title="Pacientes que já chegaram e estão na recepção hoje"
+          className="w-full flex items-center justify-between mb-2 -mx-1 px-1 py-1 rounded-lg hover:bg-[#F3F4F6] transition-colors"
+        >
+          <span className="flex items-center gap-2">
             <Users className="w-4 h-4 text-[#6B7280]" />
             <span className="text-sm font-medium text-[#111827]">Aguardando</span>
-          </div>
-          {waitingCount > 0 && (
-            <span className="bg-[#F59E0B] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {waitingCount}
+            <ChevronDown className={cn('w-3.5 h-3.5 text-[#9CA3AF] transition-transform', waitingOpen && 'rotate-180')} />
+          </span>
+          {waitingToday.length > 0 && (
+            <span className="bg-[#F59E0B] text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+              {waitingToday.length}
             </span>
           )}
-        </div>
+        </button>
+        {waitingOpen && (
+          <div className="mb-3">
+            {waitingToday.length === 0 ? (
+              <p className="text-xs text-[#9CA3AF] px-1">Ninguém aguardando agora.</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {waitingToday.map((apt) => (
+                  <li key={apt.id}>
+                    <button
+                      onClick={(e) => { setSidebarOpen(false); openNoticeAppointment(apt, e.currentTarget) }}
+                      className="w-full flex items-center gap-2 px-1 py-1 rounded-md text-left hover:bg-[#FFFBEB]"
+                    >
+                      <span className="text-xs tabular-nums text-[#6B7280] shrink-0">{formatHora(new Date(apt.start_time), clinicTz)}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm text-[#111827] truncate">{apt.patient?.name || 'Paciente'}</span>
+                        {!selectedProfessional && apt.professional?.name && (
+                          <span className="block text-xs text-[#9CA3AF] truncate">{apt.professional.name}</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="space-y-1 mb-3">
           <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Profissionais</p>

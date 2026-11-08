@@ -80,6 +80,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
   const [expandedId, setExpandedId]       = useState<string | null>(null)
   const [guides, setGuides]               = useState<InsuranceGuide[]>([])
   const [procById, setProcById]           = useState<Map<string, InsurancePlanProcedure>>(new Map())
+  const [lotesPagos, setLotesPagos]       = useState<Set<string>>(new Set())
   const [patientCard, setPatientCard]     = useState<{
     planId: string | null; card: string | null; validUntil: string | null
   }>({ planId: null, card: null, validUntil: null })
@@ -113,7 +114,18 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
     setTreatments(treats)
     setProfessionals(profsRes.data || [])
     setInsurancePlans(plansRes.data || [])
-    setGuides((guidesRes.data || []) as InsuranceGuide[])
+    const loadedGuides = (guidesRes.data || []) as InsuranceGuide[]
+    setGuides(loadedGuides)
+    const batchIds = Array.from(new Set(
+      loadedGuides.flatMap((g) => g.items || []).map((i) => i.batch_id).filter((x): x is string => !!x),
+    ))
+    if (batchIds.length > 0) {
+      const { data: batches } = await supabase
+        .from('insurance_batches').select('id').in('id', batchIds).eq('status', 'pago')
+      setLotesPagos(new Set((batches || []).map((b: { id: string }) => b.id)))
+    } else {
+      setLotesPagos(new Set())
+    }
     setPatientCard({
       planId: patRes.data?.insurance_plan_id ?? null,
       card: patRes.data?.insurance_card ?? null,
@@ -249,6 +261,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
           insuranceCard={patientCard.card}
           insuranceCardValidUntil={patientCard.validUntil}
           guides={guides}
+          lotesPagos={lotesPagos}
           treatments={treatments}
           procById={procById}
           plans={insurancePlans}

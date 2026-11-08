@@ -1,10 +1,19 @@
 // Pendências de convênio exibidas no painel. Datas são 'YYYY-MM-DD'.
 
-import type { BatchStatus, GuideStatus } from '@/types'
+import type { AppealStatus, BatchStatus, GuideStatus } from '@/types'
 import { diasEntre } from './periodo'
+import { dataPrevista, prazoRecurso } from './pagamentos/calculo'
 
 export type Pendencia = {
-  tipo: 'guia_aguardando' | 'senha_vencendo' | 'tratamento_sem_faturar' | 'lote_prazo' | 'operadora_sem_fechamento'
+  tipo:
+    | 'guia_aguardando'
+    | 'senha_vencendo'
+    | 'tratamento_sem_faturar'
+    | 'lote_prazo'
+    | 'operadora_sem_fechamento'
+    | 'pagamento_atrasado'
+    | 'recurso_prazo'
+    | 'recurso_sem_recebimento'
   texto: string
   href: string
 }
@@ -41,6 +50,17 @@ export function montarPendencias(args: {
   }[]
   lotes: { id: string; plan_name: string; period_end: string; status: BatchStatus; due_date: string }[]
   operadorasSemFechamento: { id: string; name: string }[]
+  lotesEnviados: { id: string; plan_name: string; period_end: string; sent_at: string; payment_days: number }[]
+  glosas: {
+    item_id: string
+    patient_name: string
+    glosa_code: string | null
+    paid_at: string
+    appeal_days: number
+    appeal_status: AppealStatus
+    appeal_result_at: string | null
+    recovered_payment_id: string | null
+  }[]
 }): { itens: Pendencia[]; contador: number } {
   const { hoje } = args
   const lotePrazo: Pendencia[] = []
@@ -48,6 +68,43 @@ export function montarPendencias(args: {
   const aguardando: Pendencia[] = []
   const senhas: Pendencia[] = []
   const semFechamento: Pendencia[] = []
+  const atrasados: Pendencia[] = []
+  const recursoPrazo: Pendencia[] = []
+  const semRecebimento: Pendencia[] = []
+  const hrefPagamentos = '/convenios?aba=pagamentos'
+
+  for (const l of args.lotesEnviados) {
+    const n = diasEntre(dataPrevista(l.sent_at, l.payment_days), hoje)
+    if (n <= 0) continue
+    atrasados.push({
+      tipo: 'pagamento_atrasado',
+      texto: `Lote ${l.plan_name} ${mmaaaa(l.period_end)}: pagamento atrasado há ${dias(n)}`,
+      href: hrefPagamentos,
+    })
+  }
+
+  for (const g of args.glosas) {
+    if (g.appeal_status === 'nenhum') {
+      const n = diasEntre(hoje, prazoRecurso(g.paid_at, g.appeal_days))
+      if (n > 5) continue
+      const prazoTxt =
+        n < 0 ? `prazo de recurso vencido há ${dias(-n)}` : n === 0 ? 'prazo de recurso hoje' : `prazo de recurso em ${dias(n)}`
+      recursoPrazo.push({
+        tipo: 'recurso_prazo',
+        texto: `Glosa de ${g.patient_name} (${g.glosa_code ?? ''}): ${prazoTxt}`,
+        href: hrefPagamentos,
+      })
+    } else if (g.appeal_status === 'aceito' && !g.recovered_payment_id && g.appeal_result_at) {
+      const n = diasEntre(g.appeal_result_at, hoje)
+      if (n > 30) {
+        semRecebimento.push({
+          tipo: 'recurso_sem_recebimento',
+          texto: `Recurso aceito de ${g.patient_name} sem recebimento há ${dias(n)}`,
+          href: hrefPagamentos,
+        })
+      }
+    }
+  }
 
   for (const l of args.lotes) {
     if (l.status !== 'aberto') continue
@@ -99,7 +156,16 @@ export function montarPendencias(args: {
   }
 
   return {
-    itens: [...lotePrazo, ...semFaturar, ...aguardando, ...senhas, ...semFechamento],
-    contador: semFaturar.length + lotePrazo.length,
+    itens: [
+      ...atrasados,
+      ...recursoPrazo,
+      ...lotePrazo,
+      ...semFaturar,
+      ...aguardando,
+      ...senhas,
+      ...semFechamento,
+      ...semRecebimento,
+    ],
+    contador: semFaturar.length + lotePrazo.length + atrasados.length + recursoPrazo.length,
   }
 }

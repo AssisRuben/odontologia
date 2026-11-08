@@ -1,12 +1,14 @@
 // Acesso ao banco (service role) para guias e itens; toda consulta filtra por clinic_id.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BatchStatus, GuideStatus, GuideTooth, InsuranceBatch, ItemAuthorization, TreatmentStatus } from '@/types'
+import type { AppealStatus, BatchStatus, GuideStatus, GuideTooth, InsuranceBatch, ItemAuthorization, TreatmentStatus } from '@/types'
 import { naTabela, type ItemNovo, type RespostaGuia, type TratamentoParaGuia } from './guias'
 import { dataExecucao } from './prontidao'
 import type { montarPendencias } from './pendencias'
 import { mesesAntes } from './periodo'
 import { todayYmd } from '@/lib/messaging/time'
+import { dataPrevista, prazoRecurso, totaisLote } from './pagamentos/calculo'
+import type { ItemPagamento } from './pagamentos/validar'
 
 type Erro = { message: string; code?: string }
 
@@ -57,6 +59,58 @@ export type LoteComItens = InsuranceBatch & {
 
 type DadosPendencias = Omit<Parameters<typeof montarPendencias>[0], 'hoje'>
 
+export type ItemRecurso = {
+  id: string
+  glosa_value: number
+  appeal_status: AppealStatus
+  recovered_value: number | null
+  recovered_payment_id: string | null
+  lote_status: BatchStatus | null
+}
+
+export type Pagamentos = {
+  aguardando: {
+    id: string
+    plan_id: string
+    plan_name: string
+    period_end: string
+    protocol: string | null
+    sent_at: string
+    total: number
+    data_prevista: string
+    atrasado: boolean
+  }[]
+  glosas: {
+    item_id: string
+    batch_id: string
+    patient_name: string
+    code: string
+    name: string
+    glosa_code: string | null
+    glosa_reason: string | null
+    glosa_note: string | null
+    value: number
+    glosa_value: number
+    paid_at: string
+    prazo_recurso: string
+    appeal_status: AppealStatus
+    appeal_at: string | null
+    appeal_result_at: string | null
+    recovered_value: number | null
+  }[]
+  pagos: {
+    id: string
+    plan_id: string
+    plan_name: string
+    period_end: string
+    paid_at: string
+    deposit_amount: number | null
+    totais: ReturnType<typeof totaisLote>
+    /** Algum item do lote tem recurso registrado (desfazer o pagamento apaga). */
+    tem_recurso: boolean
+  }[]
+}
+
 const PAGINA = 1000
 
 /** Lê todas as linhas de uma consulta, página a página (o PostgREST corta em 1000). */
@@ -77,6 +131,59 @@ function pedacos<T>(lista: T[], n: number): T[][] {
   const r: T[][] = []
   for (let i = 0; i < lista.length; i += n) r.push(lista.slice(i, i + n))
   return r
+}
+
+const COLUNAS_GLOSA =
+  'id, batch_id, code, name, value, paid_value, glosa_value, glosa_code, glosa_note, appeal_status, appeal_at, appeal_result_at, recovered_value, recovered_payment_id, guide:insurance_guides(patient:patients(name)), reason:glosa_reasons(name)'
+
+type LinhaGlosa = {
+  id: string
+  batch_id: string
+  code: string
+  name: string
+  value: number | string | null
+  paid_value: number | string | null
+  glosa_value: number | string | null
+  glosa_code: string | null
+  glosa_note: string | null
+  appeal_status: AppealStatus
+  appeal_at: string | null
+  appeal_result_at: string | null
+  recovered_value: number | string | null
+  recovered_payment_id: string | null
+  guide: { patient: { name: string } | null } | null
+  reason: { name: string } | null
+}
+
+type RecursoAberto = LinhaGlosa & {
+  batch: { status: BatchStatus; paid_at: string | null; plan: { appeal_days: number | null } | null } | null
+}
+
+/** Glosa ainda pendente de ação: sem recurso, em recurso ou aceita sem recebimento. */
+const glosaEmAberto = (i: { glosa_value: number | string | null; appeal_status: AppealStatus; recovered_payment_id: string | null }) =>
+  Number(i.glosa_value ?? 0) > 0 &&
+  (i.appeal_status === 'nenhum' ||
+    i.appeal_status === 'em_recurso' ||
+    (i.appeal_status === 'aceito' && !i.recovered_payment_id))
+
+/**
+ * Recursos em andamento (em recurso, ou aceitos sem recebimento) de lotes pagos,
+ * sem corte de data: um recurso pode levar meses. Usa insurance_guide_items_appeal_idx.
+ */
+async function recursosAbertos(admin: SupabaseClient, clinicId: string): Promise<RecursoAberto[]> {
+  const linhas = await lerTudo<RecursoAberto>((de, ate) =>
+    admin
+      .from('insurance_guide_items')
+      .select(`${COLUNAS_GLOSA}, batch:insurance_batches(status, paid_at, plan:insurance_plans(appeal_days))`)
+      .eq('clinic_id', clinicId)
+      .in('appeal_status', ['em_recurso', 'aceito'])
+      .is('recovered_payment_id', null)
+      .order('id')
+      .range(de, ate),
+  )
+  return linhas.filter(
+    (i) => i.batch?.status === 'pago' && !!i.batch.paid_at && i.appeal_status !== 'nenhum' && glosaEmAberto(i),
+  )
 }
 
 export function createConveniosRepo(admin: SupabaseClient) {
@@ -376,7 +483,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
         .maybeSingle()
       if (e1) throw new Error(e1.message)
       if (!lote) lancar({ code: 'P0001', message: 'LOTE_INVALIDO' })
-      if ((lote as { status: BatchStatus }).status === 'enviado') lancar({ code: 'P0001', message: 'LOTE_ENVIADO' })
+      if ((lote as { status: BatchStatus }).status !== 'aberto') lancar({ code: 'P0001', message: 'LOTE_ENVIADO' })
       const { data, error } = await admin
         .from('insurance_guide_items')
         .update({ typed })
@@ -388,7 +495,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
       return !!data?.length
     },
 
-    /** Lotes abertos e enviados nos últimos 6 meses, com itens, guia, paciente e carteirinha. */
+    /** Lotes abertos, enviados e pagos nos últimos 6 meses, com itens, guia, paciente e carteirinha. */
     async lotesComItens(clinicId: string, hoje = todayYmd(new Date(), 'America/Sao_Paulo')): Promise<LoteComItens[]> {
       const corte = mesesAntes(hoje, 6)
       const base = await lerTudo<InsuranceBatch & { plan: { id: string; name: string } }>((de, ate) =>
@@ -396,7 +503,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           .from('insurance_batches')
           .select('*, plan:insurance_plans(id, name)')
           .eq('clinic_id', clinicId)
-          .or(`status.eq.aberto,and(status.eq.enviado,period_end.gte.${corte})`)
+          .or(`status.in.(aberto,enviado),and(status.eq.pago,period_end.gte.${corte})`)
           .order('id')
           .range(de, ate),
       )
@@ -459,6 +566,260 @@ export function createConveniosRepo(admin: SupabaseClient) {
         const lista = (porLote.get(l.id) ?? []).sort((a, b) => a.patient_name.localeCompare(b.patient_name, 'pt-BR'))
         return { ...l, itens: lista, total: Math.round(lista.reduce((s, i) => s + i.value, 0) * 100) / 100 }
       })
+    },
+
+    /** null = lote não existe na clínica. Inclui todos os itens com esse batch_id (ativos ou não). */
+    async itensDoLote(
+      clinicId: string,
+      batchId: string,
+    ): Promise<{ status: BatchStatus; itens: { id: string; value: number }[] } | null> {
+      const { data: lote, error: e1 } = await admin
+        .from('insurance_batches')
+        .select('status')
+        .eq('id', batchId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (e1) throw new Error(e1.message)
+      if (!lote) return null
+      const linhas = await lerTudo<{ id: string; value: number | string | null }>((de, ate) =>
+        admin
+          .from('insurance_guide_items')
+          .select('id, value')
+          .eq('clinic_id', clinicId)
+          .eq('batch_id', batchId)
+          .order('id')
+          .range(de, ate),
+      )
+      return {
+        status: (lote as { status: BatchStatus }).status,
+        itens: linhas.map((i) => ({ id: i.id, value: Number(i.value ?? 0) })),
+      }
+    },
+
+    async registrarPagamento(
+      clinicId: string,
+      batchId: string,
+      d: { paidAt: string; deposit: number; itens: ItemPagamento[] },
+    ): Promise<void> {
+      const { error } = await admin.rpc('register_batch_payment', {
+        p_clinic_id: clinicId,
+        p_batch_id: batchId,
+        p_paid_at: d.paidAt,
+        p_deposit: d.deposit,
+        p_items: d.itens.map((i) => ({
+          id: i.id,
+          paid_value: i.paidValue,
+          glosa_code: i.glosaCode,
+          glosa_note: i.glosaNote,
+        })),
+      })
+      if (error) lancar(error)
+    },
+
+    async desfazerPagamento(clinicId: string, batchId: string): Promise<void> {
+      const { error } = await admin.rpc('undo_batch_payment', { p_clinic_id: clinicId, p_batch_id: batchId })
+      if (error) lancar(error)
+    },
+
+    async itemRecurso(clinicId: string, itemId: string): Promise<ItemRecurso | null> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .select('id, glosa_value, appeal_status, recovered_value, recovered_payment_id, batch:insurance_batches(status)')
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data) return null
+      const i = data as unknown as {
+        id: string
+        glosa_value: number | string | null
+        appeal_status: AppealStatus
+        recovered_value: number | string | null
+        recovered_payment_id: string | null
+        batch: { status: BatchStatus } | null
+      }
+      return {
+        id: i.id,
+        glosa_value: Number(i.glosa_value ?? 0),
+        appeal_status: i.appeal_status,
+        recovered_value: i.recovered_value === null ? null : Number(i.recovered_value),
+        recovered_payment_id: i.recovered_payment_id,
+        lote_status: i.batch?.status ?? null,
+      }
+    },
+
+    /** false = item não estava glosado e sem recurso. */
+    async recorrer(clinicId: string, itemId: string, appealAt: string, appealText: string): Promise<boolean> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .update({ appeal_status: 'em_recurso', appeal_at: appealAt, appeal_text: appealText })
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .eq('appeal_status', 'nenhum')
+        .gt('glosa_value', 0)
+        .select('id')
+      if (error) throw new Error(error.message)
+      return !!data?.length
+    },
+
+    /** Glosa sem recurso vira definitiva ("não recorrer"). false = item não estava glosado sem recurso. */
+    async naoRecorrer(clinicId: string, itemId: string, hoje: string): Promise<boolean> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .update({ appeal_status: 'negado', appeal_result_at: hoje })
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .eq('appeal_status', 'nenhum')
+        .gt('glosa_value', 0)
+        .select('id')
+      if (error) throw new Error(error.message)
+      return !!data?.length
+    },
+
+    /** false = item não estava em recurso. */
+    async registrarResultado(
+      clinicId: string,
+      itemId: string,
+      r: { resultado: 'aceito' | 'negado'; resultAt: string; recoveredValue: number | null },
+    ): Promise<boolean> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .update({ appeal_status: r.resultado, appeal_result_at: r.resultAt, recovered_value: r.recoveredValue })
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .eq('appeal_status', 'em_recurso')
+        .select('id')
+      if (error) throw new Error(error.message)
+      return !!data?.length
+    },
+
+    async receberRecurso(clinicId: string, itemId: string, value: number, receivedAt: string): Promise<void> {
+      const { error } = await admin.rpc('receive_appeal', {
+        p_clinic_id: clinicId,
+        p_item_id: itemId,
+        p_value: value,
+        p_received_at: receivedAt,
+      })
+      if (error) lancar(error)
+    },
+
+    /** Lotes aguardando pagamento, glosas em aberto e lotes pagos nos últimos 6 meses. */
+    async pagamentos(clinicId: string, hoje = todayYmd(new Date(), 'America/Sao_Paulo')): Promise<Pagamentos> {
+      const corte = mesesAntes(hoje, 6)
+      type L = {
+        id: string
+        insurance_plan_id: string
+        period_end: string
+        status: BatchStatus
+        protocol: string | null
+        sent_at: string | null
+        paid_at: string | null
+        deposit_amount: number | string | null
+        plan: { id: string; name: string; payment_days: number | null; appeal_days: number | null } | null
+      }
+      const lotes = await lerTudo<L>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select(
+            'id, insurance_plan_id, period_end, status, protocol, sent_at, paid_at, deposit_amount, plan:insurance_plans(id, name, payment_days, appeal_days)',
+          )
+          .eq('clinic_id', clinicId)
+          .or(`status.eq.enviado,and(status.eq.pago,paid_at.gte.${corte})`)
+          .order('id')
+          .range(de, ate),
+      )
+      const itens: LinhaGlosa[] = []
+      for (const grupo of pedacos(lotes.map((l) => l.id), 50)) {
+        itens.push(
+          ...(await lerTudo<LinhaGlosa>((de, ate) =>
+            admin
+              .from('insurance_guide_items')
+              .select(COLUNAS_GLOSA)
+              .eq('clinic_id', clinicId)
+              .in('batch_id', grupo)
+              .order('id')
+              .range(de, ate),
+          )),
+        )
+      }
+      const porLote = new Map<string, LinhaGlosa[]>()
+      for (const i of itens) {
+        const l = porLote.get(i.batch_id) ?? []
+        l.push(i)
+        porLote.set(i.batch_id, l)
+      }
+      const num = (v: number | string | null) => (v === null ? null : Number(v))
+      const out: Pagamentos = { aguardando: [], glosas: [], pagos: [] }
+      const glosa = (i: LinhaGlosa, loteId: string, paidAt: string, appealDays: number): Pagamentos['glosas'][number] => ({
+        item_id: i.id,
+        batch_id: loteId,
+        patient_name: i.guide?.patient?.name ?? '',
+        code: i.code,
+        name: i.name,
+        glosa_code: i.glosa_code,
+        glosa_reason: i.reason?.name ?? null,
+        glosa_note: i.glosa_note,
+        value: Number(i.value ?? 0),
+        glosa_value: Number(i.glosa_value ?? 0),
+        paid_at: paidAt,
+        prazo_recurso: prazoRecurso(paidAt, appealDays),
+        appeal_status: i.appeal_status,
+        appeal_at: i.appeal_at,
+        appeal_result_at: i.appeal_result_at,
+        recovered_value: num(i.recovered_value),
+      })
+      for (const l of lotes) {
+        const lista = porLote.get(l.id) ?? []
+        const base = { id: l.id, plan_id: l.insurance_plan_id, plan_name: l.plan?.name ?? '', period_end: l.period_end }
+        if (l.status === 'enviado' && l.sent_at) {
+          const previsto = dataPrevista(l.sent_at, l.plan?.payment_days ?? 30)
+          out.aguardando.push({
+            ...base,
+            protocol: l.protocol,
+            sent_at: l.sent_at,
+            total: totaisLote(lista.map((i) => ({ value: Number(i.value ?? 0), paid_value: null })), null).enviado,
+            data_prevista: previsto,
+            atrasado: hoje > previsto,
+          })
+          continue
+        }
+        if (l.status !== 'pago' || !l.paid_at) continue
+        const deposit = num(l.deposit_amount)
+        out.pagos.push({
+          ...base,
+          paid_at: l.paid_at,
+          deposit_amount: deposit,
+          totais: totaisLote(
+            lista.map((i) => ({ value: Number(i.value ?? 0), paid_value: num(i.paid_value) })),
+            deposit,
+          ),
+          tem_recurso: lista.some((i) => i.appeal_status !== 'nenhum'),
+        })
+        for (const i of lista) {
+          if (glosaEmAberto(i)) out.glosas.push(glosa(i, l.id, l.paid_at, l.plan?.appeal_days ?? 30))
+        }
+      }
+      // Recursos de lotes pagos antes do corte continuam aparecendo até serem resolvidos.
+      const vistos = new Set(out.glosas.map((g) => g.item_id))
+      for (const i of await recursosAbertos(admin, clinicId)) {
+        if (vistos.has(i.id) || !i.batch?.paid_at) continue
+        vistos.add(i.id)
+        out.glosas.push(glosa(i, i.batch_id, i.batch.paid_at, i.batch.plan?.appeal_days ?? 30))
+      }
+      return out
+    },
+
+    /** Busca na Tabela 38: só dígitos = prefixo do código; senão trecho do nome. Até 20; exige 2+ caracteres. */
+    async buscarMotivos(q: string): Promise<{ code: string; name: string }[]> {
+      const termo = q.trim().slice(0, 60)
+      if (termo.length < 2) return []
+      const base = admin.from('glosa_reasons').select('code, name')
+      const filtrada = /^\d+$/.test(termo)
+        ? base.like('code', `${termo}%`)
+        : base.ilike('name', `%${termo.replace(/[%_\\,()]/g, ' ')}%`)
+      const { data, error } = await filtrada.order('code').limit(20)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as { code: string; name: string }[]
     },
 
     /**
@@ -584,7 +945,91 @@ export function createConveniosRepo(admin: SupabaseClient) {
         if (data?.length) operadorasSemFechamento.push(o)
       }
 
-      return { guias: guiasOut, tratamentos: pend, lotes: lotesOut, operadorasSemFechamento }
+      type BE = { id: string; period_end: string; sent_at: string | null; plan: { name: string; payment_days: number } | null }
+      const enviados = await lerTudo<BE>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select('id, period_end, sent_at, plan:insurance_plans(name, payment_days)')
+          .eq('clinic_id', clinicId)
+          .eq('status', 'enviado')
+          .order('id')
+          .range(de, ate),
+      )
+      const lotesEnviados = enviados.flatMap((l) =>
+        l.sent_at
+          ? [{ id: l.id, plan_name: l.plan?.name ?? '', period_end: l.period_end, sent_at: l.sent_at, payment_days: l.plan?.payment_days ?? 30 }]
+          : [],
+      )
+
+      // Glosas de lotes pagos nos últimos 6 meses (ativas ou não: o dinheiro já foi cobrado).
+      type BP = { id: string; paid_at: string | null; plan: { appeal_days: number } | null }
+      const pagos = await lerTudo<BP>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select('id, paid_at, plan:insurance_plans(appeal_days)')
+          .eq('clinic_id', clinicId)
+          .eq('status', 'pago')
+          .gte('paid_at', corte)
+          .order('id')
+          .range(de, ate),
+      )
+      const lotePago = new Map(pagos.map((l) => [l.id, l]))
+      type GI = {
+        id: string
+        batch_id: string
+        glosa_code: string | null
+        appeal_status: AppealStatus
+        appeal_result_at: string | null
+        recovered_payment_id: string | null
+        guide: { patient: { name: string } | null } | null
+      }
+      const glosas: DadosPendencias['glosas'] = []
+      for (const grupo of pedacos(pagos.map((l) => l.id), 50)) {
+        const itens = await lerTudo<GI>((de, ate) =>
+          admin
+            .from('insurance_guide_items')
+            .select(
+              'id, batch_id, glosa_code, appeal_status, appeal_result_at, recovered_payment_id, guide:insurance_guides(patient:patients(name))',
+            )
+            .eq('clinic_id', clinicId)
+            .gt('glosa_value', 0)
+            .in('batch_id', grupo)
+            .order('id')
+            .range(de, ate),
+        )
+        for (const i of itens) {
+          const l = lotePago.get(i.batch_id)
+          if (!l?.paid_at) continue
+          glosas.push({
+            item_id: i.id,
+            patient_name: i.guide?.patient?.name ?? '',
+            glosa_code: i.glosa_code,
+            paid_at: l.paid_at,
+            appeal_days: l.plan?.appeal_days ?? 30,
+            appeal_status: i.appeal_status,
+            appeal_result_at: i.appeal_result_at,
+            recovered_payment_id: i.recovered_payment_id,
+          })
+        }
+      }
+      // Recursos em andamento de lotes pagos antes do corte (ex.: aceito sem recebimento).
+      const vistas = new Set(glosas.map((g) => g.item_id))
+      for (const i of await recursosAbertos(admin, clinicId)) {
+        if (vistas.has(i.id) || !i.batch?.paid_at) continue
+        vistas.add(i.id)
+        glosas.push({
+          item_id: i.id,
+          patient_name: i.guide?.patient?.name ?? '',
+          glosa_code: i.glosa_code,
+          paid_at: i.batch.paid_at,
+          appeal_days: i.batch.plan?.appeal_days ?? 30,
+          appeal_status: i.appeal_status,
+          appeal_result_at: i.appeal_result_at,
+          recovered_payment_id: i.recovered_payment_id,
+        })
+      }
+
+      return { guias: guiasOut, tratamentos: pend, lotes: lotesOut, operadorasSemFechamento, lotesEnviados, glosas }
     },
   }
 }
