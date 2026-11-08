@@ -38,6 +38,8 @@ export interface Professional {
   color: string
   working_hours?: Record<string, unknown>
   whatsapp_booking: boolean
+  commission_rate: number | null
+  commission_rate_insurance: number | null
   created_at: string
 }
 
@@ -191,7 +193,7 @@ export interface FiscalInvoice {
 export type ExpenseCategory =
   | 'aluguel' | 'contas' | 'material' | 'laboratorio' | 'servicos' | 'manutencao'
   | 'marketing' | 'conselho' | 'iptu_taxas' | 'tarifas' | 'salarios' | 'emolumentos'
-  | 'equipamentos' | 'reformas' | 'cursos' | 'outras'
+  | 'equipamentos' | 'reformas' | 'cursos' | 'comissoes' | 'outras'
 
 export type DeductionGroup = 'custeio' | 'pessoal' | 'emolumentos'
 
@@ -522,4 +524,20 @@ export interface Conversation {
   booking_draft: BookingDraft | null
   searches: string[]
   created_at: string
+}
+
+export type CommissionClosingStatus = 'fechado' | 'pago'
+
+export interface CommissionClosing {
+  id: string
+  clinic_id: string
+  professional_id: string
+  period: string
+  amount: number
+  statement: unknown
+  status: CommissionClosingStatus
+  closed_at: string
+  paid_at: string | null
+  payment_method: PaymentMethod | null
+  expense_id: string | null
 }

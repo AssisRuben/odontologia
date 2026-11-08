@@ -20,6 +20,7 @@ export const CATEGORIES: readonly {
   { code: 'equipamentos', label: 'Equipamentos e móveis', group: null },
   { code: 'reformas', label: 'Reformas e obras', group: null },
   { code: 'cursos', label: 'Cursos e congressos', group: null },
+  { code: 'comissoes', label: 'Comissões de dentistas', group: 'custeio' },
   { code: 'outras', label: 'Outras', group: null },
 ]
 
