@@ -100,6 +100,9 @@ CREATE TRIGGER treatments_completed_at
   BEFORE INSERT OR UPDATE OF status ON treatments
   FOR EACH ROW EXECUTE FUNCTION public.treatments_set_completed_at();
 
+-- Tratamentos já concluídos antes desta etapa recebem a data do tratamento.
+UPDATE treatments SET completed_at = date WHERE status = 'completed' AND completed_at IS NULL;
+
 -- ── Lote do mês ─────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS insurance_batches (
@@ -161,7 +164,7 @@ CREATE TABLE IF NOT EXISTS insurance_guide_items (
   teeth                  JSONB NOT NULL DEFAULT '[]',
   value                  NUMERIC(10,2),
   requires_authorization BOOLEAN,
-  authorization          TEXT NOT NULL CHECK (authorization IN ('pendente','autorizado','negado','nao_exige')),
+  "authorization"        TEXT NOT NULL CHECK ("authorization" IN ('pendente','autorizado','negado','nao_exige')),
   denial_reason          TEXT,
   active                 BOOLEAN NOT NULL DEFAULT TRUE,
   executed_at            DATE,
@@ -219,7 +222,7 @@ BEGIN
     END IF;
 
     INSERT INTO insurance_guide_items (
-      clinic_id, guide_id, treatment_id, code, name, teeth, value, requires_authorization, authorization
+      clinic_id, guide_id, treatment_id, code, name, teeth, value, requires_authorization, "authorization"
     ) VALUES (
       p_clinic_id, v_id, (v_item->>'treatment_id')::uuid, v_item->>'code', v_item->>'name',
       COALESCE(v_item->'teeth', '[]'::jsonb), (v_item->>'value')::numeric,
@@ -260,7 +263,7 @@ BEGIN
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(COALESCE(p_items, '[]'::jsonb)) LOOP
     UPDATE insurance_guide_items
-    SET authorization = v_item->>'authorization',
+    SET "authorization" = v_item->>'authorization',
         denial_reason = v_item->>'denial_reason',
         active = (v_item->>'authorization') <> 'negado'
     WHERE id = (v_item->>'id')::uuid AND guide_id = p_guide_id AND clinic_id = p_clinic_id;
@@ -269,7 +272,7 @@ BEGIN
 
   v_new_status := CASE WHEN EXISTS (
       SELECT 1 FROM insurance_guide_items
-      WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND active AND authorization = 'pendente'
+      WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND active AND "authorization" = 'pendente'
     ) THEN 'aguardando' ELSE 'liberada' END;
 
   UPDATE insurance_guides
@@ -313,7 +316,7 @@ $fn$;
 
 -- ── Colocar itens prontos em um lote aberto (service role) ──
 -- Erros: LOTE_INVALIDO, LOTE_ENVIADO. Devolve quantos itens entraram.
--- Item que já está em lote (ou inativo) não é movido.
+-- Só entram itens ativos, sem lote, de guias da mesma operadora do lote.
 
 CREATE OR REPLACE FUNCTION public.assign_batch_items(
   p_clinic_id UUID, p_batch_id UUID, p_item_ids UUID[]
@@ -323,16 +326,19 @@ SECURITY DEFINER SET search_path = public
 AS $fn$
 DECLARE
   v_status TEXT;
+  v_plan_id UUID;
   v_count INT;
 BEGIN
-  SELECT status INTO v_status FROM insurance_batches
+  SELECT status, insurance_plan_id INTO v_status, v_plan_id FROM insurance_batches
   WHERE id = p_batch_id AND clinic_id = p_clinic_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LOTE_INVALIDO'; END IF;
   IF v_status = 'enviado' THEN RAISE EXCEPTION 'LOTE_ENVIADO'; END IF;
 
   UPDATE insurance_guide_items SET batch_id = p_batch_id
-  WHERE id = ANY(p_item_ids) AND clinic_id = p_clinic_id AND batch_id IS NULL AND active;
+  WHERE id = ANY(p_item_ids) AND clinic_id = p_clinic_id AND batch_id IS NULL AND active
+    AND guide_id IN (SELECT id FROM insurance_guides
+                     WHERE insurance_plan_id = v_plan_id AND clinic_id = p_clinic_id);
   GET DIAGNOSTICS v_count = ROW_COUNT;
 
   RETURN v_count;
