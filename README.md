@@ -401,7 +401,7 @@ Aplique o SQL ANTES de publicar (deploy) o código novo.
 5. **Guia:** na aba Tratamentos do paciente, crie a guia com os tratamentos escolhidos e registre a autorização (número, senha, validade, itens autorizados ou negados com motivo).
 6. **Lote do mês:** em Convênios → Lotes, os itens prontos entram sozinhos no lote do período. Digite no portal da operadora e marque "digitado" em cada item. Se preciso, "Tirar do lote" adia o item para o próximo período.
 7. **Enviar:** "Marcar como enviado" pede protocolo e data; o lote fica travado. **Imprimir** gera só o lote aberto.
-8. **Pendências:** a aba Pendências lista guias aguardando, senhas vencendo, tratamentos sem faturar e lotes perto do prazo. O menu mostra o contador.
+8. **Pendências:** a aba Pendências lista guias aguardando, senhas vencendo, tratamentos sem faturar e lotes perto do prazo. O menu mostra o contador. Ao calcular as pendências (aba ou contador do menu) o app também monta os lotes, inclusive de operadora desativada que tenha dia de fechamento.
 
 ### O que o app faz
 
@@ -418,7 +418,8 @@ Aplique o SQL ANTES de publicar (deploy) o código novo.
 ### Regras
 
 - Até 30 itens por guia; um tratamento ativo só pode estar em uma guia.
-- Guia com item em lote não pode ser alterada; lote enviado não pode ser alterado.
+- Item em lote não recebe nova resposta nem é cancelado; os demais itens da mesma guia seguem normalmente (cancelar a guia cancela só os itens fora de lote). Com item em lote, número, senha e validade da guia não mudam. Lote enviado não pode ser alterado.
+- Pendências olham tratamentos concluídos nos últimos 6 meses; procedimento desativado na tabela conta como fora da tabela.
 - Convênio com guias não pode ser excluído: desative-o.
 - Lotes enviados aparecem por 6 meses.
 
