@@ -379,6 +379,78 @@ O que não faz:
 
 ---
 
+## Convênios
+
+Guias de convênio odontológico: autorização por procedimento, lote mensal por operadora e controle do que já foi digitado no portal. O app **prepara** o lote; o envio à operadora continua sendo feito pela clínica no portal dela.
+
+### 1. Banco
+
+No SQL Editor do Supabase, rode nesta ordem (podem rodar de novo sem problema):
+
+1. [`supabase/2026-11-07-convenios-guias.sql`](supabase/2026-11-07-convenios-guias.sql)
+2. [`supabase/2026-11-07-tuss-odontologia.sql`](supabase/2026-11-07-tuss-odontologia.sql): 370 códigos TUSS odontológicos (Tabela 22 da ANS, versão 202609).
+
+Aplique o SQL ANTES de publicar (deploy) o código novo.
+
+### 2. Como usar
+
+1. **Operadora:** em Configurações → Convênios, cadastre a operadora com registro ANS, código do prestador, dia de fechamento e prazo de envio (dias após o fechamento).
+2. **Tabela:** cadastre os procedimentos da operadora (código, nome e valor); a busca TUSS ajuda a preencher.
+3. **Carteirinha:** na ficha do paciente, informe a operadora e a carteirinha.
+4. **Tratamento:** ao planejar o tratamento, escolha o procedimento da tabela do convênio.
+5. **Guia:** na aba Tratamentos do paciente, crie a guia com os tratamentos escolhidos e registre a autorização (número, senha, validade, itens autorizados ou negados com motivo).
+6. **Lote do mês:** em Convênios → Lotes, os itens prontos entram sozinhos no lote do período. Digite no portal da operadora e marque "digitado" em cada item. Se preciso, "Tirar do lote" adia o item para o próximo período.
+7. **Enviar:** "Marcar como enviado" pede protocolo e data; o lote fica travado. **Imprimir** gera só o lote aberto.
+8. **Pendências:** a aba Pendências lista guias aguardando, senhas vencendo, tratamentos sem faturar e lotes perto do prazo. O menu mostra o contador. Ao calcular as pendências (aba ou contador do menu) o app também monta os lotes, inclusive de operadora desativada que tenha dia de fechamento.
+
+### O que o app faz
+
+- Cria os lotes por operadora a partir do dia de fechamento e calcula o prazo de envio.
+- Marca itens **Atrasado** (executados antes do período do lote).
+- Avisa guias aguardando há mais de 7 dias, senhas que vencem em até 7 dias e lotes com prazo em até 3 dias.
+
+### O que não faz
+
+- Não gera XML TISS nem envia nada à operadora (fica para a 7b).
+- Pagamento, glosa e recurso: veja "Pagamento e glosas" abaixo.
+- Não cobra o paciente pelo valor do convênio.
+
+### Regras
+
+- Até 30 itens por guia; um tratamento ativo só pode estar em uma guia.
+- Item em lote não recebe nova resposta nem é cancelado; os demais itens da mesma guia seguem normalmente (cancelar a guia cancela só os itens fora de lote). Com item em lote, número, senha e validade da guia não mudam. Lote enviado não pode ser alterado.
+- Pendências olham tratamentos concluídos nos últimos 6 meses; procedimento desativado na tabela conta como fora da tabela.
+- Convênio com guias não pode ser excluído: desative-o.
+- Lotes abertos e enviados aparecem sempre; lotes pagos aparecem por 6 meses.
+
+### Pagamento e glosas
+
+Depois de enviar o lote, o app acompanha o pagamento da operadora, as glosas e os recursos.
+
+**Banco:** no SQL Editor do Supabase, rode nesta ordem (podem rodar de novo sem problema), antes de publicar o código novo:
+
+1. [`supabase/2026-11-08-convenios-pagamentos.sql`](supabase/2026-11-08-convenios-pagamentos.sql)
+2. [`supabase/2026-11-08-motivos-glosa.sql`](supabase/2026-11-08-motivos-glosa.sql): 470 motivos de glosa (Tabela 38 da ANS, versão 202609).
+
+**Como usar:**
+
+1. **Prazos:** em Configurações → Convênios, informe em cada operadora o prazo de pagamento e o prazo de recurso, em dias (padrão 30; de 0 a 180).
+2. **Registrar pagamento:** em Convênios → Pagamentos (ou no botão "Registrar pagamento" do lote enviado, na aba Lotes), abra o lote e informe a data do depósito. "Tudo pago" preenche cada item com o valor integral; nos itens com glosa, informe o valor pago e o motivo (código da ANS; observação de até 200 caracteres). A conferência compara a soma dos itens com o valor depositado.
+3. **Financeiro:** o pagamento gera um recebimento "Convênio" por paciente (descrição "operadora — lote mm/aaaa"), que também entra no livro-caixa.
+4. **Recurso:** no item glosado, "Recorrer" registra a justificativa (até 2000 caracteres). Depois registre o resultado: aceito (com o valor recuperado) ou negado (glosa definitiva). O valor de recurso aceito é recebido em um novo recebimento "operadora — recurso de glosa código"; até lá o item fica "Aceito — aguardando pagamento". Se decidir não recorrer, "Não recorrer" torna a glosa definitiva e tira o alerta de prazo. Glosas em recurso ou aceitas sem recebimento continuam na lista mesmo depois de 6 meses.
+5. **Pagos:** o bloco "Pagos (últimos 6 meses)" mostra, por lote, o valor enviado, pago e glosado.
+6. **Ficha do paciente:** os itens de lote pago mostram a situação (Pago, Glosado · código, Em recurso, Aceito — aguardando pagamento, Recuperado, Glosa definitiva).
+7. **Pendências:** lotes com pagamento atrasado, prazo de recurso vencendo (5 dias) ou vencido, e recurso aceito sem recebimento há mais de 30 dias.
+8. **Desfazer pagamento:** cancela os recebimentos do lote, apaga as glosas e os recursos registrados nele e volta o lote a "aguardando pagamento". Fica bloqueado se algum recurso já tiver o valor recebido.
+
+**O que não faz:**
+
+- Não divide o pagamento em parcelas.
+- Não importa o demonstrativo de pagamento da operadora.
+- Não gera relatório de glosas.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`

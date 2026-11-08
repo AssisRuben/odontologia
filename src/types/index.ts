@@ -45,6 +45,13 @@ export interface InsurancePlan {
   id: string
   clinic_id: string
   name: string
+  ans_registry: string | null
+  provider_code: string | null
+  closing_day: number | null
+  submission_days: number
+  payment_days: number
+  appeal_days: number
+  active: boolean
   created_at: string
 }
 
@@ -69,6 +76,8 @@ export interface Patient {
   }
   insurance_plan_id?: string
   insurance_plan?: InsurancePlan
+  insurance_card: string | null
+  insurance_card_valid_until: string | null
   notes?: string
   whatsapp_opt_out?: boolean
   source: string | null
@@ -301,10 +310,110 @@ export interface Treatment {
   date: string
   status: TreatmentStatus
   notes?: string
+  insurance_procedure_id?: string | null
+  completed_at?: string | null
   created_at: string
   professional?: Professional
   insurance_plan?: InsurancePlan
   treatment_teeth?: TreatmentTooth[]
+}
+
+// ── Convênios: tabela, guias e lotes ────────────────────────
+
+export interface TussProcedure {
+  code: string
+  name: string
+}
+
+export interface InsurancePlanProcedure {
+  id: string
+  clinic_id: string
+  insurance_plan_id: string
+  code: string
+  name: string
+  value: number
+  requires_authorization: boolean
+  active: boolean
+  created_at: string
+}
+
+export type GuideStatus = 'aguardando' | 'liberada' | 'cancelada'
+
+export type ItemAuthorization = 'pendente' | 'autorizado' | 'negado' | 'nao_exige'
+
+export type GuideTooth = { tooth: number; faces: string[] }
+
+export type BatchStatus = 'aberto' | 'enviado' | 'pago'
+
+export type AppealStatus = 'nenhum' | 'em_recurso' | 'aceito' | 'negado'
+
+export interface GlosaReason {
+  code: string
+  name: string
+}
+
+export interface InsuranceGuide {
+  id: string
+  clinic_id: string
+  patient_id: string
+  insurance_plan_id: string
+  professional_id: string | null
+  status: GuideStatus
+  guide_number: string | null
+  password: string | null
+  password_valid_until: string | null
+  insurance_card: string | null
+  requested_at: string
+  responded_at: string | null
+  notes: string | null
+  created_at: string
+  items?: InsuranceGuideItem[]
+}
+
+export interface InsuranceGuideItem {
+  id: string
+  clinic_id: string
+  guide_id: string
+  treatment_id: string | null
+  code: string
+  name: string
+  teeth: GuideTooth[]
+  value: number | null
+  requires_authorization: boolean | null
+  authorization: ItemAuthorization
+  denial_reason: string | null
+  active: boolean
+  executed_at: string | null
+  batch_id: string | null
+  defer_until: string | null
+  typed: boolean
+  paid_value: number | null
+  glosa_value: number | null
+  glosa_code: string | null
+  glosa_note: string | null
+  payment_id: string | null
+  appeal_status: AppealStatus
+  appeal_at: string | null
+  appeal_text: string | null
+  appeal_result_at: string | null
+  recovered_value: number | null
+  recovered_payment_id: string | null
+  created_at: string
+}
+
+export interface InsuranceBatch {
+  id: string
+  clinic_id: string
+  insurance_plan_id: string
+  period_start: string
+  period_end: string
+  due_date: string
+  status: BatchStatus
+  protocol: string | null
+  sent_at: string | null
+  paid_at: string | null
+  deposit_amount: number | null
+  created_at: string
 }
 
 // ── Orçamentos: funil e assinatura ──────────────────────────

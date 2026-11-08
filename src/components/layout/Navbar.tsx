@@ -4,18 +4,22 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, Search, Bell, Settings, User, Stethoscope,
-  Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList,
+  Menu, X, Settings, User, Stethoscope,
+  Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
+import type { Pendencia } from '@/lib/convenios/pendencias'
+import { BuscaRapida } from './BuscaRapida'
+import { SinoPendencias } from './SinoPendencias'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
   { label: 'Pacientes',     href: '/pacientes',     icon: Users },
   { label: 'Orçamentos',    href: '/orcamentos',    icon: ClipboardList },
   { label: 'Financeiro',    href: '/financeiro',    icon: DollarSign },
+  { label: 'Convênios',     href: '/convenios',     icon: ShieldCheck },
   { label: 'Prótese',       href: '/protese',       icon: Layers },
   { label: 'Estoque',       href: '/estoque',       icon: Package },
   { label: 'Mensagens',     href: '/mensagens',     icon: MessageSquare },
@@ -23,7 +27,7 @@ const navLinks = [
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
 ]
 
-const desktopPrimary  = navLinks.slice(0, 4)   // Agenda, Pacientes, Orçamentos, Financeiro
+const desktopPrimary  = navLinks.slice(0, 5)   // Agenda, Pacientes, Orçamentos, Financeiro, Convênios
 const bottomNavLinks  = navLinks.filter((l) => ['/agenda', '/pacientes', '/financeiro'].includes(l.href))
 const secondaryLinks  = navLinks.filter((l) => !bottomNavLinks.includes(l))  // itens do "Mais"
 
@@ -33,6 +37,8 @@ export function Navbar() {
   const { clinicId } = useClinicStore()
   const [approvedBadge, setApprovedBadge] = useState(0)
   const [pendingChats, setPendingChats] = useState(0)
+  const [convenioCount, setConvenioCount] = useState(0)
+  const [convenioItens, setConvenioItens] = useState<Pendencia[]>([])
 
   // Orçamentos aprovados nos últimos 30 dias que a recepção ainda não viu.
   const refreshBadge = useCallback(async () => {
@@ -70,7 +76,30 @@ export function Navbar() {
     return () => { clearInterval(t); window.removeEventListener('conversas:seen', refreshChats) }
   }, [refreshChats, pathname])
 
-  const badgeFor = (href: string) => (href === '/orcamentos' ? approvedBadge : href === '/mensagens' ? pendingChats : 0)
+  // Pendências de convênio (tratamentos sem faturar e lotes com prazo curto).
+  const refreshConvenios = useCallback(async () => {
+    if (!clinicId) return
+    try {
+      const res = await fetch('/api/convenios/pendencias', { cache: 'no-store' })
+      if (!res.ok) return
+      const json = await res.json()
+      setConvenioCount(typeof json.contador === 'number' ? json.contador : 0)
+      setConvenioItens(Array.isArray(json.itens) ? json.itens : [])
+    } catch { /* mantém o valor anterior */ }
+  }, [clinicId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshConvenios()
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refreshConvenios() }, 30_000)
+    window.addEventListener('convenios:changed', refreshConvenios)
+    return () => { clearInterval(t); window.removeEventListener('convenios:changed', refreshConvenios) }
+  }, [refreshConvenios, pathname])
+
+  const badgeFor = (href: string) =>
+    href === '/orcamentos' ? approvedBadge : href === '/mensagens' ? pendingChats : href === '/convenios' ? convenioCount : 0
+  // O que o botão "Mais" (celular) esconde: mensagens e convênios não estão na barra de baixo.
+  const maisBadge = pendingChats + convenioCount
 
   return (
     <>
@@ -110,12 +139,12 @@ export function Navbar() {
 
           {/* Desktop right icons */}
           <div className="hidden md:flex items-center gap-1 ml-auto">
-            <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
-              <Search className="w-4 h-4" />
-            </button>
-            <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
-              <Bell className="w-4 h-4" />
-            </button>
+            <BuscaRapida />
+            <SinoPendencias
+              conversas={pendingChats}
+              orcamentosAprovados={approvedBadge}
+              convenios={{ contador: convenioCount, itens: convenioItens }}
+            />
             <Link
               href="/mensagens"
               className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
@@ -134,19 +163,17 @@ export function Navbar() {
 
           {/* Mobile right side — só busca + avatar + "Mais" */}
           <div className="flex items-center gap-1 ml-auto md:hidden">
-            <button className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6]">
-              <Search className="w-4 h-4" />
-            </button>
+            <BuscaRapida />
             <button className="w-8 h-8 rounded-full bg-[#3B82F6] flex items-center justify-center text-white">
               <User className="w-4 h-4" />
             </button>
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
-              aria-label={pendingChats > 0 ? `Mais opções: ${pendingChats} conversa(s) aguardando` : 'Mais opções'}
+              aria-label={maisBadge > 0 ? `Mais opções: ${maisBadge} pendência(s)` : 'Mais opções'}
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              {!mobileOpen && pendingChats > 0 && <CountBadge value={pendingChats} />}
+              {!mobileOpen && maisBadge > 0 && <CountBadge value={maisBadge} />}
             </button>
           </div>
         </div>
@@ -217,8 +244,9 @@ export function Navbar() {
           onClick={() => setMobileOpen(v => !v)}
           className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
         >
-          <div className="w-10 h-7 flex items-center justify-center rounded-full">
+          <div className="relative w-10 h-7 flex items-center justify-center rounded-full">
             <Menu className="w-5 h-5 text-[#9CA3AF]" />
+            {maisBadge > 0 && <CountBadge value={maisBadge} />}
           </div>
           <span className="text-[10px] font-medium leading-none text-[#9CA3AF]">Mais</span>
         </button>

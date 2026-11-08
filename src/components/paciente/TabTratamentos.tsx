@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, X, ChevronDown, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils'
-import type { Professional, InsurancePlan, Treatment, TreatmentStatus } from '@/types'
+import { todayYmd } from '@/lib/messaging/time'
+import { SecaoGuias } from '@/components/paciente/SecaoGuias'
+import { naTabela } from '@/lib/convenios/guias'
+import type {
+  Professional, InsurancePlan, Treatment, TreatmentStatus, InsuranceGuide, InsuranceGuideItem,
+  InsurancePlanProcedure,
+} from '@/types'
 
 // ─── FDI arch arrays ──────────────────────────────────────────────────────────
 const UPPER_LEFT  = [18,17,16,15,14,13,12,11]
@@ -26,6 +32,36 @@ const STATUS_CONFIG: Record<TreatmentStatus, { label: string; color: string; bg:
 
 type ToothFaces = Record<number, Face[]>
 
+// ─── Selo da guia ─────────────────────────────────────────────────────────────
+
+type Selo = 'Fora da tabela' | 'Sem guia' | 'Aguardando autorização' | 'Autorizado' | 'Negado' | 'Em lote'
+
+const SELO_COLORS: Record<Selo, { color: string; bg: string }> = {
+  'Fora da tabela':         { color: '#6B7280', bg: '#F3F4F6' },
+  'Sem guia':               { color: '#6B7280', bg: '#F3F4F6' },
+  'Aguardando autorização': { color: '#F97316', bg: '#FFF7ED' },
+  'Autorizado':             { color: '#16A34A', bg: '#F0FDF4' },
+  'Negado':                 { color: '#EF4444', bg: '#FEF2F2' },
+  'Em lote':                { color: '#3B82F6', bg: '#EFF6FF' },
+}
+
+function seloDoTratamento(
+  t: Treatment, items: InsuranceGuideItem[], procById: Map<string, InsurancePlanProcedure>,
+): Selo {
+  if (!t.insurance_procedure_id || !naTabela(t.insurance_plan_id, procById.get(t.insurance_procedure_id))) {
+    return 'Fora da tabela'
+  }
+  const doTrat = items.filter((i) => i.treatment_id === t.id)
+  const ativo = doTrat.find((i) => i.active)
+  if (ativo) {
+    if (ativo.batch_id) return 'Em lote'
+    if (ativo.authorization === 'autorizado' || ativo.authorization === 'nao_exige') return 'Autorizado'
+    return 'Aguardando autorização'
+  }
+  const ultimo = doTrat.slice().sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+  return ultimo?.authorization === 'negado' ? 'Negado' : 'Sem guia'
+}
+
 // ─── Main tab component ───────────────────────────────────────────────────────
 
 interface TabTratamentosProps {
@@ -42,13 +78,20 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
   const [modalOpen, setModalOpen]         = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null)
   const [expandedId, setExpandedId]       = useState<string | null>(null)
+  const [guides, setGuides]               = useState<InsuranceGuide[]>([])
+  const [procById, setProcById]           = useState<Map<string, InsurancePlanProcedure>>(new Map())
+  const [lotesPagos, setLotesPagos]       = useState<Set<string>>(new Set())
+  const [patientCard, setPatientCard]     = useState<{
+    planId: string | null; card: string | null; validUntil: string | null
+  }>({ planId: null, card: null, validUntil: null })
 
-  useEffect(() => { loadData() }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadData(true) }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadData() {
-    setLoading(true)
+  // spinner só na primeira carga: recargas após mutação mantêm o conteúdo na tela
+  async function loadData(showSpinner = false) {
+    if (showSpinner) setLoading(true)
     const supabase = createClient()
-    const [treatsRes, profsRes, plansRes] = await Promise.all([
+    const [treatsRes, profsRes, plansRes, guidesRes, patRes] = await Promise.all([
       supabase
         .from('treatments')
         .select('*, professional:professionals(*), insurance_plan:insurance_plans(*), treatment_teeth(*)')
@@ -56,12 +99,49 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
         .order('date', { ascending: false }),
       supabase.from('professionals').select('*').eq('clinic_id', clinicId),
       supabase.from('insurance_plans').select('*').eq('clinic_id', clinicId),
+      supabase
+        .from('insurance_guides')
+        .select('*, items:insurance_guide_items(*)')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('patients')
+        .select('insurance_plan_id, insurance_card, insurance_card_valid_until')
+        .eq('id', patientId)
+        .single(),
     ])
-    setTreatments((treatsRes.data || []) as Treatment[])
+    const treats = (treatsRes.data || []) as Treatment[]
+    setTreatments(treats)
     setProfessionals(profsRes.data || [])
     setInsurancePlans(plansRes.data || [])
+    const loadedGuides = (guidesRes.data || []) as InsuranceGuide[]
+    setGuides(loadedGuides)
+    const batchIds = Array.from(new Set(
+      loadedGuides.flatMap((g) => g.items || []).map((i) => i.batch_id).filter((x): x is string => !!x),
+    ))
+    if (batchIds.length > 0) {
+      const { data: batches } = await supabase
+        .from('insurance_batches').select('id').in('id', batchIds).eq('status', 'pago')
+      setLotesPagos(new Set((batches || []).map((b: { id: string }) => b.id)))
+    } else {
+      setLotesPagos(new Set())
+    }
+    setPatientCard({
+      planId: patRes.data?.insurance_plan_id ?? null,
+      card: patRes.data?.insurance_card ?? null,
+      validUntil: patRes.data?.insurance_card_valid_until ?? null,
+    })
+    const procIds = Array.from(new Set(treats.map((t) => t.insurance_procedure_id).filter((x): x is string => !!x)))
+    if (procIds.length > 0) {
+      const { data: procs } = await supabase.from('insurance_plan_procedures').select('*').in('id', procIds)
+      setProcById(new Map(((procs || []) as InsurancePlanProcedure[]).map((p) => [p.id, p])))
+    } else {
+      setProcById(new Map())
+    }
     setLoading(false)
   }
+
+  const allItems = guides.flatMap((g) => g.items || [])
 
   return (
     <div>
@@ -106,6 +186,17 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                         >
                           {s.label}
                         </span>
+                        {t.insurance_plan_id && (() => {
+                          const selo = seloDoTratamento(t, allItems, procById)
+                          return (
+                            <span
+                              className="text-xs font-medium px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: SELO_COLORS[selo].bg, color: SELO_COLORS[selo].color }}
+                            >
+                              {selo}
+                            </span>
+                          )
+                        })()}
                       </div>
                       <p className="text-xs text-[#6B7280] mt-0.5">
                         {t.date && format(parseISO(t.date), "dd/MM/yyyy", { locale: ptBR })}
@@ -163,6 +254,22 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
         )}
       </div>
 
+      {!loading && (
+        <SecaoGuias
+          patientId={patientId}
+          patientPlanId={patientCard.planId}
+          insuranceCard={patientCard.card}
+          insuranceCardValidUntil={patientCard.validUntil}
+          guides={guides}
+          lotesPagos={lotesPagos}
+          treatments={treatments}
+          procById={procById}
+          plans={insurancePlans}
+          professionals={professionals}
+          onChanged={() => loadData()}
+        />
+      )}
+
       {modalOpen && (
         <ModalNovoTratamento
           patientId={patientId}
@@ -208,6 +315,84 @@ function InfoLine({ label, value }: { label: string; value: string }) {
   )
 }
 
+// ─── Busca de procedimento na tabela da operadora ────────────────────────────
+
+interface PickerProps {
+  planId: string
+  text: string
+  onText: (v: string) => void
+  onPick: (p: InsurancePlanProcedure) => void
+  placeholder: string
+  required?: boolean
+}
+
+function ProcedimentoPicker({ planId, text, onText, onPick, placeholder, required }: PickerProps) {
+  const [results, setResults] = useState<InsurancePlanProcedure[]>([])
+  const [open, setOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const seq = useRef(0)
+
+  function search(q: string) {
+    if (timer.current) clearTimeout(timer.current)
+    // vírgula, parênteses e curingas quebrariam o filtro .or() do PostgREST
+    const term = q.replace(/[,()%*_\\]/g, ' ').trim()
+    const mine = ++seq.current
+    timer.current = setTimeout(async () => {
+      setSearching(true)
+      let query = createClient()
+        .from('insurance_plan_procedures')
+        .select('*')
+        .eq('insurance_plan_id', planId)
+        .eq('active', true)
+        .order('name')
+        .limit(20)
+      if (term) query = query.or(`code.ilike.%${term}%,name.ilike.%${term}%`)
+      const { data } = await query
+      if (mine !== seq.current) return
+      setResults((data || []) as InsurancePlanProcedure[])
+      setSearching(false)
+    }, 250)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text" value={text} required={required}
+        onChange={e => { onText(e.target.value); setOpen(true); search(e.target.value) }}
+        onFocus={() => { setOpen(true); search(text) }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+      />
+      {open && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#E5E7EB] rounded-lg shadow-lg max-h-56 overflow-y-auto">
+          {searching ? (
+            <p className="px-3 py-2 text-xs text-[#9CA3AF]">Buscando...</p>
+          ) : results.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-[#9CA3AF]">Nenhum procedimento na tabela da operadora.</p>
+          ) : (
+            results.map(p => (
+              <button
+                key={p.id} type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { onPick(p); setOpen(false) }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[#F3F4F6] flex items-center justify-between gap-3"
+              >
+                <span className="min-w-0 truncate">
+                  <span className="font-medium text-[#111827]">{p.code}</span>
+                  <span className="text-[#6B7280]"> · {p.name}</span>
+                </span>
+                <span className="text-xs text-[#6B7280] shrink-0">{formatCurrency(p.value)}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
 interface ModalProps {
@@ -224,8 +409,9 @@ function ModalNovoTratamento({
 }: ModalProps) {
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '')
   const [insurancePlanId, setInsurancePlanId] = useState('')
-  const [date, setDate]         = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]         = useState(() => todayYmd(new Date(), 'America/Sao_Paulo'))
   const [procedure, setProcedure] = useState('')
+  const [procedureId, setProcedureId] = useState<string | null>(null)
   const [value, setValue]       = useState('')
   const [status, setStatus]     = useState<TreatmentStatus>('planned')
   const [notes, setNotes]       = useState('')
@@ -269,6 +455,7 @@ function ModalNovoTratamento({
         patient_id:       patientId,
         professional_id:  professionalId || null,
         insurance_plan_id: insurancePlanId || null,
+        insurance_procedure_id: insurancePlanId ? procedureId : null,
         procedure:        procedure.trim(),
         value:            parseFloat(value) || 0,
         date,
@@ -335,7 +522,8 @@ function ModalNovoTratamento({
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Convênio</label>
               <select
-                value={insurancePlanId} onChange={e => setInsurancePlanId(e.target.value)}
+                value={insurancePlanId}
+                onChange={e => { setInsurancePlanId(e.target.value); setProcedureId(null) }}
                 className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
               >
                 <option value="">Particular</option>
@@ -377,11 +565,21 @@ function ModalNovoTratamento({
           {/* Procedimento */}
           <div>
             <label className="block text-sm font-medium text-[#111827] mb-1">Procedimento *</label>
-            <input
-              type="text" value={procedure} onChange={e => setProcedure(e.target.value)} required
-              placeholder="Ex: Canal, Restauração, Extração, Implante..."
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-            />
+            {insurancePlanId ? (
+              <ProcedimentoPicker
+                key={insurancePlanId}
+                planId={insurancePlanId} text={procedure} required
+                onText={setProcedure}
+                onPick={p => { setProcedure(p.name); setProcedureId(p.id); setValue(String(p.value)) }}
+                placeholder="Busque por código ou nome na tabela da operadora"
+              />
+            ) : (
+              <input
+                type="text" value={procedure} onChange={e => setProcedure(e.target.value)} required
+                placeholder="Ex: Canal, Restauração, Extração, Implante..."
+                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              />
+            )}
           </div>
 
           {/* Observações */}
@@ -557,6 +755,7 @@ function ModalEditarTratamento({
   }
 
   const [procedure, setProcedure]     = useState(treatment.procedure)
+  const [procedureId, setProcedureId] = useState<string | null>(treatment.insurance_procedure_id ?? null)
   const [status, setStatus]           = useState<TreatmentStatus>(treatment.status)
   const [date, setDate]               = useState(treatment.date)
   const [value, setValue]             = useState(String(treatment.value || ''))
@@ -596,6 +795,7 @@ function ModalEditarTratamento({
         value: parseFloat(value) || 0,
         professional_id: professionalId || null,
         insurance_plan_id: insurancePlanId || null,
+        insurance_procedure_id: insurancePlanId ? procedureId : null,
         notes: notes.trim() || null,
       })
       .eq('id', treatment.id)
@@ -665,11 +865,21 @@ function ModalEditarTratamento({
           {/* Procedimento */}
           <div>
             <label className="block text-sm font-medium text-[#111827] mb-1">Procedimento *</label>
-            <input
-              type="text" value={procedure} onChange={e => setProcedure(e.target.value)}
-              placeholder="Ex: Canal, Restauração, Extração..."
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-            />
+            {insurancePlanId ? (
+              <ProcedimentoPicker
+                key={insurancePlanId}
+                planId={insurancePlanId} text={procedure}
+                onText={setProcedure}
+                onPick={p => { setProcedure(p.name); setProcedureId(p.id); setValue(String(p.value)) }}
+                placeholder="Busque por código ou nome na tabela da operadora"
+              />
+            ) : (
+              <input
+                type="text" value={procedure} onChange={e => setProcedure(e.target.value)}
+                placeholder="Ex: Canal, Restauração, Extração..."
+                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              />
+            )}
           </div>
 
           {/* Data + Valor */}
@@ -699,7 +909,7 @@ function ModalEditarTratamento({
             </div>
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Convênio</label>
-              <select value={insurancePlanId} onChange={e => setPlanId(e.target.value)}
+              <select value={insurancePlanId} onChange={e => { setPlanId(e.target.value); setProcedureId(null) }}
                 className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
                 <option value="">Particular</option>
                 {insurancePlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
