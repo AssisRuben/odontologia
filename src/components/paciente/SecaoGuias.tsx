@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { formatCurrency } from '@/lib/utils'
 import { divergencias } from '@/lib/convenios/divergencia'
+import { situacaoPagamento, rotuloSituacao, type SituacaoPagamento } from '@/lib/convenios/pagamentos/situacao'
 import { ModalCriarGuia } from '@/components/convenios/ModalCriarGuia'
 import { ModalRespostaGuia } from '@/components/convenios/ModalRespostaGuia'
 import type {
@@ -22,6 +23,16 @@ const AUTH_LABEL: Record<string, string> = {
   pendente: 'Pendente', autorizado: 'Autorizado', negado: 'Negado', nao_exige: 'Não exige autorização',
 }
 
+const SELO_SITUACAO: Record<SituacaoPagamento, string> = {
+  aguardando: 'bg-[#F3F4F6] text-[#6B7280]',
+  pago: 'bg-[#F0FDF4] text-[#15803D]',
+  glosado: 'bg-[#FEF2F2] text-[#B91C1C]',
+  em_recurso: 'bg-[#FFF7ED] text-[#C2410C]',
+  recuperado: 'bg-[#F0FDF4] text-[#15803D]',
+  glosa_definitiva: 'bg-[#FEF2F2] text-[#B91C1C]',
+  aceito_aguardando: 'bg-[#FEF3C7] text-[#92400E]',
+}
+
 function fmtDate(d: string | null) {
   return d ? format(parseISO(d), 'dd/MM/yyyy') : '—'
 }
@@ -32,6 +43,7 @@ interface Props {
   insuranceCard: string | null
   insuranceCardValidUntil: string | null
   guides: InsuranceGuide[]
+  lotesPagos: Set<string>
   treatments: Treatment[]
   procById: Map<string, InsurancePlanProcedure>
   plans: InsurancePlan[]
@@ -40,7 +52,7 @@ interface Props {
 }
 
 export function SecaoGuias({
-  patientId, patientPlanId, insuranceCard, insuranceCardValidUntil, guides, treatments, procById,
+  patientId, patientPlanId, insuranceCard, insuranceCardValidUntil, guides, lotesPagos, treatments, procById,
   plans, professionals, onChanged,
 }: Props) {
   const [criando, setCriando] = useState(false)
@@ -201,12 +213,18 @@ export function SecaoGuias({
                 <div className="space-y-2">
                   {items.map((i) => {
                     const diverge = divergenciaDoItem(i)
+                    const situacao = i.batch_id && lotesPagos.has(i.batch_id) ? situacaoPagamento(i) : null
+                    const comCodigo = situacao === 'glosado' || situacao === 'glosa_definitiva'
                     return (
                       <div key={i.id} className={`rounded-lg border border-[#E5E7EB] px-3 py-2 ${i.active ? '' : 'opacity-60'}`}>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm text-[#111827]">{i.code} · {i.name}</span>
                           <span className="text-xs text-[#6B7280]">{AUTH_LABEL[i.authorization]}</span>
-                          {i.batch_id && (
+                          {situacao ? (
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SELO_SITUACAO[situacao]}`}>
+                              {rotuloSituacao(situacao)}{comCodigo && i.glosa_code ? ` · ${i.glosa_code}` : ''}
+                            </span>
+                          ) : i.batch_id && (
                             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3B82F6]">Em lote</span>
                           )}
                           {diverge && (
