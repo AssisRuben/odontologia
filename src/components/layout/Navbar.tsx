@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, Settings, User, Stethoscope,
+  Menu, X, Settings, Stethoscope,
   Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -13,6 +13,7 @@ import { useClinicStore } from '@/store/clinicStore'
 import type { Pendencia } from '@/lib/convenios/pendencias'
 import { BuscaRapida } from './BuscaRapida'
 import { SinoPendencias } from './SinoPendencias'
+import { MenuUsuario } from './MenuUsuario'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
@@ -156,17 +157,13 @@ export function Navbar() {
             <Link href="/configuracoes" className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
               <Settings className="w-4 h-4" />
             </Link>
-            <button className="w-8 h-8 rounded-full bg-[#3B82F6] flex items-center justify-center text-white ml-1">
-              <User className="w-4 h-4" />
-            </button>
+            <MenuUsuario />
           </div>
 
           {/* Mobile right side — só busca + avatar + "Mais" */}
           <div className="flex items-center gap-1 ml-auto md:hidden">
             <BuscaRapida />
-            <button className="w-8 h-8 rounded-full bg-[#3B82F6] flex items-center justify-center text-white">
-              <User className="w-4 h-4" />
-            </button>
+            <MenuUsuario />
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
