@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { montarPendencias } from '@/lib/convenios/pendencias'
 
 const hoje = '2026-03-10'
-const vazio = { hoje, guias: [], tratamentos: [], lotes: [], operadorasSemFechamento: [] }
+const vazio = { hoje, guias: [], tratamentos: [], lotes: [], operadorasSemFechamento: [], lotesEnviados: [], glosas: [] }
 const guia = {
   id: 'g1', patient_id: 'p1', patient_name: 'Ana', plan_name: 'Uniodonto',
   status: 'aguardando' as const, requested_at: '2026-03-02', password_valid_until: null, temItemSemLote: true,
@@ -85,10 +85,70 @@ describe('montarPendencias', () => {
       tratamentos: [{ id: 't1', patient_id: 'p2', patient_name: 'Bia', procedure: 'Limpeza', situacao: 'sem_guia' }],
       lotes: [lote],
       operadorasSemFechamento: [{ id: 'o1', name: 'Amil' }],
+      lotesEnviados: [],
+      glosas: [],
     })
     expect(r.itens.map((i) => i.tipo)).toEqual([
       'lote_prazo', 'tratamento_sem_faturar', 'guia_aguardando', 'senha_vencendo', 'operadora_sem_fechamento',
     ])
     expect(r.contador).toBe(2)
+  })
+
+  describe('pagamento e recurso', () => {
+    const enviado = { id: 'l2', plan_name: 'Uniodonto', period_end: '2026-02-28', sent_at: '2026-02-08', payment_days: 30 }
+    const glosa = {
+      item_id: 'i1', patient_name: 'Ana', glosa_code: '1801', paid_at: '2026-03-01', appeal_days: 14,
+      appeal_status: 'nenhum' as const, appeal_result_at: null as string | null, recovered_payment_id: null as string | null,
+    }
+    const href = '/convenios?aba=pagamentos'
+    it('pagamento atrasado: 1 dia entra, no dia previsto não', () => {
+      // previsto 2026-03-10 = hoje
+      expect(montarPendencias({ ...vazio, lotesEnviados: [enviado] }).itens).toEqual([])
+      expect(montarPendencias({ ...vazio, lotesEnviados: [{ ...enviado, sent_at: '2026-02-07' }] }).itens).toEqual([
+        { tipo: 'pagamento_atrasado', texto: 'Lote Uniodonto 02/2026: pagamento atrasado há 1 dia', href },
+      ])
+      expect(montarPendencias({ ...vazio, lotesEnviados: [{ ...enviado, sent_at: '2026-02-01' }] }).itens[0].texto)
+        .toBe('Lote Uniodonto 02/2026: pagamento atrasado há 7 dias')
+    })
+    it('prazo de recurso: 5 dias entra, 6 não, hoje e vencido', () => {
+      const g = (paid_at: string) => montarPendencias({ ...vazio, glosas: [{ ...glosa, paid_at }] }).itens
+      // prazo = paid_at + 14; hoje = 03-10
+      expect(g('2026-03-01')).toEqual([
+        { tipo: 'recurso_prazo', texto: 'Glosa de Ana (1801): prazo de recurso em 5 dias', href },
+      ])
+      expect(g('2026-02-28')[0].texto).toBe('Glosa de Ana (1801): prazo de recurso em 4 dias')
+      expect(g('2026-03-02')).toEqual([])
+      expect(g('2026-02-24')[0].texto).toBe('Glosa de Ana (1801): prazo de recurso hoje')
+      expect(g('2026-02-23')[0].texto).toBe('Glosa de Ana (1801): prazo de recurso vencido há 1 dia')
+      expect(g('2026-02-10')[0].texto).toBe('Glosa de Ana (1801): prazo de recurso vencido há 14 dias')
+    })
+    it('glosa em recurso ou negada não entra', () => {
+      for (const appeal_status of ['em_recurso', 'negado'] as const) {
+        expect(montarPendencias({ ...vazio, glosas: [{ ...glosa, appeal_status, paid_at: '2026-02-01' }] }).itens).toEqual([])
+      }
+    })
+    it('recurso aceito sem recebimento: 31 dias entra, 30 não, recebido não', () => {
+      const a = { ...glosa, appeal_status: 'aceito' as const }
+      const r = (appeal_result_at: string, recovered_payment_id: string | null = null) =>
+        montarPendencias({ ...vazio, glosas: [{ ...a, appeal_result_at, recovered_payment_id }] }).itens
+      expect(r('2026-02-07')).toEqual([
+        { tipo: 'recurso_sem_recebimento', texto: 'Recurso aceito de Ana sem recebimento há 31 dias', href },
+      ])
+      expect(r('2026-02-08')).toEqual([])
+      expect(r('2026-02-07', 'pay1')).toEqual([])
+    })
+    it('contador inclui atrasado e prazo de recurso, não o aceito sem recebimento; ordem', () => {
+      const r = montarPendencias({
+        ...vazio,
+        lotes: [lote],
+        operadorasSemFechamento: [{ id: 'o1', name: 'Amil' }],
+        lotesEnviados: [{ ...enviado, sent_at: '2026-02-01' }],
+        glosas: [{ ...glosa, item_id: 'i2', appeal_status: 'aceito', appeal_result_at: '2026-01-01' }, glosa],
+      })
+      expect(r.itens.map((i) => i.tipo)).toEqual([
+        'pagamento_atrasado', 'recurso_prazo', 'lote_prazo', 'operadora_sem_fechamento', 'recurso_sem_recebimento',
+      ])
+      expect(r.contador).toBe(3)
+    })
   })
 })

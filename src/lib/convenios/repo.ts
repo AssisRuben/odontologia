@@ -1,7 +1,7 @@
 // Acesso ao banco (service role) para guias e itens; toda consulta filtra por clinic_id.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BatchStatus, GuideStatus, GuideTooth, InsuranceBatch, ItemAuthorization, TreatmentStatus } from '@/types'
+import type { AppealStatus, BatchStatus, GuideStatus, GuideTooth, InsuranceBatch, ItemAuthorization, TreatmentStatus } from '@/types'
 import { naTabela, type ItemNovo, type RespostaGuia, type TratamentoParaGuia } from './guias'
 import { dataExecucao } from './prontidao'
 import type { montarPendencias } from './pendencias'
@@ -584,7 +584,75 @@ export function createConveniosRepo(admin: SupabaseClient) {
         if (data?.length) operadorasSemFechamento.push(o)
       }
 
-      return { guias: guiasOut, tratamentos: pend, lotes: lotesOut, operadorasSemFechamento }
+      type BE = { id: string; period_end: string; sent_at: string | null; plan: { name: string; payment_days: number } | null }
+      const enviados = await lerTudo<BE>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select('id, period_end, sent_at, plan:insurance_plans(name, payment_days)')
+          .eq('clinic_id', clinicId)
+          .eq('status', 'enviado')
+          .order('id')
+          .range(de, ate),
+      )
+      const lotesEnviados = enviados.flatMap((l) =>
+        l.sent_at
+          ? [{ id: l.id, plan_name: l.plan?.name ?? '', period_end: l.period_end, sent_at: l.sent_at, payment_days: l.plan?.payment_days ?? 30 }]
+          : [],
+      )
+
+      // Glosas de lotes pagos nos últimos 6 meses (ativas ou não: o dinheiro já foi cobrado).
+      type BP = { id: string; paid_at: string | null; plan: { appeal_days: number } | null }
+      const pagos = await lerTudo<BP>((de, ate) =>
+        admin
+          .from('insurance_batches')
+          .select('id, paid_at, plan:insurance_plans(appeal_days)')
+          .eq('clinic_id', clinicId)
+          .eq('status', 'pago')
+          .gte('paid_at', corte)
+          .order('id')
+          .range(de, ate),
+      )
+      const lotePago = new Map(pagos.map((l) => [l.id, l]))
+      type GI = {
+        id: string
+        batch_id: string
+        glosa_code: string | null
+        appeal_status: AppealStatus
+        appeal_result_at: string | null
+        recovered_payment_id: string | null
+        guide: { patient: { name: string } | null } | null
+      }
+      const glosas: DadosPendencias['glosas'] = []
+      for (const grupo of pedacos(pagos.map((l) => l.id), 50)) {
+        const itens = await lerTudo<GI>((de, ate) =>
+          admin
+            .from('insurance_guide_items')
+            .select(
+              'id, batch_id, glosa_code, appeal_status, appeal_result_at, recovered_payment_id, guide:insurance_guides(patient:patients(name))',
+            )
+            .eq('clinic_id', clinicId)
+            .gt('glosa_value', 0)
+            .in('batch_id', grupo)
+            .order('id')
+            .range(de, ate),
+        )
+        for (const i of itens) {
+          const l = lotePago.get(i.batch_id)
+          if (!l?.paid_at) continue
+          glosas.push({
+            item_id: i.id,
+            patient_name: i.guide?.patient?.name ?? '',
+            glosa_code: i.glosa_code,
+            paid_at: l.paid_at,
+            appeal_days: l.plan?.appeal_days ?? 30,
+            appeal_status: i.appeal_status,
+            appeal_result_at: i.appeal_result_at,
+            recovered_payment_id: i.recovered_payment_id,
+          })
+        }
+      }
+
+      return { guias: guiasOut, tratamentos: pend, lotes: lotesOut, operadorasSemFechamento, lotesEnviados, glosas }
     },
   }
 }
