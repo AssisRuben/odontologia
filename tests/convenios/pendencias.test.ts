@@ -50,6 +50,12 @@ describe('montarPendencias', () => {
       .toBe('Lote Uniodonto 03/2026: prazo vencido há 2 dias')
     expect(montarPendencias({ ...vazio, lotes: [{ ...lote, status: 'enviado' }] }).itens).toEqual([])
   })
+  it('um dia no singular', () => {
+    expect(montarPendencias({ ...vazio, lotes: [{ ...lote, due_date: '2026-03-09' }] }).itens[0].texto)
+      .toBe('Lote Uniodonto 03/2026: prazo vencido há 1 dia')
+    expect(montarPendencias({ ...vazio, lotes: [{ ...lote, due_date: '2026-03-11' }] }).itens[0].texto)
+      .toBe('Lote Uniodonto 03/2026: prazo em 1 dia')
+  })
   it('pendência fora da tabela e demais situações de tratamento', () => {
     const t = { id: 't1', patient_id: 'p2', patient_name: 'Bia', procedure: 'Limpeza' }
     const r = montarPendencias({

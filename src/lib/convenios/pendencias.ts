@@ -18,6 +18,8 @@ const SITUACAO_TEXTO = {
   fora_tabela: 'fora da tabela do convênio',
 } as const
 
+const dias = (n: number) => (n === 1 ? '1 dia' : `${n} dias`)
+
 export function montarPendencias(args: {
   hoje: string
   guias: {
@@ -53,7 +55,7 @@ export function montarPendencias(args: {
     if (n > 3) continue
     const nome = `Lote ${l.plan_name} ${mmaaaa(l.period_end)}`
     const texto =
-      n < 0 ? `${nome}: prazo vencido há ${-n} dias` : n === 0 ? `${nome}: prazo hoje` : `${nome}: prazo em ${n} dias`
+      n < 0 ? `${nome}: prazo vencido há ${dias(-n)}` : n === 0 ? `${nome}: prazo hoje` : `${nome}: prazo em ${dias(n)}`
     lotePrazo.push({ tipo: 'lote_prazo', texto, href: `/convenios?aba=lotes&lote=${l.id}` })
   }
 
@@ -73,7 +75,7 @@ export function montarPendencias(args: {
       if (n > 7) {
         aguardando.push({
           tipo: 'guia_aguardando',
-          texto: `Guia de ${g.patient_name} (${g.plan_name}) aguardando autorização há ${n} dias`,
+          texto: `Guia de ${g.patient_name} (${g.plan_name}) aguardando autorização há ${dias(n)}`,
           href,
         })
       }
