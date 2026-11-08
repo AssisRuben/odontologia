@@ -448,7 +448,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           .from('insurance_batches')
           .select('*, plan:insurance_plans(id, name)')
           .eq('clinic_id', clinicId)
-          .or(`status.eq.aberto,and(status.in.(enviado,pago),period_end.gte.${corte})`)
+          .or(`status.in.(aberto,enviado),and(status.eq.pago,period_end.gte.${corte})`)
           .order('id')
           .range(de, ate),
       )

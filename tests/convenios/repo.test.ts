@@ -174,7 +174,7 @@ describe('createConveniosRepo', () => {
     const r = await repo.lotesComItens('c1', '2026-08-31')
     expect(r[0].itens).toHaveLength(1001)
     expect(r[0].total).toBe(1101.1)
-    expect(queries[0].calls).toContainEqual(['or', 'status.eq.aberto,and(status.in.(enviado,pago),period_end.gte.2026-02-28)'])
+    expect(queries[0].calls).toContainEqual(['or', 'status.in.(aberto,enviado),and(status.eq.pago,period_end.gte.2026-02-28)'])
     expect(queries.filter((q) => q.table === 'insurance_guide_items')).toHaveLength(2)
   })
 
