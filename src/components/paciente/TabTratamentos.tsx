@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale'
 import { Plus, X, ChevronDown, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils'
+import { todayYmd } from '@/lib/messaging/time'
 import { SecaoGuias } from '@/components/paciente/SecaoGuias'
 import { naTabela } from '@/lib/convenios/guias'
 import type {
@@ -395,7 +396,7 @@ function ModalNovoTratamento({
 }: ModalProps) {
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '')
   const [insurancePlanId, setInsurancePlanId] = useState('')
-  const [date, setDate]         = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]         = useState(() => todayYmd(new Date(), 'America/Sao_Paulo'))
   const [procedure, setProcedure] = useState('')
   const [procedureId, setProcedureId] = useState<string | null>(null)
   const [value, setValue]       = useState('')
