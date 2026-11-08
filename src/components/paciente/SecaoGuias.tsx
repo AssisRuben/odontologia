@@ -135,6 +135,9 @@ export function SecaoGuias({
             const plan = plans.find((p) => p.id === g.insurance_plan_id)
             const items = (g.items || []).slice().sort((a, b) => a.created_at.localeCompare(b.created_at))
             const emLote = items.some((i) => i.active && i.batch_id)
+            // Itens em lote ficam fora da resposta e do cancelamento.
+            const foraDeLote = items.filter((i) => i.active && !i.batch_id)
+            const podeResponder = foraDeLote.some((i) => i.requires_authorization)
             return (
               <div key={g.id} className="px-5 py-4 space-y-3">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -154,12 +157,19 @@ export function SecaoGuias({
                   </div>
                   {g.status !== 'cancelada' && (
                     <div className="flex items-center gap-3">
-                      <button onClick={() => setRespondendo(g)} className="text-xs text-[#3B82F6] hover:underline">
+                      <button
+                        onClick={() => setRespondendo(g)}
+                        disabled={emLote && !podeResponder}
+                        title={emLote && !podeResponder ? 'Os itens que exigem autorização já estão em lote' : undefined}
+                        className="text-xs text-[#3B82F6] hover:underline disabled:opacity-40 disabled:no-underline"
+                      >
                         Registrar resposta
                       </button>
                       {cancelando === g.id ? (
                         <span className="flex items-center gap-2 text-xs">
-                          <span className="text-[#6B7280]">Cancelar esta guia?</span>
+                          <span className="text-[#6B7280]">
+                            {emLote ? 'Cancelar os itens que ainda não estão em lote?' : 'Cancelar esta guia?'}
+                          </span>
                           <button
                             onClick={() => cancelar(g.id)} disabled={busy === `c-${g.id}`}
                             className="text-[#EF4444] font-medium hover:underline disabled:opacity-50"
@@ -173,8 +183,12 @@ export function SecaoGuias({
                       ) : (
                         <button
                           onClick={() => setCancelando(g.id)}
-                          disabled={emLote}
-                          title={emLote ? 'Guia com item em lote não pode ser alterada' : undefined}
+                          disabled={foraDeLote.length === 0}
+                          title={
+                            foraDeLote.length === 0
+                              ? 'Todos os itens da guia já estão em lote'
+                              : emLote ? 'Cancela os itens que ainda não estão em lote' : undefined
+                          }
                           className="text-xs text-[#EF4444] hover:underline disabled:opacity-40 disabled:no-underline"
                         >
                           Cancelar guia

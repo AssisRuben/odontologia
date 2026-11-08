@@ -16,7 +16,10 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
   const [guideNumber, setGuideNumber] = useState(guide.guide_number || '')
   const [password, setPassword] = useState(guide.password || '')
   const [validUntil, setValidUntil] = useState(guide.password_valid_until || '')
-  const itens = (guide.items || []).filter((i) => i.active && i.requires_authorization)
+  // Itens em lote não recebem resposta; com algum item em lote, número e senha
+  // já saíram no lote e não mudam (o servidor mantém os gravados).
+  const itens = (guide.items || []).filter((i) => i.active && i.requires_authorization && !i.batch_id)
+  const emLote = (guide.items || []).some((i) => i.active && i.batch_id)
   const [decisoes, setDecisoes] = useState<Record<string, Decisao>>(() => {
     const ini: Record<string, Decisao> = {}
     for (const i of itens) {
@@ -70,7 +73,7 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
     }
   }
 
-  const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
+  const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] disabled:bg-[#F9FAFB] disabled:text-[#6B7280]'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -87,22 +90,29 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Número da guia</label>
-              <input value={guideNumber} onChange={(e) => setGuideNumber(e.target.value)} maxLength={40} className={inputCls} />
+              <input value={guideNumber} onChange={(e) => setGuideNumber(e.target.value)} maxLength={40} disabled={emLote} className={inputCls} />
             </div>
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Senha</label>
-              <input value={password} onChange={(e) => setPassword(e.target.value)} maxLength={40} className={inputCls} />
+              <input value={password} onChange={(e) => setPassword(e.target.value)} maxLength={40} disabled={emLote} className={inputCls} />
             </div>
             <div>
               <label className="block text-sm font-medium text-[#111827] mb-1">Validade da senha</label>
-              <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={inputCls} />
+              <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={emLote} className={inputCls} />
             </div>
           </div>
+          {emLote && (
+            <p className="text-xs text-[#6B7280] -mt-2">
+              A guia tem item em lote: número, senha e validade ficam como estão.
+            </p>
+          )}
 
           <div>
             <p className="text-sm font-medium text-[#111827] mb-2">Itens</p>
             {itens.length === 0 ? (
-              <p className="text-sm text-[#9CA3AF]">Nenhum item exige autorização.</p>
+              <p className="text-sm text-[#9CA3AF]">
+                {emLote ? 'Nenhum item fora de lote exige autorização.' : 'Nenhum item exige autorização.'}
+              </p>
             ) : (
               <div className="space-y-2">
                 {itens.map((i) => {

@@ -1594,7 +1594,11 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $fn$
 BEGIN
-  IF NEW.status = 'completed' THEN
+  IF NEW.status = 'completed' AND TG_OP = 'INSERT' THEN
+    -- Lançado já concluído (registro posterior): usa a data do tratamento, nunca no futuro.
+    NEW.completed_at := COALESCE(NEW.completed_at,
+      LEAST(NEW.date, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date));
+  ELSIF NEW.status = 'completed' THEN
     NEW.completed_at := COALESCE(NEW.completed_at, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date);
   ELSE
     NEW.completed_at := NULL;
@@ -1746,7 +1750,9 @@ $fn$;
 
 -- ── Registrar a resposta da operadora (service role) ────────
 -- p_items: [{ id, authorization, denial_reason }] (pode citar só parte dos itens).
--- Erros: GUIA_INVALIDA, GUIA_CANCELADA, GUIA_EM_LOTE.
+-- Erros: GUIA_INVALIDA, GUIA_CANCELADA, GUIA_EM_LOTE (algum item citado já está em lote).
+-- Número, senha e validade só mudam se nenhum item da guia estiver em lote
+-- (eles saem no lote já montado); senão ficam os gravados.
 -- Devolve o status da guia: 'liberada' se nenhum item ativo está pendente, senão 'aguardando'.
 
 CREATE OR REPLACE FUNCTION public.respond_insurance_guide(
@@ -1760,16 +1766,20 @@ DECLARE
   v_status TEXT;
   v_item JSONB;
   v_new_status TEXT;
+  v_em_lote BOOLEAN;
 BEGIN
   SELECT status INTO v_status FROM insurance_guides
   WHERE id = p_guide_id AND clinic_id = p_clinic_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'GUIA_INVALIDA'; END IF;
   IF v_status = 'cancelada' THEN RAISE EXCEPTION 'GUIA_CANCELADA'; END IF;
-  IF EXISTS (SELECT 1 FROM insurance_guide_items
-             WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND batch_id IS NOT NULL) THEN
+  IF EXISTS (SELECT 1 FROM insurance_guide_items i
+             JOIN jsonb_array_elements(COALESCE(p_items, '[]'::jsonb)) e ON i.id = (e->>'id')::uuid
+             WHERE i.guide_id = p_guide_id AND i.clinic_id = p_clinic_id AND i.batch_id IS NOT NULL) THEN
     RAISE EXCEPTION 'GUIA_EM_LOTE';
   END IF;
+  v_em_lote := EXISTS (SELECT 1 FROM insurance_guide_items
+                       WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND batch_id IS NOT NULL);
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(COALESCE(p_items, '[]'::jsonb)) LOOP
     UPDATE insurance_guide_items
@@ -1786,7 +1796,9 @@ BEGIN
     ) THEN 'aguardando' ELSE 'liberada' END;
 
   UPDATE insurance_guides
-  SET guide_number = p_number, password = p_password, password_valid_until = p_valid_until,
+  SET guide_number = CASE WHEN v_em_lote THEN guide_number ELSE p_number END,
+      password = CASE WHEN v_em_lote THEN password ELSE p_password END,
+      password_valid_until = CASE WHEN v_em_lote THEN password_valid_until ELSE p_valid_until END,
       responded_at = NOW(), status = v_new_status
   WHERE id = p_guide_id AND clinic_id = p_clinic_id;
 
@@ -1795,7 +1807,9 @@ END;
 $fn$;
 
 -- ── Cancelar guia (service role) ────────────────────────────
--- Erros: GUIA_INVALIDA, GUIA_CANCELADA, GUIA_EM_LOTE.
+-- Erros: GUIA_INVALIDA, GUIA_CANCELADA.
+-- Desativa só os itens fora de lote. Sem item em lote a guia fica 'cancelada';
+-- com item em lote ela continua valendo para eles e o status é recalculado.
 
 CREATE OR REPLACE FUNCTION public.cancel_insurance_guide(
   p_clinic_id UUID, p_guide_id UUID
@@ -1811,15 +1825,19 @@ BEGIN
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'GUIA_INVALIDA'; END IF;
   IF v_status = 'cancelada' THEN RAISE EXCEPTION 'GUIA_CANCELADA'; END IF;
-  IF EXISTS (SELECT 1 FROM insurance_guide_items
-             WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND batch_id IS NOT NULL) THEN
-    RAISE EXCEPTION 'GUIA_EM_LOTE';
-  END IF;
 
   UPDATE insurance_guide_items SET active = FALSE
-  WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id;
+  WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND batch_id IS NULL;
 
-  UPDATE insurance_guides SET status = 'cancelada'
+  UPDATE insurance_guides
+  SET status = CASE
+    WHEN NOT EXISTS (SELECT 1 FROM insurance_guide_items
+                     WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND batch_id IS NOT NULL)
+      THEN 'cancelada'
+    WHEN EXISTS (SELECT 1 FROM insurance_guide_items
+                 WHERE guide_id = p_guide_id AND clinic_id = p_clinic_id AND active AND "authorization" = 'pendente')
+      THEN 'aguardando'
+    ELSE 'liberada' END
   WHERE id = p_guide_id AND clinic_id = p_clinic_id;
 END;
 $fn$;
