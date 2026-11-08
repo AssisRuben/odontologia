@@ -461,8 +461,11 @@ export function createConveniosRepo(admin: SupabaseClient) {
       })
     },
 
-    /** Entrada de `montarPendencias` (sem `hoje`). */
-    async dadosPendencias(clinicId: string): Promise<DadosPendencias> {
+    /**
+     * Entrada de `montarPendencias` (sem `hoje`). Só olha tratamentos concluídos
+     * nos últimos 6 meses: o histórico anterior foi cobrado fora do sistema.
+     */
+    async dadosPendencias(clinicId: string, hoje = todayYmd(new Date(), 'America/Sao_Paulo')): Promise<DadosPendencias> {
       type T = {
         id: string
         patient_id: string
@@ -470,17 +473,19 @@ export function createConveniosRepo(admin: SupabaseClient) {
         insurance_plan_id: string
         insurance_procedure_id: string | null
         patient: { name: string } | null
-        proc: { insurance_plan_id: string } | null
+        proc: { insurance_plan_id: string; active: boolean } | null
       }
+      const corte = mesesAntes(hoje, 6)
       const tratamentos = await lerTudo<T>((de, ate) =>
         admin
           .from('treatments')
           .select(
-            'id, patient_id, procedure, insurance_plan_id, insurance_procedure_id, patient:patients(name), proc:insurance_plan_procedures(insurance_plan_id)',
+            'id, patient_id, procedure, insurance_plan_id, insurance_procedure_id, patient:patients(name), proc:insurance_plan_procedures(insurance_plan_id, active)',
           )
           .eq('clinic_id', clinicId)
           .not('insurance_plan_id', 'is', null)
           .eq('status', 'completed')
+          .gte('completed_at', corte)
           .order('id')
           .range(de, ate),
       )
@@ -502,7 +507,8 @@ export function createConveniosRepo(admin: SupabaseClient) {
 
       const pend: DadosPendencias['tratamentos'] = []
       for (const t of tratamentos) {
-        const fora = !t.insurance_procedure_id || !t.proc || t.proc.insurance_plan_id !== t.insurance_plan_id
+        // Procedimento desativado na tabela conta como fora da tabela (igual a tratamentosParaGuia).
+        const fora = !t.insurance_procedure_id || !t.proc || !t.proc.active || t.proc.insurance_plan_id !== t.insurance_plan_id
         const aut = autorizacao.get(t.id)
         const situacao = fora ? 'fora_tabela' : aut === undefined ? 'sem_guia' : aut === 'pendente' ? 'pendente' : null
         if (!situacao) continue
@@ -563,7 +569,6 @@ export function createConveniosRepo(admin: SupabaseClient) {
         .from('insurance_plans')
         .select('id, name')
         .eq('clinic_id', clinicId)
-        .eq('active', true)
         .is('closing_day', null)
       if (e5) throw new Error(e5.message)
       const operadorasSemFechamento: { id: string; name: string }[] = []

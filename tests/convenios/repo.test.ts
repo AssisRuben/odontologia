@@ -190,6 +190,32 @@ describe('createConveniosRepo', () => {
     expect(queries.filter((q) => q.table === 'treatments' && q.calls.some((c) => c[0] === 'range'))).toHaveLength(2)
   })
 
+  it('dadosPendencias olha só os últimos 6 meses e operadoras sem fechamento ativas ou não', async () => {
+    const { repo, queries } = repoCom((q) => {
+      if (q.table === 'insurance_plans') return { data: [{ id: 'pl', name: 'Velha' }], error: null }
+      if (q.table === 'treatments' && q.calls.some((c) => c[0] === 'limit')) return { data: [{ id: 't' }], error: null }
+      if (q.table === 'treatments') {
+        return {
+          data: [
+            { id: 't1', patient_id: 'p', procedure: 'Canal', insurance_plan_id: 'pl', insurance_procedure_id: 'pr', patient: { name: 'Ana' }, proc: { insurance_plan_id: 'pl', active: false } },
+            { id: 't2', patient_id: 'p', procedure: 'Limpeza', insurance_plan_id: 'pl', insurance_procedure_id: 'pr', patient: { name: 'Ana' }, proc: { insurance_plan_id: 'pl', active: true } },
+          ],
+          error: null,
+        }
+      }
+      return { data: [], error: null }
+    })
+    const r = await repo.dadosPendencias('c1', '2026-11-07')
+    const trat = queries.find((q) => q.table === 'treatments' && q.calls.some((c) => c[0] === 'range'))!
+    expect(trat.calls).toContainEqual(['gte', 'completed_at', '2026-05-07'])
+    expect(trat.calls).toContainEqual(['eq', 'status', 'completed'])
+    expect(r.tratamentos.map((t) => [t.id, t.situacao])).toEqual([['t1', 'fora_tabela'], ['t2', 'sem_guia']])
+    const planos = queries.find((q) => q.table === 'insurance_plans')!
+    expect(planos.calls).toContainEqual(['is', 'closing_day', null])
+    expect(planos.calls.some((c) => c[0] === 'eq' && c[1] === 'active')).toBe(false)
+    expect(r.operadorasSemFechamento).toEqual([{ id: 'pl', name: 'Velha' }])
+  })
+
   it('itensSemLote traz só ativos fora de lote com a operadora da guia', async () => {
     const { repo, queries } = repoCom(() => ({
       data: [

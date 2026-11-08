@@ -16,6 +16,12 @@ vi.mock('@/lib/auth/currentClinic', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({ ...fakeAdmin((q) => resolver(q)).admin, rpc }),
 }))
+vi.mock('@/lib/convenios/montagem', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/convenios/montagem')>()
+  return { montarLotes: vi.fn(real.montarLotes) }
+})
+
+import { montarLotes } from '@/lib/convenios/montagem'
 
 import { GET as listar } from '@/app/api/convenios/lotes/route'
 import { PATCH as itemLote } from '@/app/api/convenios/lotes/[id]/itens/[itemId]/route'
@@ -39,6 +45,7 @@ const loteAberto = {
 const itensDoBanco = [item(ITEM), item(ITEM2, { authorization: 'pendente' })]
 
 beforeEach(() => {
+  vi.mocked(montarLotes).mockClear()
   rpc.mockReset().mockResolvedValue({ data: 1, error: null })
   resolver = () => ({ data: null, error: null })
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -63,7 +70,28 @@ describe('GET /api/convenios/lotes', () => {
     }
     const res = await listar()
     expect(res.status).toBe(200)
+    expect(montarLotes).toHaveBeenCalledWith(CLINIC, expect.anything())
     expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('assign_batch_items', { p_clinic_id: CLINIC, p_batch_id: LOTE, p_item_ids: [ITEM] })
+  })
+
+  it('operadora desativada com fechamento ainda monta o lote', async () => {
+    let criado = false
+    resolver = (q) => {
+      if (q.table === 'insurance_plans') return { data: [{ ...OPERADORA, active: false }], error: null }
+      if (q.table === 'insurance_guide_items') {
+        return { data: q.calls.some((c) => c[0] === 'in') ? [] : itensDoBanco, error: null }
+      }
+      if (q.table === 'insurance_batches') {
+        if (q.calls.some((c) => c[0] === 'upsert')) {
+          criado = true
+          return { data: null, error: null }
+        }
+        return { data: criado ? [loteAberto] : [], error: null }
+      }
+      return { data: null, error: null }
+    }
+    expect((await listar()).status).toBe(200)
     expect(rpc).toHaveBeenCalledWith('assign_batch_items', { p_clinic_id: CLINIC, p_batch_id: LOTE, p_item_ids: [ITEM] })
   })
 
@@ -183,16 +211,40 @@ describe('POST /api/convenios/lotes/[id]/enviar', () => {
 })
 
 describe('GET /api/convenios/pendencias', () => {
+  it('monta os lotes antes de calcular as pendências', async () => {
+    let criado = false
+    resolver = (q) => {
+      if (q.table === 'insurance_plans') {
+        return q.calls.some((c) => c[0] === 'is') ? { data: [], error: null } : { data: [{ ...OPERADORA, active: false }], error: null }
+      }
+      if (q.table === 'insurance_guide_items') {
+        return { data: q.calls.some((c) => c[0] === 'in') ? [] : itensDoBanco, error: null }
+      }
+      if (q.table === 'insurance_batches') {
+        if (q.calls.some((c) => c[0] === 'upsert')) {
+          criado = true
+          return { data: null, error: null }
+        }
+        return { data: criado ? [{ ...loteAberto, due_date: '2026-11-08' }] : [], error: null }
+      }
+      return { data: [], error: null }
+    }
+    const res = await pendencias()
+    expect(res.status).toBe(200)
+    expect(montarLotes).toHaveBeenCalledWith(CLINIC, expect.anything())
+    expect(rpc).toHaveBeenCalledWith('assign_batch_items', { p_clinic_id: CLINIC, p_batch_id: LOTE, p_item_ids: [ITEM] })
+  })
+
   it('classifica tratamentos e devolve o contador', async () => {
     const T = (id: string, extra: Record<string, unknown> = {}) => ({
       id, patient_id: 'p1', procedure: 'Limpeza', insurance_plan_id: PLAN, insurance_procedure_id: 'pr',
-      patient: { name: 'Ana' }, proc: { insurance_plan_id: PLAN }, ...extra,
+      patient: { name: 'Ana' }, proc: { insurance_plan_id: PLAN, active: true }, ...extra,
     })
     resolver = (q) => {
       if (q.table === 'treatments') {
         return q.calls.some((c) => c[0] === 'limit')
           ? { data: [], error: null }
-          : { data: [T('t1'), T('t2', { insurance_procedure_id: null, proc: null }), T('t3'), T('t4')], error: null }
+          : { data: [T('t1'), T('t2', { insurance_procedure_id: null, proc: null }), T('t3'), T('t4'), T('t5', { procedure: 'Canal', proc: { insurance_plan_id: PLAN, active: false } })], error: null }
       }
       if (q.table === 'insurance_guide_items') {
         return { data: [{ treatment_id: 't3', authorization: 'pendente' }, { treatment_id: 't4', authorization: 'autorizado' }], error: null }
@@ -200,11 +252,12 @@ describe('GET /api/convenios/pendencias', () => {
       return { data: [], error: null }
     }
     const body = await (await pendencias()).json()
-    expect(body.contador).toBe(3)
+    expect(body.contador).toBe(4)
     expect(body.itens.map((i: { texto: string }) => i.texto)).toEqual([
       'Limpeza de Ana: concluído sem guia',
       'Limpeza de Ana: fora da tabela do convênio',
       'Limpeza de Ana: concluído aguardando autorização',
+      'Canal de Ana: fora da tabela do convênio',
     ])
   })
 })
