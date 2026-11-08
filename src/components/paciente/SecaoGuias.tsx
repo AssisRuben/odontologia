@@ -86,7 +86,6 @@ export function SecaoGuias({
   }
 
   function salvarExecucao(id: string, executedAt: string) {
-    if (!executedAt) return
     return call(`e-${id}`, `/api/guias/itens/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -216,14 +215,11 @@ export function SecaoGuias({
                           {i.denial_reason && ` · Motivo: ${i.denial_reason}`}
                         </p>
                         {i.active && g.status !== 'cancelada' && !i.batch_id && (
-                          <label className="flex items-center gap-2 mt-1.5 text-xs text-[#6B7280]">
-                            Executado em
-                            <input
-                              type="date" defaultValue={i.executed_at ? i.executed_at.slice(0, 10) : ''}
-                              onChange={(e) => salvarExecucao(i.id, e.target.value)}
-                              className="h-8 px-2 rounded border border-[#E5E7EB] text-xs"
-                            />
-                          </label>
+                          <ExecucaoItem
+                            stored={i.executed_at ? i.executed_at.slice(0, 10) : ''}
+                            busy={busy === `e-${i.id}`}
+                            onSave={(d) => salvarExecucao(i.id, d)}
+                          />
                         )}
                       </div>
                     )
@@ -257,6 +253,48 @@ export function SecaoGuias({
           onSaved={() => { setRespondendo(null); onChanged() }}
         />
       )}
+    </div>
+  )
+}
+
+function ExecucaoItem({ stored, busy, onSave }: {
+  stored: string
+  busy: boolean
+  onSave: (d: string) => Promise<boolean> | undefined
+}) {
+  const [value, setValue] = useState(stored)
+  const [msg, setMsg] = useState('')
+  const changed = value !== stored
+
+  async function save() {
+    const year = Number(value.slice(0, 4))
+    if (!value || !(year >= 2000 && year <= 2100)) {
+      setMsg('Data inválida')
+      return
+    }
+    setMsg('')
+    await onSave(value)
+  }
+
+  return (
+    <div className="flex items-center gap-2 mt-1.5 text-xs text-[#6B7280] flex-wrap">
+      <label className="flex items-center gap-2">
+        Executado em
+        <input
+          type="date" value={value}
+          onChange={(e) => { setValue(e.target.value); setMsg('') }}
+          className="h-8 px-2 rounded border border-[#E5E7EB] text-xs"
+        />
+      </label>
+      {changed && (
+        <button
+          type="button" onClick={save} disabled={busy}
+          className="text-[#3B82F6] hover:underline disabled:opacity-50"
+        >
+          Salvar
+        </button>
+      )}
+      {msg && <span className="text-[#EF4444]">{msg}</span>}
     </div>
   )
 }

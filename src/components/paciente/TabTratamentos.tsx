@@ -78,10 +78,11 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
     planId: string | null; card: string | null; validUntil: string | null
   }>({ planId: null, card: null, validUntil: null })
 
-  useEffect(() => { loadData() }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadData(true) }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadData() {
-    setLoading(true)
+  // spinner só na primeira carga: recargas após mutação mantêm o conteúdo na tela
+  async function loadData(showSpinner = false) {
+    if (showSpinner) setLoading(true)
     const supabase = createClient()
     const [treatsRes, profsRes, plansRes, guidesRes, patRes] = await Promise.all([
       supabase
@@ -246,7 +247,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
           procById={procById}
           plans={insurancePlans}
           professionals={professionals}
-          onChanged={loadData}
+          onChanged={() => loadData()}
         />
       )}
 
