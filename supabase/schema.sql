@@ -2301,7 +2301,7 @@ GRANT EXECUTE ON FUNCTION public.send_insurance_batch(UUID, UUID, TEXT, DATE) TO
 
 -- ============================================================
 -- COMISSÃO DOS DENTISTAS (item 8)
--- Acrescenta: percentuais de comissão em professionals, a categoria de despesa
+-- Acrescenta: percentuais e mês inicial da comissão em professionals, a categoria de despesa
 -- 'comissoes', a tabela commission_closings (fechamento mensal por dentista, com o
 -- extrato congelado) e as funções que fecham, reabrem, pagam e desfazem o pagamento
 -- de uma comissão (service role). O pagamento cria a despesa no livro-caixa.
@@ -2323,6 +2323,16 @@ ALTER TABLE professionals ADD CONSTRAINT professionals_commission_rate_check
 ALTER TABLE professionals DROP CONSTRAINT IF EXISTS professionals_commission_rate_insurance_check;
 ALTER TABLE professionals ADD CONSTRAINT professionals_commission_rate_insurance_check
   CHECK (commission_rate_insurance IS NULL OR commission_rate_insurance BETWEEN 0 AND 100);
+
+-- Mês a partir do qual há comissão (dia 1). O que for anterior não entra no cálculo,
+-- nem como ajuste; nulo = sem comissão. Dentista que já tem percentual começa no mês atual.
+ALTER TABLE professionals ADD COLUMN IF NOT EXISTS commission_start DATE;
+ALTER TABLE professionals DROP CONSTRAINT IF EXISTS professionals_commission_start_check;
+ALTER TABLE professionals ADD CONSTRAINT professionals_commission_start_check
+  CHECK (commission_start IS NULL OR EXTRACT(DAY FROM commission_start) = 1);
+UPDATE professionals
+SET commission_start = date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo'))::date
+WHERE commission_rate IS NOT NULL AND commission_start IS NULL;
 
 -- ── Categoria de despesa 'comissoes' ────────────────────────
 
@@ -2358,7 +2368,8 @@ CREATE POLICY "clinic_member_select" ON commission_closings FOR SELECT TO authen
 -- O valor vem do cálculo no servidor. Devolve o id do fechamento.
 -- Erros: PERIODO_INVALIDO (não é dia 1), PROFISSIONAL_INVALIDO, MES_ABERTO (o mês
 -- ainda não terminou em São Paulo), VALOR_INVALIDO (<= 0), FECHAMENTO_EXISTE,
--- FECHAMENTO_POSTERIOR (já há fechamento do dentista em mês posterior).
+-- FECHAMENTO_POSTERIOR (já há fechamento do dentista em mês posterior),
+-- ANTES_DO_INICIO (dentista sem mês inicial ou mês anterior a ele).
 
 CREATE OR REPLACE FUNCTION public.close_commission(
   p_clinic_id UUID, p_professional_id UUID, p_period DATE, p_amount NUMERIC, p_statement JSONB
@@ -2368,17 +2379,18 @@ SECURITY DEFINER SET search_path = public
 AS $fn$
 DECLARE
   v_id UUID;
+  v_start DATE;
 BEGIN
   IF p_period IS NULL OR EXTRACT(DAY FROM p_period) <> 1 THEN RAISE EXCEPTION 'PERIODO_INVALIDO'; END IF;
 
   PERFORM pg_advisory_xact_lock(hashtext(p_professional_id::text));
 
-  IF NOT EXISTS (SELECT 1 FROM professionals WHERE id = p_professional_id AND clinic_id = p_clinic_id) THEN
-    RAISE EXCEPTION 'PROFISSIONAL_INVALIDO';
-  END IF;
+  SELECT commission_start INTO v_start FROM professionals WHERE id = p_professional_id AND clinic_id = p_clinic_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'PROFISSIONAL_INVALIDO'; END IF;
   IF (p_period + INTERVAL '1 month' - INTERVAL '1 day')::date >= (NOW() AT TIME ZONE 'America/Sao_Paulo')::date THEN
     RAISE EXCEPTION 'MES_ABERTO';
   END IF;
+  IF v_start IS NULL OR p_period < v_start THEN RAISE EXCEPTION 'ANTES_DO_INICIO'; END IF;
   IF p_amount IS NULL OR p_amount <= 0 THEN RAISE EXCEPTION 'VALOR_INVALIDO'; END IF;
   IF EXISTS (SELECT 1 FROM commission_closings
              WHERE clinic_id = p_clinic_id AND professional_id = p_professional_id AND period = p_period) THEN

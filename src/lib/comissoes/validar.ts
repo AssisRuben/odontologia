@@ -1,6 +1,6 @@
 import { dataValida } from '@/lib/convenios/cadastro'
 import { isUuid } from '@/lib/ia/uuid'
-import { mesValido } from './periodo'
+import { mesValido, primeiroDia } from './periodo'
 
 type Falha<E extends string> = { ok: false; error: E; status: 422 }
 
@@ -47,4 +47,24 @@ export function validarPagamentoComissao(
     return { ok: false, error: 'Forma de pagamento inválida', status: 422 }
   }
   return { ok: true, paidAt: o.paidAt, paymentMethod: o.paymentMethod }
+}
+
+/** Campos de comissão do cadastro do profissional; `inicio` vem do `<input type="month">` (YYYY-MM). */
+export function validarComissaoProfissional(raw: { rate: unknown; rateInsurance: unknown; inicio: string }):
+  | { ok: true; rate: number | null; rateInsurance: number | null; inicio: string | null }
+  | {
+      ok: false
+      error: 'Percentual inválido' | 'Informe o percentual particular' | 'Informe o mês inicial da comissão' | 'Mês inválido'
+    } {
+  const rate = validarPercentual(raw.rate, true)
+  const rateInsurance = validarPercentual(raw.rateInsurance, true)
+  if (!rate.ok || !rateInsurance.ok) return { ok: false, error: 'Percentual inválido' }
+  if (rate.valor === null && rateInsurance.valor !== null) return { ok: false, error: 'Informe o percentual particular' }
+  const mes = raw.inicio.trim()
+  if (mes === '') {
+    if (rate.valor !== null) return { ok: false, error: 'Informe o mês inicial da comissão' }
+    return { ok: true, rate: null, rateInsurance: null, inicio: null }
+  }
+  if (!mesValido(mes)) return { ok: false, error: 'Mês inválido' }
+  return { ok: true, rate: rate.valor, rateInsurance: rateInsurance.valor, inicio: primeiroDia(mes) }
 }

@@ -52,7 +52,7 @@ describe('entradaCalculo', () => {
             { id: 'e2', professional_id: PROF, description: 'Sem data', amount: 10, paid_at: null },
           ])
         case 'professionals':
-          return ok([{ id: PROF, name: 'Ana', commission_rate: '40.00', commission_rate_insurance: null }])
+          return ok([{ id: PROF, name: 'Ana', commission_rate: '40.00', commission_rate_insurance: null, commission_start: '2026-10-01' }])
         case 'commission_closings':
           return ok([
             { id: 'f1', professional_id: PROF, period: '2026-09-01', amount: '408.10', status: 'fechado', closed_at: 'x', paid_at: null, payment_method: null, statement: { totalCentavos: 40810 } },
@@ -92,7 +92,7 @@ describe('entradaCalculo', () => {
       { item_id: 'i1', patient_id: PAC, professional_id: PROF, descricao: 'Restauração', paid_value: 90, pago_em: '2026-10-20', recovered_value: null, recuperado_em: null },
     ])
     expect(e.laboratorio).toEqual([{ id: 'e1', professional_id: PROF, description: 'Prótese', amount: 30.5, paid_at: '2026-10-10' }])
-    expect(e.profissionais).toEqual([{ id: PROF, name: 'Ana', commission_rate: 40, commission_rate_insurance: null }])
+    expect(e.profissionais).toEqual([{ id: PROF, name: 'Ana', commission_rate: 40, commission_rate_insurance: null, commission_start: '2026-10-01' }])
     expect(e.fechamentos[0]).toMatchObject({ period: '2026-09-01', amountCentavos: 40810, status: 'fechado' })
     expect(e.nomesPacientes).toEqual({ [PAC]: 'Bia' })
 

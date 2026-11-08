@@ -19,6 +19,8 @@ export type ProfissionalIn = {
   name: string
   commission_rate: number | null
   commission_rate_insurance: number | null
+  /** Dia 1 do mês a partir do qual há comissão (`YYYY-MM-DD`); nulo = sem comissão. */
+  commission_start: string | null
 }
 
 export type Parte = {
@@ -82,6 +84,8 @@ export type ResumoDentista = {
   professional_id: string
   nome: string
   semPercentual: boolean
+  /** Tem percentual mas não tem mês inicial: sem comissão até definir. */
+  semInicio: boolean
   situacao: 'aberto' | 'fechado' | 'pago'
   fechamento: Omit<FechamentoIn, 'statement'> | null
 } & Pick<
@@ -99,15 +103,30 @@ export type ResumoDentista = {
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const comissao = (base: number, pct: number) => Math.round((base * pct) / 100)
 
-/** Todas as partes e descontos do dentista (histórico inteiro), com os percentuais de hoje. */
-function ganhos(e: EntradaCalculo, prof: ProfissionalIn, particulares: ParteParticular[]): { partes: Parte[]; laboratorio: DescontoLab[] } {
-  const pct = prof.commission_rate as number
-  const pctConv = prof.commission_rate_insurance ?? pct
+/**
+ * Partes e descontos do dentista desde o mês inicial (`comeco`, dia 1). Num mês fechado vale o
+ * percentual congelado no fechamento; nos demais, o percentual de hoje.
+ */
+function ganhos(
+  e: EntradaCalculo,
+  prof: ProfissionalIn,
+  comeco: string,
+  particulares: ParteParticular[],
+): { partes: Parte[]; laboratorio: DescontoLab[] } {
+  const atual = { pct: prof.commission_rate as number, pctConv: prof.commission_rate_insurance ?? (prof.commission_rate as number) }
+  const congelados = new Map<string, { pct: number; pctConv: number }>()
+  for (const f of e.fechamentos) {
+    if (f.professional_id !== prof.id || f.statement?.percentual === null || f.statement?.percentual === undefined) continue
+    const pct = f.statement.percentual
+    congelados.set(mesDe(f.period), { pct, pctConv: f.statement.percentualConvenio ?? pct })
+  }
+  const taxas = (data: string) => congelados.get(mesDe(data)) ?? atual
   const paciente = (id: string) => e.nomesPacientes[id] ?? ''
   const partes: Parte[] = []
 
   for (const p of particulares) {
-    if (p.professional_id !== prof.id) continue
+    if (p.professional_id !== prof.id || p.data < comeco) continue
+    const pct = taxas(p.data).pct
     partes.push({
       data: p.data, patient_id: p.patient_id, paciente: paciente(p.patient_id), descricao: p.procedure,
       origem: 'particular', baseCentavos: p.baseCentavos, percentual: pct, comissaoCentavos: comissao(p.baseCentavos, pct),
@@ -121,8 +140,9 @@ function ganhos(e: EntradaCalculo, prof: ProfissionalIn, particulares: PartePart
       ['recurso', it.recovered_value, it.recuperado_em],
     ]
     for (const [origem, valor, data] of itens) {
-      if (valor === null || valor <= 0 || !data) continue
+      if (valor === null || valor <= 0 || !data || data < comeco) continue
       const base = Math.round(valor * 100)
+      const pctConv = taxas(data).pctConv
       partes.push({
         data, patient_id: it.patient_id, paciente: paciente(it.patient_id), descricao: it.descricao,
         origem, baseCentavos: base, percentual: pctConv, comissaoCentavos: comissao(base, pctConv),
@@ -131,9 +151,10 @@ function ganhos(e: EntradaCalculo, prof: ProfissionalIn, particulares: PartePart
   }
 
   const laboratorio: DescontoLab[] = e.laboratorio
-    .filter(l => l.professional_id === prof.id)
+    .filter(l => l.professional_id === prof.id && l.paid_at >= comeco)
     .map(l => {
       const custo = Math.round(l.amount * 100)
+      const pct = taxas(l.paid_at).pct
       return { data: l.paid_at, descricao: l.description, custoCentavos: custo, percentual: pct, descontoCentavos: comissao(custo, pct) }
     })
 
@@ -167,9 +188,11 @@ function extratoCom(
     partes: [], laboratorio: [], particularBaseCentavos: 0, convenioBaseCentavos: 0, laboratorioCustoCentavos: 0,
     comissaoMesCentavos: 0, ajusteCentavos: 0, totalCentavos: 0,
   }
-  if (!prof || prof.commission_rate === null) return vazio
+  // Sem percentual, sem mês inicial ou antes do início: nada a pagar.
+  const comeco = prof?.commission_start ?? null
+  if (!prof || prof.commission_rate === null || comeco === null || inicio < comeco) return vazio
 
-  const { partes, laboratorio } = ganhos(e, prof, particulares())
+  const { partes, laboratorio } = ganhos(e, prof, comeco, particulares())
   const partesMes = partes.filter(p => mesDe(p.data) === mes)
   const labMes = laboratorio.filter(l => mesDe(l.data) === mes)
 
@@ -179,7 +202,9 @@ function extratoCom(
     soma(partes.filter(p => p.data < inicio).map(p => p.comissaoCentavos)) -
     soma(laboratorio.filter(l => l.data < inicio).map(l => l.descontoCentavos))
   const fechados = soma(
-    e.fechamentos.filter(f => f.professional_id === professionalId && f.period < inicio).map(f => f.amountCentavos),
+    e.fechamentos
+      .filter(f => f.professional_id === professionalId && f.period >= comeco && f.period < inicio)
+      .map(f => f.amountCentavos),
   )
   const ajusteCentavos = ganhoAnterior - fechados
 
@@ -211,6 +236,7 @@ export function resumoMes(e: EntradaCalculo, mes: string): ResumoDentista[] {
         professional_id: prof.id,
         nome: prof.name,
         semPercentual: !f && prof.commission_rate === null,
+        semInicio: !f && prof.commission_rate !== null && prof.commission_start === null,
         situacao: f ? f.status : 'aberto',
         fechamento: f ? fechamento : null,
         percentual: x.percentual,

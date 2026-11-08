@@ -37,7 +37,8 @@ const ctxId = (id: string) => ({ params: Promise.resolve({ id }) }) as never
 const ctxProf = (profissionalId: string) => ({ params: Promise.resolve({ profissionalId }) }) as never
 
 // Paciente pagou 1020 em 05/10 por um tratamento de 1020 concluído em 04/10; dentista com 40% → 408.
-function cenario(profissionais = [{ id: PROF, name: 'Ana', commission_rate: 40, commission_rate_insurance: null }]) {
+type Prof = { id: string; name: string; commission_rate: number | null; commission_rate_insurance: number | null; commission_start: string | null }
+function cenario(profissionais: Prof[] = [{ id: PROF, name: 'Ana', commission_rate: 40, commission_rate_insurance: null, commission_start: '2026-01-01' }]) {
   resolver = (q) => {
     switch (q.table) {
       case 'payments':
@@ -153,6 +154,25 @@ describe('POST /api/comissoes/fechamentos', () => {
   })
   it('FECHAMENTO_EXISTE → 409', async () => {
     rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'FECHAMENTO_EXISTE' } })
+    const r = await fechar(post({ professionalId: PROF, mes: '2026-10' }))
+    expect(r.status).toBe(409)
+    expect(await r.json()).toEqual({ error: 'Este mês já foi fechado' })
+  })
+  it.each([['2026-11-01'], [null]])('mês anterior ao início (%s) → 409 sem chamar a RPC', async (inicio) => {
+    cenario([{ id: PROF, name: 'Ana', commission_rate: 40, commission_rate_insurance: null, commission_start: inicio }])
+    const r = await fechar(post({ professionalId: PROF, mes: '2026-10' }))
+    expect(r.status).toBe(409)
+    expect(await r.json()).toEqual({ error: 'Mês anterior ao início da comissão' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+  it('ANTES_DO_INICIO da RPC → 409', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'ANTES_DO_INICIO' } })
+    const r = await fechar(post({ professionalId: PROF, mes: '2026-10' }))
+    expect(r.status).toBe(409)
+    expect(await r.json()).toEqual({ error: 'Mês anterior ao início da comissão' })
+  })
+  it('violação de unicidade (23505) → 409 mês já fechado', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } })
     const r = await fechar(post({ professionalId: PROF, mes: '2026-10' }))
     expect(r.status).toBe(409)
     expect(await r.json()).toEqual({ error: 'Este mês já foi fechado' })

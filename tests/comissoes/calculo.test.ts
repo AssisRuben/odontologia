@@ -3,7 +3,7 @@ import { extrato, resumoMes, type EntradaCalculo, type FechamentoIn, type Extrat
 
 const base = (o: Partial<EntradaCalculo> = {}): EntradaCalculo => ({
   recebimentos: [], tratamentos: [], itensConvenio: [], laboratorio: [],
-  profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: 30 }],
+  profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: 30, commission_start: '2026-01-01' }],
   fechamentos: [], nomesPacientes: { p1: 'Paciente Um' }, ...o,
 })
 const rec = (id: string, amount: number, paid_at: string, extra = {}) => ({
@@ -45,7 +45,7 @@ describe('extrato', () => {
   })
   it('percentual convênio nulo usa o particular', () => {
     const e = base({
-      profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: null }],
+      profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: null, commission_start: '2026-01-01' }],
       itensConvenio: [item({ paid_value: 100, pago_em: '2026-11-12' })],
     })
     expect(extrato(e, 'ana', '2026-11').comissaoMesCentavos).toBe(4000)
@@ -75,14 +75,14 @@ describe('extrato', () => {
   })
   it('sem percentual: tudo zero', () => {
     const e = base({
-      profissionais: [{ id: 'ana', name: 'Ana', commission_rate: null, commission_rate_insurance: null }],
+      profissionais: [{ id: 'ana', name: 'Ana', commission_rate: null, commission_rate_insurance: null, commission_start: '2026-01-01' }],
       recebimentos: [rec('r1', 100, '2026-11-05')], tratamentos: [trat('t1', 100, '2026-11-01')],
     })
     expect(extrato(e, 'ana', '2026-11')).toMatchObject({ percentual: null, partes: [], laboratorio: [], totalCentavos: 0, ajusteCentavos: 0 })
   })
   it('arredondamento: base 333 x 33,33% = 111', () => {
     const e = base({
-      profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 33.33, commission_rate_insurance: null }],
+      profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 33.33, commission_rate_insurance: null, commission_start: '2026-01-01' }],
       itensConvenio: [item({ paid_value: 3.33, pago_em: '2026-11-12' })],
     })
     expect(extrato(e, 'ana', '2026-11').partes[0]).toMatchObject({ baseCentavos: 333, comissaoCentavos: 111 })
@@ -93,12 +93,74 @@ describe('extrato', () => {
   })
 })
 
+describe('mês inicial da comissão', () => {
+  const comInicio = (commission_start: string | null, o: Partial<EntradaCalculo> = {}) =>
+    base({ profissionais: [{ id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: 30, commission_start }], ...o })
+
+  it('histórico antes do início não vira ajuste', () => {
+    const e = comInicio('2026-10-01', {
+      recebimentos: [rec('r0', 500, '2026-09-20'), rec('r1', 100, '2026-10-05')],
+      tratamentos: [trat('t0', 500, '2026-09-01'), trat('t1', 100, '2026-10-01')],
+      itensConvenio: [item({ paid_value: 200, pago_em: '2026-09-12' })],
+      laboratorio: [{ id: 'l0', professional_id: 'ana', description: 'Prótese', amount: 100, paid_at: '2026-09-15' }],
+    })
+    expect(extrato(e, 'ana', '2026-10')).toMatchObject({ comissaoMesCentavos: 4000, ajusteCentavos: 0, totalCentavos: 4000 })
+    expect(extrato(e, 'ana', '2026-11')).toMatchObject({ comissaoMesCentavos: 0, ajusteCentavos: 4000, totalCentavos: 4000 })
+  })
+  it('mês anterior ao início: extrato zerado', () => {
+    const e = comInicio('2026-10-01', { recebimentos: [rec('r0', 500, '2026-09-20')], tratamentos: [trat('t0', 500, '2026-09-01')] })
+    expect(extrato(e, 'ana', '2026-09')).toMatchObject({ partes: [], laboratorio: [], comissaoMesCentavos: 0, ajusteCentavos: 0, totalCentavos: 0 })
+  })
+  it('percentual sem mês inicial: semInicio e zeros', () => {
+    const e = comInicio(null, { recebimentos: [rec('r1', 100, '2026-11-05')], tratamentos: [trat('t1', 100, '2026-11-01')] })
+    expect(extrato(e, 'ana', '2026-11')).toMatchObject({ partes: [], totalCentavos: 0, ajusteCentavos: 0 })
+    expect(resumoMes(e, '2026-11')[0]).toMatchObject({ semInicio: true, semPercentual: false, totalCentavos: 0 })
+    expect(resumoMes(base(), '2026-11')[0]).toMatchObject({ semInicio: false })
+  })
+})
+
+describe('percentual congelado nos meses fechados', () => {
+  const ana50 = { id: 'ana', name: 'Ana', commission_rate: 50, commission_rate_insurance: 50, commission_start: '2026-01-01' }
+
+  it('aumento depois de mês fechado não gera ajuste', () => {
+    const e = base({
+      profissionais: [ana50],
+      recebimentos: [rec('r1', 100, '2026-10-05')],
+      tratamentos: [trat('t1', 100, '2026-10-01')],
+      itensConvenio: [item({ paid_value: 100, pago_em: '2026-10-12' })],
+      fechamentos: [fech({ amountCentavos: 7000, statement: stmt({ percentual: 40, percentualConvenio: 30, totalCentavos: 7000 }) })],
+    })
+    expect(extrato(e, 'ana', '2026-11')).toMatchObject({ ajusteCentavos: 0, totalCentavos: 0 })
+  })
+  it('percentual convênio nulo no mês fechado usa o particular congelado', () => {
+    const e = base({
+      profissionais: [ana50],
+      itensConvenio: [item({ paid_value: 100, pago_em: '2026-10-12' })],
+      fechamentos: [fech({ amountCentavos: 4000, statement: stmt({ percentual: 40, percentualConvenio: null, totalCentavos: 4000 }) })],
+    })
+    expect(extrato(e, 'ana', '2026-11').ajusteCentavos).toBe(0)
+  })
+  it('estorno em mês fechado ajusta pelo percentual congelado', () => {
+    const e = base({
+      profissionais: [ana50],
+      recebimentos: [rec('r1', 100, '2026-10-05')],
+      tratamentos: [trat('t1', 100, '2026-10-01'), trat('t2', 100, '2026-10-02')],
+      fechamentos: [fech({ amountCentavos: 8000, statement: stmt({ percentual: 40, totalCentavos: 8000 }) })],
+    })
+    expect(extrato(e, 'ana', '2026-11')).toMatchObject({ ajusteCentavos: -4000, totalCentavos: -4000 })
+  })
+  it('mês aberto usa o percentual atual', () => {
+    const e = base({ profissionais: [ana50], recebimentos: [rec('r1', 100, '2026-11-05')], tratamentos: [trat('t1', 100, '2026-11-01')] })
+    expect(extrato(e, 'ana', '2026-11').partes[0]).toMatchObject({ percentual: 50, comissaoCentavos: 5000 })
+  })
+})
+
 describe('resumoMes', () => {
   it('ordena por nome e marca situação', () => {
     const e = base({
       profissionais: [
-        { id: 'ze', name: 'Zé', commission_rate: null, commission_rate_insurance: null },
-        { id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: null },
+        { id: 'ze', name: 'Zé', commission_rate: null, commission_rate_insurance: null, commission_start: '2026-01-01' },
+        { id: 'ana', name: 'Ana', commission_rate: 40, commission_rate_insurance: null, commission_start: '2026-01-01' },
       ],
       fechamentos: [fech({ status: 'pago', paid_at: '2026-11-05', payment_method: 'pix' })],
     })

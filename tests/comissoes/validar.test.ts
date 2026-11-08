@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validarPercentual, validarFechamento, validarPagamentoComissao } from '@/lib/comissoes/validar'
+import { validarPercentual, validarFechamento, validarPagamentoComissao, validarComissaoProfissional } from '@/lib/comissoes/validar'
 
 const ID = '11111111-1111-4111-8111-111111111111'
 
@@ -40,5 +40,29 @@ describe('validarPagamentoComissao', () => {
   it('erros', () => {
     expect(validarPagamentoComissao({ paidAt: '2026-02-30', paymentMethod: 'pix' })).toMatchObject({ ok: false, error: 'Data inválida', status: 422 })
     expect(validarPagamentoComissao({ paidAt: '2026-11-05', paymentMethod: 'convenio' })).toMatchObject({ ok: false, error: 'Forma de pagamento inválida', status: 422 })
+  })
+})
+
+describe('validarComissaoProfissional', () => {
+  const v = (rate: string, rateInsurance: string, inicio: string) => validarComissaoProfissional({ rate, rateInsurance, inicio })
+  it('percentual com mês inicial', () => {
+    expect(v('40', '30,5', '2026-10')).toEqual({ ok: true, rate: 40, rateInsurance: 30.5, inicio: '2026-10-01' })
+  })
+  it('tudo vazio', () => {
+    expect(v('', '', '')).toEqual({ ok: true, rate: null, rateInsurance: null, inicio: null })
+  })
+  it('percentual inválido', () => {
+    expect(v('101', '', '2026-10')).toEqual({ ok: false, error: 'Percentual inválido' })
+    expect(v('40', 'x', '2026-10')).toEqual({ ok: false, error: 'Percentual inválido' })
+  })
+  it('convênio sem particular é recusado', () => {
+    expect(v('', '30', '2026-10')).toEqual({ ok: false, error: 'Informe o percentual particular' })
+  })
+  it('particular exige mês inicial', () => {
+    expect(v('40', '', '')).toEqual({ ok: false, error: 'Informe o mês inicial da comissão' })
+    expect(v('40', '', '2026-13')).toEqual({ ok: false, error: 'Mês inválido' })
+  })
+  it('sem percentual o mês inicial é mantido se informado', () => {
+    expect(v('', '', '2026-10')).toEqual({ ok: true, rate: null, rateInsurance: null, inicio: '2026-10-01' })
   })
 })

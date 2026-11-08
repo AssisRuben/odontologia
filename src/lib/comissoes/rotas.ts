@@ -12,4 +12,7 @@ export const ERROS_COMISSAO: Mapa = {
   FECHAMENTO_INVALIDO: { status: 404, error: 'Fechamento não encontrado' },
   PROFISSIONAL_INVALIDO: { status: 404, error: 'Profissional não encontrado' },
   PERIODO_INVALIDO: { status: 422, error: 'Mês inválido' },
+  ANTES_DO_INICIO: { status: 409, error: 'Mês anterior ao início da comissão' },
+  // A trava impede o fechamento duplo; a UNIQUE de commission_closings é só a última defesa.
+  '23505': { status: 409, error: 'Este mês já foi fechado' },
 }

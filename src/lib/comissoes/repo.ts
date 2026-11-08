@@ -50,13 +50,14 @@ type LinhaFechamento = {
   statement: Extrato
 }
 
-const PROFISSIONAL = 'id, name, commission_rate, commission_rate_insurance'
+const PROFISSIONAL = 'id, name, commission_rate, commission_rate_insurance, commission_start'
 
 function profissionalIn(p: ProfissionalIn): ProfissionalIn {
   return {
     ...p,
     commission_rate: p.commission_rate === null ? null : Number(p.commission_rate),
     commission_rate_insurance: p.commission_rate_insurance === null ? null : Number(p.commission_rate_insurance),
+    commission_start: p.commission_start ? p.commission_start.slice(0, 10) : null,
   }
 }
 
