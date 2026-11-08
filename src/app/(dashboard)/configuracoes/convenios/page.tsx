@@ -43,7 +43,11 @@ export default function ConveniosPage() {
     load()
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, name: string) {
+    const ok = window.confirm(
+      `Excluir o convênio ${name}? A tabela de procedimentos dele será apagada e os tratamentos com este convênio passam a ser Particular.`,
+    )
+    if (!ok) return
     setDeletingId(id)
     setError('')
     const supabase = createClient()
@@ -108,7 +112,7 @@ export default function ConveniosPage() {
                     )}
                     <ChevronDown className={`w-4 h-4 text-[#9CA3AF] transition-transform ${openId === plan.id ? 'rotate-180' : ''}`} />
                   </button>
-                  <button onClick={() => handleDelete(plan.id)} disabled={deletingId === plan.id}
+                  <button onClick={() => handleDelete(plan.id, plan.name)} disabled={deletingId === plan.id}
                     className="p-1.5 rounded-lg text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
                     <Trash2 className="w-4 h-4" />
                   </button>
