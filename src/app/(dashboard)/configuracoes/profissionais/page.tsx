@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import type { Professional } from '@/types'
 import { normalizeWorkingHours } from '@/lib/agente/agendamento/config'
+import { validarComissaoProfissional } from '@/lib/comissoes/validar'
+import { mesDe, rotuloMes } from '@/lib/comissoes/periodo'
+import { todayYmd } from '@/lib/messaging/time'
 
 type Periodos = [string, string][]
 type Semana = Record<string, Periodos>
@@ -43,9 +46,17 @@ interface FormState {
   specialty: string
   color: string
   whatsapp: boolean
+  rate: string
+  rateInsurance: string
+  /** YYYY-MM do `<input type="month">`. */
+  commissionStart: string
 }
 
-const emptyForm: FormState = { name: '', cro: '', specialty: '', color: COLORS[0], whatsapp: false }
+const emptyForm: FormState = { name: '', cro: '', specialty: '', color: COLORS[0], whatsapp: false, rate: '', rateInsurance: '', commissionStart: '' }
+
+const mesAtual = () => mesDe(todayYmd(new Date(), 'America/Sao_Paulo'))
+
+const pctTexto = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
 
 export default function ProfissionaisPage() {
   const { clinicId } = useClinicStore()
@@ -79,7 +90,10 @@ export default function ProfissionaisPage() {
 
   function openEdit(p: Professional) {
     setEditing(p)
-    setForm({ name: p.name, cro: p.cro || '', specialty: p.specialty || '', color: p.color, whatsapp: !!p.whatsapp_booking })
+    setForm({ name: p.name, cro: p.cro || '', specialty: p.specialty || '', color: p.color, whatsapp: !!p.whatsapp_booking,
+      rate: pctTexto(p.commission_rate), rateInsurance: pctTexto(p.commission_rate_insurance),
+      commissionStart: p.commission_start ? mesDe(p.commission_start) : (p.commission_rate !== null ? mesAtual() : ''),
+    })
     setSemana(paraSemana(p.working_hours))
     setError('')
     setShowForm(true)
@@ -131,6 +145,11 @@ export default function ProfissionaisPage() {
     if (!form.name.trim()) { setError('Nome é obrigatório.'); return }
     const erroSemana = form.whatsapp ? validarSemana() : ''
     if (erroSemana) { setError(erroSemana); return }
+    const comissao = validarComissaoProfissional({ rate: form.rate, rateInsurance: form.rateInsurance, inicio: form.commissionStart })
+    if (!comissao.ok) { setError(comissao.error); return }
+    const camposComissao = {
+      commission_rate: comissao.rate, commission_rate_insurance: comissao.rateInsurance, commission_start: comissao.inicio,
+    }
     setError('')
     setSaving(true)
     const supabase = createClient()
@@ -140,12 +159,14 @@ export default function ProfissionaisPage() {
       const { error: err } = await supabase.from('professionals').update({
         name: form.name.trim(), cro: form.cro || null,
         specialty: form.specialty || null, color: form.color,
+        ...camposComissao,
       }).eq('id', editing.id)
       if (err) { setError(`Erro: ${err.message}`); setSaving(false); return }
     } else {
       const { data: novo, error: err } = await supabase.from('professionals').insert({
         clinic_id: clinicId, name: form.name.trim(),
         cro: form.cro || null, specialty: form.specialty || null, color: form.color,
+        ...camposComissao,
       }).select('*').single()
       if (err || !novo) { setError(`Erro: ${err?.message ?? 'não foi possível criar'}`); setSaving(false); return }
       profId = (novo as Professional).id
@@ -234,6 +255,14 @@ export default function ProfissionaisPage() {
                   <p className="text-xs text-[#6B7280]">
                     {[p.specialty, p.cro ? `CRO: ${p.cro}` : ''].filter(Boolean).join(' · ') || 'Sem especialidade informada'}
                   </p>
+                  {p.commission_rate !== null && p.commission_rate !== undefined && (
+                    <p className="text-xs text-[#6B7280]">
+                      Comissão: {pctTexto(p.commission_rate)}%
+                      {p.commission_rate_insurance !== null && p.commission_rate_insurance !== undefined &&
+                        ` · convênio ${pctTexto(p.commission_rate_insurance)}%`}
+                      {p.commission_start ? ` · a partir de ${rotuloMes(mesDe(p.commission_start))}` : ' · sem mês inicial'}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => openEdit(p)}
@@ -284,6 +313,31 @@ export default function ProfissionaisPage() {
                     className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                     placeholder="Ortodontia" />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-[#111827] mb-1">% comissão particular</label>
+                  <input inputMode="decimal" value={form.rate}
+                    onChange={e => {
+                      const rate = e.target.value
+                      setForm(f => ({ ...f, rate, commissionStart: rate.trim() && !f.commissionStart ? mesAtual() : f.commissionStart }))
+                    }}
+                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    placeholder="30" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#111827] mb-1">% comissão convênio (opcional; vazio = igual ao particular)</label>
+                  <input inputMode="decimal" value={form.rateInsurance} onChange={e => setForm(f => ({ ...f, rateInsurance: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    placeholder="20" />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="commission-start" className="block text-sm font-medium text-[#111827] mb-1">Comissão a partir de</label>
+                <input id="commission-start" type="month" value={form.commissionStart}
+                  onChange={e => setForm(f => ({ ...f, commissionStart: e.target.value }))}
+                  className="h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                <p className="text-xs text-[#6B7280] mt-1">O que foi recebido antes deste mês não entra na comissão.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#111827] mb-2">Cor na agenda</label>

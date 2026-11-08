@@ -7,6 +7,7 @@ import { dataExecucao } from './prontidao'
 import type { montarPendencias } from './pendencias'
 import { mesesAntes } from './periodo'
 import { todayYmd } from '@/lib/messaging/time'
+import { lerTudo } from '@/lib/supabase/lerTudo'
 import { dataPrevista, prazoRecurso, totaisLote } from './pagamentos/calculo'
 import type { ItemPagamento } from './pagamentos/validar'
 
@@ -109,22 +110,6 @@ export type Pagamentos = {
     /** Algum item do lote tem recurso registrado (desfazer o pagamento apaga). */
     tem_recurso: boolean
   }[]
-}
-
-const PAGINA = 1000
-
-/** Lê todas as linhas de uma consulta, página a página (o PostgREST corta em 1000). */
-async function lerTudo<T>(
-  pagina: (de: number, ate: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const todas: T[] = []
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await pagina(de, de + PAGINA - 1)
-    if (error) throw new Error(error.message)
-    const linhas = (data ?? []) as T[]
-    todas.push(...linhas)
-    if (linhas.length < PAGINA) return todas
-  }
 }
 
 function pedacos<T>(lista: T[], n: number): T[][] {
