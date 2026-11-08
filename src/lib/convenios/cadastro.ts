@@ -34,6 +34,8 @@ export type DadosOperadora = {
   provider_code: string | null
   closing_day: number | null
   submission_days: number
+  payment_days: number
+  appeal_days: number
   active: boolean
 }
 
@@ -55,6 +57,11 @@ export function validarOperadora(raw: unknown): { ok: true; dados: DadosOperador
   const prazo = inteiroOuNull(o.submission_days) ?? 10
   if (!(prazo >= 0 && prazo <= 90)) return { ok: false, error: 'Prazo de envio deve ser de 0 a 90 dias' }
 
+  const pagamento = inteiroOuNull(o.payment_days) ?? 30
+  if (!(pagamento >= 0 && pagamento <= 180)) return { ok: false, error: 'Prazo de pagamento deve ser de 0 a 180 dias' }
+  const recurso = inteiroOuNull(o.appeal_days) ?? 30
+  if (!(recurso >= 0 && recurso <= 180)) return { ok: false, error: 'Prazo de recurso deve ser de 0 a 180 dias' }
+
   return {
     ok: true,
     dados: {
@@ -62,6 +69,8 @@ export function validarOperadora(raw: unknown): { ok: true; dados: DadosOperador
       provider_code: prestador,
       closing_day: fechamento,
       submission_days: prazo,
+      payment_days: pagamento,
+      appeal_days: recurso,
       active: o.active === undefined || o.active === null ? true : o.active === true,
     },
   }

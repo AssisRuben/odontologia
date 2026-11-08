@@ -32,13 +32,17 @@ describe('validarOperadora', () => {
     expect(validarOperadora({ submission_days: -1 })).toEqual({ ok: false, error: 'Prazo de envio deve ser de 0 a 90 dias' })
     const z = validarOperadora({ submission_days: 0 })
     expect(z.ok && z.dados.submission_days).toBe(0)
+    expect(validarOperadora({ payment_days: 181 })).toEqual({ ok: false, error: 'Prazo de pagamento deve ser de 0 a 180 dias' })
+    expect(validarOperadora({ appeal_days: -1 })).toEqual({ ok: false, error: 'Prazo de recurso deve ser de 0 a 180 dias' })
+    const pz = validarOperadora({ payment_days: '45', appeal_days: 0 })
+    expect(pz.ok && [pz.dados.payment_days, pz.dados.appeal_days]).toEqual([45, 0])
   })
 
   it('strings vazias viram null e active tem padrão true', () => {
     const r = validarOperadora({ ans_registry: '', provider_code: '  ', closing_day: '' })
     expect(r).toEqual({
       ok: true,
-      dados: { ans_registry: null, provider_code: null, closing_day: null, submission_days: 10, active: true },
+      dados: { ans_registry: null, provider_code: null, closing_day: null, submission_days: 10, payment_days: 30, appeal_days: 30, active: true },
     })
     const f = validarOperadora({ active: false })
     expect(f.ok && f.dados.active).toBe(false)
