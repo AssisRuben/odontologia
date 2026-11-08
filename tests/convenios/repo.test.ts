@@ -107,4 +107,52 @@ describe('createConveniosRepo', () => {
     const { repo } = repoCom(() => ({ data: [], error: null }))
     expect(await repo.corrigirExecucao('c1', 'i1', '2026-11-07')).toBe(false)
   })
+
+  it('atribuir e enviarLote chamam as RPCs; erro vira { code, message }', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 3, error: null })
+    const { repo } = repoCom(() => ({ data: null, error: null }), rpc)
+    expect(await repo.atribuir('c1', 'b1', ['i1'])).toBe(3)
+    expect(rpc).toHaveBeenCalledWith('assign_batch_items', { p_clinic_id: 'c1', p_batch_id: 'b1', p_item_ids: ['i1'] })
+    await repo.enviarLote('c1', 'b1', 'P', '2026-11-07')
+    expect(rpc).toHaveBeenCalledWith('send_insurance_batch', { p_clinic_id: 'c1', p_batch_id: 'b1', p_protocol: 'P', p_sent_at: '2026-11-07' })
+    rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'LOTE_ENVIADO', details: 'x', hint: 'y' } })
+    await expect(repo.enviarLote('c1', 'b1', 'P', '2026-11-07')).rejects.toEqual({ code: 'P0001', message: 'LOTE_ENVIADO' })
+  })
+
+  it('criarLotes faz upsert ignorando duplicados e não consulta sem períodos', async () => {
+    const { repo, queries } = repoCom(() => ({ data: null, error: null }))
+    await repo.criarLotes('c1', 'pl', [])
+    expect(queries).toHaveLength(0)
+    await repo.criarLotes('c1', 'pl', [{ period_start: '2026-10-16', period_end: '2026-11-15', due_date: '2026-11-25' }])
+    expect(queries[0].calls[0]).toEqual([
+      'upsert',
+      [{ clinic_id: 'c1', insurance_plan_id: 'pl', period_start: '2026-10-16', period_end: '2026-11-15', due_date: '2026-11-25' }],
+      { onConflict: 'insurance_plan_id,period_end', ignoreDuplicates: true },
+    ])
+  })
+
+  it('marcarDigitado só atualiza item do lote aberto', async () => {
+    const { repo, queries } = repoCom((q) =>
+      q.table === 'insurance_batches' ? { data: { status: 'aberto' }, error: null } : { data: [{ id: 'i1' }], error: null },
+    )
+    expect(await repo.marcarDigitado('c1', 'b1', 'i1', true)).toBe(true)
+    expect(queries[1].calls).toContainEqual(['eq', 'batch_id', 'b1'])
+    expect(queries[1].calls).toContainEqual(['eq', 'clinic_id', 'c1'])
+    const enviado = repoCom(() => ({ data: { status: 'enviado' }, error: null }))
+    await expect(enviado.repo.marcarDigitado('c1', 'b1', 'i1', true)).rejects.toMatchObject({ message: 'LOTE_ENVIADO' })
+    expect(enviado.queries).toHaveLength(1)
+  })
+
+  it('itensSemLote traz só ativos fora de lote com a operadora da guia', async () => {
+    const { repo, queries } = repoCom(() => ({
+      data: [
+        { id: 'i1', guide_id: 'g', active: true, authorization: 'autorizado', batch_id: null, executed_at: null, defer_until: null, guide: { insurance_plan_id: 'pl' }, treatment: null },
+      ],
+      error: null,
+    }))
+    const r = await repo.itensSemLote('c1')
+    expect(r).toEqual([expect.objectContaining({ id: 'i1', plan_id: 'pl' })])
+    expect(queries[0].calls).toContainEqual(['is', 'batch_id', null])
+    expect(queries[0].calls).toContainEqual(['eq', 'clinic_id', 'c1'])
+  })
 })

@@ -1,0 +1,14 @@
+import { withClinic } from '@/lib/ia/rotas'
+import { createConveniosRepo } from '@/lib/convenios/repo'
+import { montarPendencias } from '@/lib/convenios/pendencias'
+import { todayYmd } from '@/lib/messaging/time'
+
+export const dynamic = 'force-dynamic'
+
+export async function GET() {
+  return withClinic('convenios pendencias GET', async ({ clinicId, admin }) => {
+    const dados = await createConveniosRepo(admin).dadosPendencias(clinicId)
+    const hoje = todayYmd(new Date(), 'America/Sao_Paulo')
+    return { status: 200, body: montarPendencias({ hoje, ...dados }) }
+  })
+}
