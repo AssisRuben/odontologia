@@ -4,11 +4,11 @@ import { alocarParticular, type RecebimentoIn, type TratamentoIn } from '@/lib/c
 let n = 0
 const rec = (o: Partial<RecebimentoIn> & { amount: number }): RecebimentoIn => ({
   id: `r${++n}`, patient_id: 'p1', net_amount: null, payment_method: 'pix',
-  paid_at: '2026-10-01', created_at: `2026-10-01T10:00:0${n % 10}Z`, ...o,
+  paid_at: '2026-10-01', created_at: `2026-10-01T10:00:00.${String(n).padStart(3, '0')}Z`, ...o,
 })
 const trat = (o: Partial<TratamentoIn> & { value: number }): TratamentoIn => ({
   id: `t${++n}`, patient_id: 'p1', professional_id: 'ana', procedure: 'Proc',
-  completed_at: '2026-09-01', created_at: `2026-09-01T10:00:0${n % 10}Z`, em_guia: false, ...o,
+  completed_at: '2026-09-01', created_at: `2026-09-01T10:00:00.${String(n).padStart(3, '0')}Z`, em_guia: false, ...o,
 })
 const resumo = (p: ReturnType<typeof alocarParticular>) => p.map(x => [x.treatment_id, x.professional_id, x.baseCentavos])
 

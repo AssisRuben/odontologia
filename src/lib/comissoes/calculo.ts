@@ -1,4 +1,4 @@
-import { alocarParticular, type RecebimentoIn, type TratamentoIn } from './alocacao'
+import { alocarParticular, type ParteParticular, type RecebimentoIn, type TratamentoIn } from './alocacao'
 import { mesDe, primeiroDia } from './periodo'
 
 export type ItemConvenioIn = {
@@ -100,13 +100,13 @@ const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const comissao = (base: number, pct: number) => Math.round((base * pct) / 100)
 
 /** Todas as partes e descontos do dentista (histórico inteiro), com os percentuais de hoje. */
-function ganhos(e: EntradaCalculo, prof: ProfissionalIn): { partes: Parte[]; laboratorio: DescontoLab[] } {
+function ganhos(e: EntradaCalculo, prof: ProfissionalIn, particulares: ParteParticular[]): { partes: Parte[]; laboratorio: DescontoLab[] } {
   const pct = prof.commission_rate as number
   const pctConv = prof.commission_rate_insurance ?? pct
   const paciente = (id: string) => e.nomesPacientes[id] ?? ''
   const partes: Parte[] = []
 
-  for (const p of alocarParticular(e.recebimentos, e.tratamentos)) {
+  for (const p of particulares) {
     if (p.professional_id !== prof.id) continue
     partes.push({
       data: p.data, patient_id: p.patient_id, paciente: paciente(p.patient_id), descricao: p.procedure,
@@ -146,6 +146,16 @@ function ganhos(e: EntradaCalculo, prof: ProfissionalIn): { partes: Parte[]; lab
 const soma = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
 
 export function extrato(e: EntradaCalculo, professionalId: string, mes: string): Extrato {
+  return extratoCom(e, professionalId, mes, () => alocarParticular(e.recebimentos, e.tratamentos))
+}
+
+/** `particulares` só é chamado se o mês estiver aberto e o dentista tiver percentual. */
+function extratoCom(
+  e: EntradaCalculo,
+  professionalId: string,
+  mes: string,
+  particulares: () => ParteParticular[],
+): Extrato {
   const inicio = primeiroDia(mes)
   const fechado = e.fechamentos.find(f => f.professional_id === professionalId && f.period === inicio)
   if (fechado) return fechado.statement
@@ -159,7 +169,7 @@ export function extrato(e: EntradaCalculo, professionalId: string, mes: string):
   }
   if (!prof || prof.commission_rate === null) return vazio
 
-  const { partes, laboratorio } = ganhos(e, prof)
+  const { partes, laboratorio } = ganhos(e, prof, particulares())
   const partesMes = partes.filter(p => mesDe(p.data) === mes)
   const labMes = laboratorio.filter(l => mesDe(l.data) === mes)
 
@@ -188,11 +198,13 @@ export function extrato(e: EntradaCalculo, professionalId: string, mes: string):
 
 export function resumoMes(e: EntradaCalculo, mes: string): ResumoDentista[] {
   const inicio = primeiroDia(mes)
+  let cache: ParteParticular[] | null = null
+  const particulares = () => (cache ??= alocarParticular(e.recebimentos, e.tratamentos))
   return [...e.profissionais]
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
     .map(prof => {
       const f = e.fechamentos.find(x => x.professional_id === prof.id && x.period === inicio)
-      const x = extrato(e, prof.id, mes)
+      const x = extratoCom(e, prof.id, mes, particulares)
       const { statement: _statement, ...fechamento } = f ?? ({} as FechamentoIn)
       void _statement
       return {

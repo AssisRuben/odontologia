@@ -39,14 +39,24 @@ const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
  */
 export function alocarParticular(recebimentos: RecebimentoIn[], tratamentos: TratamentoIn[]): ParteParticular[] {
   const partes: ParteParticular[] = []
-  const pacientes = new Set(recebimentos.map(r => r.patient_id))
+  const recsPor = new Map<string, RecebimentoIn[]>()
+  for (const r of recebimentos) {
+    if (r.payment_method === 'convenio') continue
+    const l = recsPor.get(r.patient_id)
+    if (l) l.push(r)
+    else recsPor.set(r.patient_id, [r])
+  }
+  const tratsPor = new Map<string, TratamentoIn[]>()
+  for (const t of tratamentos) {
+    if (t.em_guia || t.value <= 0 || !t.completed_at) continue
+    const l = tratsPor.get(t.patient_id)
+    if (l) l.push(t)
+    else tratsPor.set(t.patient_id, [t])
+  }
 
-  for (const patientId of pacientes) {
-    const recs = recebimentos
-      .filter(r => r.patient_id === patientId && r.payment_method !== 'convenio')
-      .sort((a, b) => cmp(a.paid_at, b.paid_at) || cmp(a.created_at, b.created_at) || cmp(a.id, b.id))
-    const fila = tratamentos
-      .filter(t => t.patient_id === patientId && !t.em_guia && t.value > 0 && t.completed_at)
+  for (const [patientId, lista] of recsPor) {
+    const recs = lista.sort((a, b) => cmp(a.paid_at, b.paid_at) || cmp(a.created_at, b.created_at) || cmp(a.id, b.id))
+    const fila = (tratsPor.get(patientId) ?? [])
       .sort((a, b) =>
         cmp(a.completed_at as string, b.completed_at as string) || cmp(a.created_at, b.created_at) || cmp(a.id, b.id))
       .map(t => ({ t, restante: Math.round(t.value * 100) }))
