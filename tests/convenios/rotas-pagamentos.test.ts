@@ -368,6 +368,57 @@ describe('GET /api/convenios/pagamentos', () => {
     })
     expect(body.pagos).toHaveLength(1)
     expect(body.pagos[0].totais).toEqual({ enviado: 190, pago: 120, glosado: 70, diferenca: 0 })
+    expect(body.pagos[0].tem_recurso).toBe(true)
     for (const q of queriesVistas) expect(q.calls).toContainEqual(['eq', 'clinic_id', CLINIC])
+  })
+
+  it('tem_recurso é false quando nenhum item do lote tem recurso', async () => {
+    const plan = { id: PLAN, name: 'Amil', payment_days: 30, appeal_days: 30 }
+    const lote = { id: LOTE, insurance_plan_id: PLAN, period_end: '2026-10-15', status: 'pago', protocol: null, sent_at: '2026-10-20', paid_at: '2026-11-07', deposit_amount: 70, plan }
+    const glosado = {
+      id: ITEM, batch_id: LOTE, code: '1', name: 'x', value: 100, paid_value: 70, glosa_value: 30, glosa_code: '1705', glosa_note: null,
+      appeal_status: 'nenhum', appeal_at: null, appeal_result_at: null, recovered_value: null, recovered_payment_id: null, guide: null, reason: null,
+    }
+    resolver = (q) => {
+      if (q.table === 'insurance_batches') return ok([lote])
+      if (q.calls.some((c) => c[0] === 'in' && c[1] === 'batch_id')) return ok([glosado])
+      return ok([])
+    }
+    const body = await (await pagamentos()).json()
+    expect(body.pagos[0].tem_recurso).toBe(false)
+    expect(body.glosas.map((g: { item_id: string }) => g.item_id)).toEqual([ITEM])
+  })
+
+  it('recurso aberto de lote pago há mais de 6 meses continua nas glosas; glosa sem recurso desse lote não', async () => {
+    const L_VELHO = '88888888-8888-4888-8888-888888888888'
+    const velho = { status: 'pago', paid_at: '2026-04-01', plan: { appeal_days: 30 } }
+    const item = (id: string, over: Record<string, unknown>) => ({
+      id, batch_id: L_VELHO, code: '81000065', name: 'Restauração', value: 100, paid_value: 60, glosa_value: 40,
+      glosa_code: '1705', glosa_note: null, appeal_status: 'nenhum', appeal_at: null, appeal_result_at: null,
+      recovered_value: null, recovered_payment_id: null, guide: { patient: { name: 'Bia' } }, reason: null, batch: velho, ...over,
+    })
+    resolver = (q) => {
+      if (q.table === 'insurance_batches') return ok([])
+      if (q.calls.some((c) => c[0] === 'in' && c[1] === 'appeal_status')) {
+        return ok([
+          item('v1', { appeal_status: 'aceito', appeal_at: '2026-04-20', appeal_result_at: '2026-06-01', recovered_value: 40 }),
+          item('v2', {}),
+          item('v3', { appeal_status: 'aceito', recovered_value: 40, recovered_payment_id: 'p1' }),
+        ])
+      }
+      return ok([])
+    }
+    const body = await (await pagamentos()).json()
+    expect(body.glosas).toEqual([
+      expect.objectContaining({
+        item_id: 'v1', batch_id: L_VELHO, patient_name: 'Bia', appeal_status: 'aceito', recovered_value: 40, paid_at: '2026-04-01',
+      }),
+    ])
+    const rec = queriesVistas.find((q) => q.calls.some((c) => c[0] === 'in' && c[1] === 'appeal_status'))!
+    expect(rec.table).toBe('insurance_guide_items')
+    expect(rec.calls).toContainEqual(['eq', 'clinic_id', CLINIC])
+    expect(rec.calls).toContainEqual(['in', 'appeal_status', ['em_recurso', 'aceito']])
+    expect(rec.calls).toContainEqual(['is', 'recovered_payment_id', null])
+    expect(rec.calls.some((c) => c[0] === 'gte')).toBe(false)
   })
 })

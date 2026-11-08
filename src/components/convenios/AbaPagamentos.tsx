@@ -89,8 +89,13 @@ export function AbaPagamentos() {
     }
   }
 
-  const desfazer = async (id: string, plano: string, periodEnd: string) => {
-    if (!window.confirm(`Desfazer o pagamento do lote ${plano} ${mmaaaa(periodEnd)}? Os recebimentos lançados serão cancelados.`)) {
+  const desfazer = async (id: string, plano: string, periodEnd: string, temRecurso: boolean) => {
+    const recursos = temRecurso ? ' Recursos registrados neste lote também serão apagados.' : ''
+    if (
+      !window.confirm(
+        `Desfazer o pagamento do lote ${plano} ${mmaaaa(periodEnd)}? Os recebimentos lançados serão cancelados.${recursos}`,
+      )
+    ) {
       return
     }
     setOcupado(id)
@@ -240,7 +245,7 @@ export function AbaPagamentos() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => desfazer(l.id, l.plan_name, l.period_end)}
+                  onClick={() => desfazer(l.id, l.plan_name, l.period_end, l.tem_recurso)}
                   disabled={ocupado === l.id}
                   className="text-sm text-[#DC2626] hover:underline disabled:opacity-50"
                 >
