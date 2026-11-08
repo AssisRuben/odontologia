@@ -5,6 +5,7 @@ import { X, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Patient, InsurancePlan } from '@/types'
 import { normalizeCpf } from '@/lib/payments/cpf'
+import { validarCarteirinha } from '@/lib/convenios/cadastro'
 
 interface Props {
   open: boolean
@@ -29,6 +30,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
   const [birthdate, setBirthdate] = useState('')
   const [gender, setGender]       = useState('')
   const [planId, setPlanId]       = useState('')
+  const [card, setCard]             = useState('')
+  const [cardValid, setCardValid]   = useState('')
   const [street, setStreet]       = useState('')
   const [number, setNumber]       = useState('')
   const [neighborhood, setNeighborhood] = useState('')
@@ -53,6 +56,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
     setBirthdate(patient.birthdate || '')
     setGender(patient.gender || '')
     setPlanId(patient.insurance_plan_id || '')
+    setCard(patient.insurance_card || '')
+    setCardValid(patient.insurance_card_valid_until || '')
     setStreet(patient.address?.street || '')
     setNumber(patient.address?.number || '')
     setNeighborhood(patient.address?.neighborhood || '')
@@ -78,6 +83,8 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
     const payerCpfDigits = payerCpf.trim() ? normalizeCpf(payerCpf) : null
     if (payerCpf.trim() && !payerCpfDigits) { setError('CPF inválido'); return }
     if (payerCpf.trim() && !payerName.trim()) { setError('Informe o nome do responsável'); return }
+    const carteirinha = validarCarteirinha({ insurance_card: card, insurance_card_valid_until: cardValid })
+    if (!carteirinha.ok) { setError(carteirinha.error); return }
     setError('')
     setSaving(true)
     const supabase = createClient()
@@ -92,6 +99,7 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
         birthdate: birthdate || null,
         gender: gender || null,
         insurance_plan_id: planId || null,
+        ...carteirinha.dados,
         whatsapp_opt_out: optOut,
         payer_name: payerName.trim() || null,
         payer_cpf: payerCpfDigits,
@@ -164,6 +172,18 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
                     <option value="">Particular</option>
                     {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-[#111827] mb-1">Carteirinha</label>
+                  <input value={card} onChange={e => setCard(e.target.value)} maxLength={30}
+                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#111827] mb-1">Validade</label>
+                  <input type="date" value={cardValid} onChange={e => setCardValid(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
                 </div>
               </div>
             </div>
