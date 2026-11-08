@@ -475,6 +475,7 @@ Dentista sem percentual aparece em Financeiro → Comissões como "Sem percentua
 
 - **Só conta o que foi recebido.** O valor pago pelo paciente (recebimentos "pago", exceto convênio) quita os tratamentos concluídos do mais antigo para o mais novo, paciente por paciente. Cada pedaço quitado vira uma linha do extrato, com a data do recebimento (ou da conclusão do tratamento, se o paciente pagou antes).
 - **Adiantamento:** o que o paciente pagou antes de o tratamento ser concluído fica como crédito e só vira comissão quando o tratamento é concluído.
+- **Data de conclusão:** é o dia em que o tratamento foi marcado como concluído. Para corrigir, edite o tratamento na ficha do paciente e ajuste "Executado em" (não aceita data futura). Mudar a data de um tratamento de um mês já fechado gera ajuste no mês seguinte.
 - **Taxa do Asaas:** a base é o valor líquido (descontadas as taxas) quando o recebimento tem valor líquido registrado.
 - **Convênio:** o valor pago pela operadora a cada item (e o valor recuperado em recurso) comissiona o dentista do tratamento, com o percentual de convênio, na data do recebimento.
 - **Laboratório:** despesas de categoria "Laboratório" pagas, ligadas a um dentista, descontam o percentual particular do custo na comissão do mês do pagamento.
