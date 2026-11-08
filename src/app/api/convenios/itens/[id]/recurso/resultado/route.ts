@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { isUuid, withClinic } from '@/lib/ia/rotas'
 import { createConveniosRepo } from '@/lib/convenios/repo'
+import { todayYmd } from '@/lib/messaging/time'
 import { validarResultado } from '@/lib/convenios/pagamentos/validar'
 import { ERROS_RECURSO, respostaDeErro } from '@/lib/convenios/rotas'
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/convenios/i
     const repo = createConveniosRepo(admin)
     const item = await repo.itemRecurso(clinicId, id)
     if (!item) return { status: 404, body: { error: 'Item não encontrado' } }
-    const v = validarResultado(body, item.glosa_value)
+    const v = validarResultado(body, item.glosa_value, todayYmd(new Date(), 'America/Sao_Paulo'))
     if (!v.ok) return { status: v.status, body: { error: v.error } }
     if (item.lote_status !== 'pago') return { status: 409, body: { error: 'Lote não está pago' } }
     const { resultado, resultAt, recoveredValue, receivedAt } = v.dados

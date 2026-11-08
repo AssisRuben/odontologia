@@ -21,12 +21,19 @@ function dinheiro(v: unknown): number | null {
 
 const data = (v: unknown): string | null => (typeof v === 'string' && dataValida(v) ? v : null)
 
+/** Data válida que não está no futuro (`hoje` = dia de São Paulo, yyyy-mm-dd); senão null. */
+const dataAte = (v: unknown, hoje: string): string | null => {
+  const d = data(v)
+  return d && d <= hoje ? d : null
+}
+
 export function validarPagamento(
   raw: unknown,
   itensDoLote: { id: string; value: number }[],
+  hoje: string,
 ): { ok: true; dados: { paidAt: string; deposit: number; itens: ItemPagamento[] } } | Falha {
   const r = obj(raw)
-  const paidAt = data(r.paidAt)
+  const paidAt = dataAte(r.paidAt, hoje)
   if (!paidAt) return falha('Data inválida')
   const deposit = dinheiro(r.deposit)
   if (deposit === null || deposit < 0) return falha('Valor depositado inválido')
@@ -79,6 +86,7 @@ export function validarRecurso(
 export function validarResultado(
   raw: unknown,
   glosaValue: number,
+  hoje: string,
 ): {
   ok: true
   dados: { resultado: 'aceito' | 'negado'; resultAt: string; recoveredValue: number | null; receivedAt: string | null }
@@ -96,7 +104,7 @@ export function validarResultado(
   }
   let receivedAt: string | null = null
   if (r.receivedAt !== undefined && r.receivedAt !== null && r.receivedAt !== '') {
-    receivedAt = data(r.receivedAt)
+    receivedAt = dataAte(r.receivedAt, hoje)
     if (!receivedAt) return falha('Data inválida')
   }
   return { ok: true, dados: { resultado: 'aceito', resultAt, recoveredValue, receivedAt } }
@@ -105,9 +113,10 @@ export function validarResultado(
 export function validarRecebimento(
   raw: unknown,
   recoveredValue: number,
+  hoje: string,
 ): { ok: true; dados: { value: number; receivedAt: string } } | Falha {
   const r = obj(raw)
-  const receivedAt = data(r.receivedAt)
+  const receivedAt = dataAte(r.receivedAt, hoje)
   if (!receivedAt) return falha('Data inválida')
   const value = r.value === undefined || r.value === null ? recoveredValue : dinheiro(r.value)
   if (value === null || value <= 0 || paraCentavos(value) > paraCentavos(recoveredValue)) {

@@ -101,6 +101,14 @@ describe('POST /api/convenios/lotes/[id]/pagamento', () => {
     expect(fromDbPaidAt(toDbPaidAt('2026-11-07'))).toBe('2026-11-07')
   })
 
+  it('data do depósito no futuro → 422 sem chamar a RPC', async () => {
+    loteComItens()
+    const res = await registrar(req({ ...corpoPagamento, paidAt: '2099-01-01' }), ctx(LOTE))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'Data inválida' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
   it('itens incompletos → 422 sem chamar a RPC', async () => {
     loteComItens()
     const res = await registrar(req({ ...corpoPagamento, itens: [corpoPagamento.itens[0]] }), ctx(LOTE))
@@ -200,13 +208,13 @@ describe('POST /api/convenios/itens/[id]/recurso/resultado', () => {
   it('aceito com receivedAt grava e chama a RPC', async () => {
     resolver = comUpdate([{ id: ITEM }])
     const res = await resultado(
-      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-09' }),
+      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-08' }),
       ctx(ITEM),
     )
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ status: 'aceito', recebido: true })
     expect(rpc).toHaveBeenCalledWith('receive_appeal', {
-      p_clinic_id: CLINIC, p_item_id: ITEM, p_value: 25, p_received_at: '2026-11-09',
+      p_clinic_id: CLINIC, p_item_id: ITEM, p_value: 25, p_received_at: '2026-11-08',
     })
   })
 
@@ -234,7 +242,7 @@ describe('POST /api/convenios/itens/[id]/recurso/resultado', () => {
     resolver = comUpdate([{ id: ITEM }])
     rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'VALOR_INVALIDO' } })
     const res = await resultado(
-      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-09' }),
+      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-08' }),
       ctx(ITEM),
     )
     expect(res.status).toBe(200)
@@ -249,7 +257,7 @@ describe('POST /api/convenios/itens/[id]/recurso/resultado', () => {
     resolver = comUpdate([{ id: ITEM }])
     rpc.mockResolvedValue({ data: null, error: { code: '57014', message: 'timeout' } })
     const res = await resultado(
-      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-09' }),
+      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-08' }),
       ctx(ITEM),
     )
     expect(res.status).toBe(200)
@@ -272,6 +280,14 @@ describe('POST /api/convenios/itens/[id]/recurso/recebimento', () => {
     expect(rpc).toHaveBeenCalledWith('receive_appeal', {
       p_clinic_id: CLINIC, p_item_id: ITEM, p_value: 25, p_received_at: '2026-11-07',
     })
+  })
+
+  it('data do recebimento no futuro → 422 sem chamar a RPC', async () => {
+    resolver = () => ok(aceito)
+    const res = await recebimento(req({ receivedAt: '2099-01-01' }), ctx(ITEM))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'Data inválida' })
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it('valor informado acima do recuperado → 422', async () => {

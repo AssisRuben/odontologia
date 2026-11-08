@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { isUuid, withClinic } from '@/lib/ia/rotas'
 import { createConveniosRepo } from '@/lib/convenios/repo'
+import { todayYmd } from '@/lib/messaging/time'
 import { validarRecebimento } from '@/lib/convenios/pagamentos/validar'
 import { ERROS_RECURSO, respostaDeErro } from '@/lib/convenios/rotas'
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/convenios/i
     if (item.appeal_status !== 'aceito' || item.recovered_payment_id || item.recovered_value === null) {
       return { status: 409, body: { error: 'Recurso não está aceito ou já foi recebido' } }
     }
-    const v = validarRecebimento(body, item.recovered_value)
+    const v = validarRecebimento(body, item.recovered_value, todayYmd(new Date(), 'America/Sao_Paulo'))
     if (!v.ok) return { status: v.status, body: { error: v.error } }
     try {
       await repo.receberRecurso(clinicId, id, v.dados.value, v.dados.receivedAt)
