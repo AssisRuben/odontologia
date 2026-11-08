@@ -254,6 +254,7 @@ export function SecaoGuias({
           plans={plans}
           professionals={professionals}
           treatments={treatments}
+          procById={procById}
           treatmentIdsEmGuia={treatmentIdsEmGuia}
           onClose={() => setCriando(false)}
           onCreated={() => { setCriando(false); onChanged() }}

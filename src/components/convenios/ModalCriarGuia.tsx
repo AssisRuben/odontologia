@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { situacaoCarteirinha } from '@/lib/convenios/cadastro'
+import { naTabela } from '@/lib/convenios/guias'
 import { todayYmd } from '@/lib/messaging/time'
-import type { InsurancePlan, Professional, Treatment } from '@/types'
+import type { InsurancePlan, InsurancePlanProcedure, Professional, Treatment } from '@/types'
 
 interface Props {
   patientPlanId: string | null
@@ -15,6 +16,8 @@ interface Props {
   plans: InsurancePlan[]
   professionals: Professional[]
   treatments: Treatment[]
+  /** procedimentos da tabela vinculados aos tratamentos, por id */
+  procById: Map<string, InsurancePlanProcedure>
   /** ids de tratamentos que já têm item ativo em alguma guia */
   treatmentIdsEmGuia: Set<string>
   onClose: () => void
@@ -23,7 +26,7 @@ interface Props {
 
 export function ModalCriarGuia({
   patientPlanId, insuranceCard, insuranceCardValidUntil, patientId, plans, professionals,
-  treatments, treatmentIdsEmGuia, onClose, onCreated,
+  treatments, procById, treatmentIdsEmGuia, onClose, onCreated,
 }: Props) {
   const [planId, setPlanId] = useState(patientPlanId || plans[0]?.id || '')
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '')
@@ -36,6 +39,7 @@ export function ModalCriarGuia({
       t.insurance_plan_id === planId &&
       t.status !== 'cancelled' &&
       !!t.insurance_procedure_id &&
+      naTabela(t.insurance_plan_id, procById.get(t.insurance_procedure_id)) &&
       !treatmentIdsEmGuia.has(t.id),
   )
   // Só vale a carteirinha do paciente quando a operadora escolhida é a dele.

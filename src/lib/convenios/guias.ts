@@ -5,6 +5,17 @@ import { dataValida } from './cadastro'
 
 type Falha = { ok: false; error: string }
 
+/**
+ * O procedimento vinculado ao tratamento vale para a guia: existe, está ativo e é
+ * da mesma operadora do tratamento. Senão o tratamento está "fora da tabela".
+ */
+export function naTabela(
+  planId: string | null | undefined,
+  proc: { active: boolean; insurance_plan_id: string } | null | undefined,
+): boolean {
+  return !!proc && proc.active && proc.insurance_plan_id === planId
+}
+
 export type TratamentoParaGuia = {
   id: string
   patient_id: string

@@ -7,6 +7,7 @@ import { Plus, X, ChevronDown, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils'
 import { SecaoGuias } from '@/components/paciente/SecaoGuias'
+import { naTabela } from '@/lib/convenios/guias'
 import type {
   Professional, InsurancePlan, Treatment, TreatmentStatus, InsuranceGuide, InsuranceGuideItem,
   InsurancePlanProcedure,
@@ -43,8 +44,12 @@ const SELO_COLORS: Record<Selo, { color: string; bg: string }> = {
   'Em lote':                { color: '#3B82F6', bg: '#EFF6FF' },
 }
 
-function seloDoTratamento(t: Treatment, items: InsuranceGuideItem[]): Selo {
-  if (!t.insurance_procedure_id) return 'Fora da tabela'
+function seloDoTratamento(
+  t: Treatment, items: InsuranceGuideItem[], procById: Map<string, InsurancePlanProcedure>,
+): Selo {
+  if (!t.insurance_procedure_id || !naTabela(t.insurance_plan_id, procById.get(t.insurance_procedure_id))) {
+    return 'Fora da tabela'
+  }
   const doTrat = items.filter((i) => i.treatment_id === t.id)
   const ativo = doTrat.find((i) => i.active)
   if (ativo) {
@@ -169,7 +174,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                           {s.label}
                         </span>
                         {t.insurance_plan_id && (() => {
-                          const selo = seloDoTratamento(t, allItems)
+                          const selo = seloDoTratamento(t, allItems, procById)
                           return (
                             <span
                               className="text-xs font-medium px-2 py-0.5 rounded-full"

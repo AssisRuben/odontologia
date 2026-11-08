@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BatchStatus, GuideStatus, GuideTooth, InsuranceBatch, ItemAuthorization, TreatmentStatus } from '@/types'
-import type { ItemNovo, RespostaGuia, TratamentoParaGuia } from './guias'
+import { naTabela, type ItemNovo, type RespostaGuia, type TratamentoParaGuia } from './guias'
 import { dataExecucao } from './prontidao'
 import type { montarPendencias } from './pendencias'
 import { mesesAntes } from './periodo'
@@ -112,7 +112,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           value: Number(t.value ?? 0),
           teeth,
           procedimento:
-            p && p.active && p.insurance_plan_id === t.insurance_plan_id ? { code: p.code, name: p.name, requires_authorization: p.requires_authorization } : null,
+            p && naTabela(t.insurance_plan_id, p) ? { code: p.code, name: p.name, requires_authorization: p.requires_authorization } : null,
           emGuiaAtiva: emGuia.has(t.id),
         }
       })
@@ -508,7 +508,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
       const pend: DadosPendencias['tratamentos'] = []
       for (const t of tratamentos) {
         // Procedimento desativado na tabela conta como fora da tabela (igual a tratamentosParaGuia).
-        const fora = !t.insurance_procedure_id || !t.proc || !t.proc.active || t.proc.insurance_plan_id !== t.insurance_plan_id
+        const fora = !t.insurance_procedure_id || !naTabela(t.insurance_plan_id, t.proc)
         const aut = autorizacao.get(t.id)
         const situacao = fora ? 'fora_tabela' : aut === undefined ? 'sem_guia' : aut === 'pendente' ? 'pendente' : null
         if (!situacao) continue

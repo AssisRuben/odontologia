@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  validarCriacaoGuia, montarItens, statusInicial, validarResposta, type TratamentoParaGuia,
+  naTabela, validarCriacaoGuia, montarItens, statusInicial, validarResposta, type TratamentoParaGuia,
 } from '@/lib/convenios/guias'
 
 const trat = (id: string, o: Partial<TratamentoParaGuia> = {}): TratamentoParaGuia => ({
@@ -118,5 +118,15 @@ describe('validarResposta', () => {
   it('entrada inválida', () => {
     expect(validarResposta(null, itensGuia).ok).toBe(false)
     expect(validarResposta({ ...base, itens: [{ id: 'i1', authorization: 'pendente' }] }, itensGuia).ok).toBe(false)
+  })
+})
+
+describe('naTabela', () => {
+  it('vale só procedimento ativo da mesma operadora', () => {
+    expect(naTabela('pl', { active: true, insurance_plan_id: 'pl' })).toBe(true)
+    expect(naTabela('pl', { active: false, insurance_plan_id: 'pl' })).toBe(false)
+    expect(naTabela('pl', { active: true, insurance_plan_id: 'outra' })).toBe(false)
+    expect(naTabela('pl', null)).toBe(false)
+    expect(naTabela('pl', undefined)).toBe(false)
   })
 })
