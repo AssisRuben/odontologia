@@ -1,8 +1,9 @@
 'use client'
 
 import { formatCpf } from '@/lib/payments/cpf'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, Phone, Edit2, Tag, Plus, ClipboardList,
   Calendar, Clock, User2, MessageCircle,
@@ -68,6 +69,21 @@ const GENDER_PT: Record<string, string> = { M: 'Masculino', F: 'Feminino', O: 'O
 // ─── página ─────────────────────────────────────────────────────────────────
 
 export default function PacienteDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-[calc(100vh-56px)]">
+          <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <PacienteDetalhe params={params} />
+    </Suspense>
+  )
+}
+
+function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
+  const searchParams = useSearchParams()
   const [patient, setPatient]         = useState<Patient | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [evolutions, setEvolutions]   = useState<PatientEvolution[]>([])
@@ -75,7 +91,10 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
   const [invoices, setInvoices]       = useState<FiscalInvoice[]>([])
   const [prosthetics, setProsthetics] = useState<Prosthetic[]>([])
   const [loading, setLoading]         = useState(true)
-  const [activeTab, setActiveTab]     = useState<Tab>('visao-geral')
+  const [activeTab, setActiveTab]     = useState<Tab>(() => {
+    const aba = searchParams.get('aba')
+    return TABS.some(t => t.id === aba) ? (aba as Tab) : 'visao-geral'
+  })
   const [tags, setTags]               = useState<string[]>([])
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [modalCatOpen, setModalCatOpen] = useState(false)

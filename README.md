@@ -379,6 +379,52 @@ O que não faz:
 
 ---
 
+## Convênios
+
+Guias de convênio odontológico: autorização por procedimento, lote mensal por operadora e controle do que já foi digitado no portal. O app **prepara** o lote; o envio à operadora continua sendo feito pela clínica no portal dela.
+
+### 1. Banco
+
+No SQL Editor do Supabase, rode nesta ordem (podem rodar de novo sem problema):
+
+1. [`supabase/2026-11-07-convenios-guias.sql`](supabase/2026-11-07-convenios-guias.sql)
+2. [`supabase/2026-11-07-tuss-odontologia.sql`](supabase/2026-11-07-tuss-odontologia.sql): 370 códigos TUSS odontológicos (Tabela 22 da ANS, versão 202609).
+
+Aplique o SQL ANTES de publicar (deploy) o código novo.
+
+### 2. Como usar
+
+1. **Operadora:** em Configurações → Convênios, cadastre a operadora com registro ANS, código do prestador, dia de fechamento e prazo de envio (dias após o fechamento).
+2. **Tabela:** cadastre os procedimentos da operadora (código, nome e valor); a busca TUSS ajuda a preencher.
+3. **Carteirinha:** na ficha do paciente, informe a operadora e a carteirinha.
+4. **Tratamento:** ao planejar o tratamento, escolha o procedimento da tabela do convênio.
+5. **Guia:** na aba Tratamentos do paciente, crie a guia com os tratamentos escolhidos e registre a autorização (número, senha, validade, itens autorizados ou negados com motivo).
+6. **Lote do mês:** em Convênios → Lotes, os itens prontos entram sozinhos no lote do período. Digite no portal da operadora e marque "digitado" em cada item. Se preciso, "Tirar do lote" adia o item para o próximo período.
+7. **Enviar:** "Marcar como enviado" pede protocolo e data; o lote fica travado. **Imprimir** gera só o lote aberto.
+8. **Pendências:** a aba Pendências lista guias aguardando, senhas vencendo, tratamentos sem faturar e lotes perto do prazo. O menu mostra o contador. Ao calcular as pendências (aba ou contador do menu) o app também monta os lotes, inclusive de operadora desativada que tenha dia de fechamento.
+
+### O que o app faz
+
+- Cria os lotes por operadora a partir do dia de fechamento e calcula o prazo de envio.
+- Marca itens **Atrasado** (executados antes do período do lote).
+- Avisa guias aguardando há mais de 7 dias, senhas que vencem em até 7 dias e lotes com prazo em até 3 dias.
+
+### O que não faz
+
+- Não gera XML TISS nem envia nada à operadora (fica para a 7b).
+- Não faz glosa, recurso nem conciliação de pagamento (7b).
+- Não cobra o paciente pelo valor do convênio.
+
+### Regras
+
+- Até 30 itens por guia; um tratamento ativo só pode estar em uma guia.
+- Item em lote não recebe nova resposta nem é cancelado; os demais itens da mesma guia seguem normalmente (cancelar a guia cancela só os itens fora de lote). Com item em lote, número, senha e validade da guia não mudam. Lote enviado não pode ser alterado.
+- Pendências olham tratamentos concluídos nos últimos 6 meses; procedimento desativado na tabela conta como fora da tabela.
+- Convênio com guias não pode ser excluído: desative-o.
+- Lotes enviados aparecem por 6 meses.
+
+---
+
 ## Trabalhando em equipe
 
 - **Antes de começar a mexer:** `git pull`

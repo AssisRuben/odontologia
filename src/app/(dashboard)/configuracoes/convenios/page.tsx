@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Plus, Trash2, Shield } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Shield, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import type { InsurancePlan } from '@/types'
+import { PainelOperadora } from '@/components/convenios/PainelOperadora'
 
 export default function ConveniosPage() {
   const { clinicId } = useClinicStore()
@@ -15,12 +16,13 @@ export default function ConveniosPage() {
   const [adding, setAdding] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [openId, setOpenId] = useState<string | null>(null)
 
   async function load() {
     if (!clinicId) return
     const supabase = createClient()
     const { data } = await supabase.from('insurance_plans').select('*').eq('clinic_id', clinicId).order('name')
-    if (data) setPlans(data)
+    if (data) setPlans([...data].sort((a, b) => Number(b.active) - Number(a.active)))
     setLoading(false)
   }
 
@@ -41,18 +43,27 @@ export default function ConveniosPage() {
     load()
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, name: string) {
+    const ok = window.confirm(
+      `Excluir o convênio ${name}? A tabela de procedimentos dele será apagada e os tratamentos com este convênio passam a ser Particular.`,
+    )
+    if (!ok) return
     setDeletingId(id)
+    setError('')
     const supabase = createClient()
-    // Desvincula pacientes antes de deletar
-    await supabase.from('patients').update({ insurance_plan_id: null }).eq('insurance_plan_id', id)
-    await supabase.from('insurance_plans').delete().eq('id', id)
+    // Pacientes são desvinculados pelo banco (ON DELETE SET NULL); guias e lotes bloqueiam (RESTRICT).
+    const { error: err } = await supabase.from('insurance_plans').delete().eq('id', id)
     setDeletingId(null)
+    if (err) {
+      setError(err.code === '23503' ? 'Convênio com guias não pode ser excluído. Desative-o.' : `Erro: ${err.message}`)
+      return
+    }
+    if (openId === id) setOpenId(null)
     load()
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
           <ChevronLeft className="w-5 h-5" />
@@ -87,15 +98,29 @@ export default function ConveniosPage() {
             </div>
           ) : (
             plans.map(plan => (
-              <div key={plan.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center shrink-0">
-                  <Shield className="w-4 h-4 text-[#3B82F6]" />
+              <div key={plan.id}>
+                <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#F9FAFB]">
+                  <button type="button" onClick={() => setOpenId(openId === plan.id ? null : plan.id)}
+                    aria-expanded={openId === plan.id}
+                    className="flex flex-1 items-center gap-3 text-left">
+                    <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center shrink-0">
+                      <Shield className="w-4 h-4 text-[#3B82F6]" />
+                    </div>
+                    <span className="flex-1 text-sm font-medium text-[#111827]">{plan.name}</span>
+                    {!plan.active && (
+                      <span className="text-xs font-medium text-[#6B7280] bg-[#F3F4F6] rounded-full px-2 py-0.5">Inativo</span>
+                    )}
+                    <ChevronDown className={`w-4 h-4 text-[#9CA3AF] transition-transform ${openId === plan.id ? 'rotate-180' : ''}`} />
+                  </button>
+                  <button onClick={() => handleDelete(plan.id, plan.name)} disabled={deletingId === plan.id}
+                    className="p-1.5 rounded-lg text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <span className="flex-1 text-sm font-medium text-[#111827]">{plan.name}</span>
-                <button onClick={() => handleDelete(plan.id)} disabled={deletingId === plan.id}
-                  className="p-1.5 rounded-lg text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {openId === plan.id && (
+                  <PainelOperadora plan={plan}
+                    onSaved={updated => setPlans(prev => prev.map(p => (p.id === updated.id ? updated : p)))} />
+                )}
               </div>
             ))
           )}
