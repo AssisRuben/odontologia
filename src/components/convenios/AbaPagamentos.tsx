@@ -117,6 +117,27 @@ export function AbaPagamentos() {
     }
   }
 
+  const naoRecorrer = async (g: Glosa) => {
+    if (!window.confirm('A glosa ficará como definitiva.')) return
+    setOcupado(g.item_id)
+    setErro('')
+    setAviso('')
+    try {
+      const res = await fetch(`/api/convenios/itens/${g.item_id}/recurso/nao-recorrer`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setErro(json.error || 'Não foi possível registrar')
+        return
+      }
+      window.dispatchEvent(new Event('convenios:changed'))
+      await carregar()
+    } catch {
+      setErro('Não foi possível registrar')
+    } finally {
+      setOcupado(null)
+    }
+  }
+
   if (!dados) return <p className="text-sm text-[#6B7280]">{erro || 'Carregando...'}</p>
 
   const hoje = todayYmd(new Date(), 'America/Sao_Paulo')
@@ -202,9 +223,19 @@ export function AbaPagamentos() {
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-[#DC2626]">{formatCurrency(g.glosa_value)}</span>
                     {g.appeal_status === 'nenhum' && (
-                      <button type="button" onClick={() => setRecurso({ acao: 'recorrer', glosa: g })} className={BTN}>
-                        Recorrer
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => naoRecorrer(g)}
+                          disabled={ocupado === g.item_id}
+                          className={`${BTN} disabled:opacity-50`}
+                        >
+                          Não recorrer
+                        </button>
+                        <button type="button" onClick={() => setRecurso({ acao: 'recorrer', glosa: g })} className={BTN}>
+                          Recorrer
+                        </button>
+                      </>
                     )}
                     {g.appeal_status === 'em_recurso' && (
                       <button type="button" onClick={() => setRecurso({ acao: 'resultado', glosa: g })} className={BTN}>

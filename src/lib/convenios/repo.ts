@@ -662,6 +662,20 @@ export function createConveniosRepo(admin: SupabaseClient) {
       return !!data?.length
     },
 
+    /** Glosa sem recurso vira definitiva ("não recorrer"). false = item não estava glosado sem recurso. */
+    async naoRecorrer(clinicId: string, itemId: string, hoje: string): Promise<boolean> {
+      const { data, error } = await admin
+        .from('insurance_guide_items')
+        .update({ appeal_status: 'negado', appeal_result_at: hoje })
+        .eq('id', itemId)
+        .eq('clinic_id', clinicId)
+        .eq('appeal_status', 'nenhum')
+        .gt('glosa_value', 0)
+        .select('id')
+      if (error) throw new Error(error.message)
+      return !!data?.length
+    },
+
     /** false = item não estava em recurso. */
     async registrarResultado(
       clinicId: string,

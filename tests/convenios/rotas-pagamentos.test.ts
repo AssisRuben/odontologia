@@ -29,8 +29,10 @@ import { POST as registrar, DELETE as desfazer } from '@/app/api/convenios/lotes
 import { POST as recorrer } from '@/app/api/convenios/itens/[id]/recurso/route'
 import { POST as resultado } from '@/app/api/convenios/itens/[id]/recurso/resultado/route'
 import { POST as recebimento } from '@/app/api/convenios/itens/[id]/recurso/recebimento/route'
+import { POST as naoRecorrer } from '@/app/api/convenios/itens/[id]/recurso/nao-recorrer/route'
 import { GET as motivos } from '@/app/api/convenios/motivos/route'
 import { fromDbPaidAt, toDbPaidAt } from '@/lib/payments/dates'
+import { todayYmd } from '@/lib/messaging/time'
 
 const req = (body?: unknown, url = 'http://x') =>
   new Request(url, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }) as never
@@ -307,6 +309,59 @@ describe('POST /api/convenios/itens/[id]/recurso/recebimento', () => {
     rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RECURSO_INVALIDO' } })
     res = await recebimento(req({ receivedAt: '2026-11-07' }), ctx(ITEM))
     expect(res.status).toBe(409)
+  })
+})
+
+describe('POST /api/convenios/itens/[id]/recurso/nao-recorrer', () => {
+  it('id inválido → 422', async () => {
+    const res = await naoRecorrer(req(), ctx('x'))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'Identificador inválido' })
+  })
+
+  it('item de outra clínica → 404', async () => {
+    const res = await naoRecorrer(req(), ctx(ITEM))
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'Item não encontrado' })
+    expect(queriesVistas[0].calls).toContainEqual(['eq', 'clinic_id', CLINIC])
+  })
+
+  it('lote que não está pago → 409', async () => {
+    resolver = () => ok(itemRec({ batch: { status: 'enviado' } }))
+    const res = await naoRecorrer(req(), ctx(ITEM))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'Lote não está pago' })
+  })
+
+  it('item sem glosa → 409 sem gravar', async () => {
+    resolver = () => ok(itemRec({ glosa_value: 0 }))
+    const res = await naoRecorrer(req(), ctx(ITEM))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'Item não está glosado' })
+    expect(queriesVistas.some((q) => q.calls.some((c) => c[0] === 'update'))).toBe(false)
+  })
+
+  it('grava negado com a data de hoje, condicionado a glosa sem recurso', async () => {
+    resolver = (q) => (q.calls.some((c) => c[0] === 'update') ? ok([{ id: ITEM }]) : ok(itemRec()))
+    const res = await naoRecorrer(req(), ctx(ITEM))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    const upd = queriesVistas.find((q) => q.calls.some((c) => c[0] === 'update'))!
+    expect(upd.table).toBe('insurance_guide_items')
+    expect(upd.calls).toContainEqual([
+      'update', { appeal_status: 'negado', appeal_result_at: todayYmd(new Date(), 'America/Sao_Paulo') },
+    ])
+    expect(upd.calls).toContainEqual(['eq', 'id', ITEM])
+    expect(upd.calls).toContainEqual(['eq', 'clinic_id', CLINIC])
+    expect(upd.calls).toContainEqual(['eq', 'appeal_status', 'nenhum'])
+    expect(upd.calls).toContainEqual(['gt', 'glosa_value', 0])
+  })
+
+  it('já em recurso ou decidido (0 linhas) → 409', async () => {
+    resolver = (q) => (q.calls.some((c) => c[0] === 'update') ? ok([]) : ok(itemRec({ appeal_status: 'em_recurso' })))
+    const res = await naoRecorrer(req(), ctx(ITEM))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'Item não está glosado' })
   })
 })
 
