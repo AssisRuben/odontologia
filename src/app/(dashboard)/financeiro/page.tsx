@@ -12,6 +12,7 @@ import AsaasBanner from '@/components/pagamentos/AsaasBanner'
 import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
 import ListaDespesas from '@/components/financeiro/ListaDespesas'
 import LivroCaixa from '@/components/financeiro/LivroCaixa'
+import AbaComissoes from '@/components/financeiro/AbaComissoes'
 import { categoryLabel } from '@/lib/livro-caixa/categorias'
 
 type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes' | 'despesas' | 'livro'
@@ -274,11 +275,13 @@ export default function FinanceiroPage() {
           </div>
         )}
 
+        {activeTab === 'comissoes' && <AbaComissoes />}
+
         {activeTab === 'despesas' && <ListaDespesas />}
 
         {activeTab === 'livro' && <LivroCaixa onOpenDespesas={() => setActiveTab('despesas')} />}
 
-        {activeTab !== 'painel' && activeTab !== 'despesas' && activeTab !== 'livro' && (
+        {activeTab !== 'painel' && activeTab !== 'comissoes' && activeTab !== 'despesas' && activeTab !== 'livro' && (
           <div className="flex items-center justify-center h-48 text-[#9CA3AF] text-sm">
             Em desenvolvimento...
           </div>
