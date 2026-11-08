@@ -204,6 +204,7 @@ describe('POST /api/convenios/itens/[id]/recurso/resultado', () => {
       ctx(ITEM),
     )
     expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ status: 'aceito', recebido: true })
     expect(rpc).toHaveBeenCalledWith('receive_appeal', {
       p_clinic_id: CLINIC, p_item_id: ITEM, p_value: 25, p_received_at: '2026-11-09',
     })
@@ -229,14 +230,35 @@ describe('POST /api/convenios/itens/[id]/recurso/resultado', () => {
     expect(res.status).toBe(409)
   })
 
-  it('VALOR_INVALIDO da RPC vira "Valor recuperado inválido"', async () => {
+  it('falha mapeada no recebimento: 200 com aviso, resultado já gravado', async () => {
     resolver = comUpdate([{ id: ITEM }])
     rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'VALOR_INVALIDO' } })
     const res = await resultado(
       req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-09' }),
       ctx(ITEM),
     )
-    expect(await res.json()).toEqual({ error: 'Valor recuperado inválido' })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      status: 'aceito',
+      recebido: false,
+      aviso: 'Resultado gravado, mas o recebimento não foi registrado: Valor recuperado inválido',
+    })
+  })
+
+  it('falha não mapeada no recebimento: 200 com aviso genérico e log sem dados', async () => {
+    resolver = comUpdate([{ id: ITEM }])
+    rpc.mockResolvedValue({ data: null, error: { code: '57014', message: 'timeout' } })
+    const res = await resultado(
+      req({ resultado: 'aceito', recoveredValue: 25, resultAt: '2026-11-08', receivedAt: '2026-11-09' }),
+      ctx(ITEM),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      status: 'aceito',
+      recebido: false,
+      aviso: 'Resultado gravado, mas o recebimento não foi registrado: Erro interno. Tente novamente.',
+    })
+    expect(console.error).toHaveBeenCalled()
   })
 })
 

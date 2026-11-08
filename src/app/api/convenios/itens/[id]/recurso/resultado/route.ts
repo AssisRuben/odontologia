@@ -21,13 +21,27 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/convenios/i
     if (!(await repo.registrarResultado(clinicId, id, { resultado, resultAt, recoveredValue }))) {
       return { status: 409, body: { error: 'Recurso não está aceito ou já foi recebido' } }
     }
-    if (resultado === 'aceito' && receivedAt && recoveredValue !== null) {
+    if (resultado !== 'aceito') return { status: 200, body: { ok: true, status: resultado } }
+    if (!receivedAt || recoveredValue === null) return { status: 200, body: { ok: true, status: 'aceito' } }
+    try {
+      await repo.receberRecurso(clinicId, id, recoveredValue, receivedAt)
+      return { status: 200, body: { status: 'aceito', recebido: true } }
+    } catch (e) {
+      // O resultado já foi gravado: não devolver erro para o cliente não repetir a chamada.
+      let texto = 'Erro interno. Tente novamente.'
       try {
-        await repo.receberRecurso(clinicId, id, recoveredValue, receivedAt)
-      } catch (e) {
-        return respostaDeErro(e, ERROS_RECURSO)
+        texto = respostaDeErro(e, ERROS_RECURSO).body.error
+      } catch {
+        console.error('[convenios itens recurso resultado POST] recebimento falhou:', (e as Error)?.message)
+      }
+      return {
+        status: 200,
+        body: {
+          status: 'aceito',
+          recebido: false,
+          aviso: `Resultado gravado, mas o recebimento não foi registrado: ${texto}`,
+        },
       }
     }
-    return { status: 200, body: { ok: true } }
   })
 }
