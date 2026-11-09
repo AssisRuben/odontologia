@@ -51,7 +51,7 @@ export function producao(
   const porDentista = new Map<string | null, number>()
   let totalCentavos = 0
   for (const t of trats) {
-    if (mesDoInstante(t.completed_at) !== mes) continue
+    if (mesDe(t.completed_at) !== mes) continue
     if (professionalId !== null && t.professional_id !== professionalId) continue
     const v = centavos(t.value)
     totalCentavos += v

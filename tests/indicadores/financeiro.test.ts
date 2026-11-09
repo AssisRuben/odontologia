@@ -52,6 +52,14 @@ describe('producao', () => {
     )
     expect(p.porDentista).toHaveLength(3)
   })
+  it('completed_at é data pura: 2026-11-01 conta em 2026-11', () => {
+    const p = producao([{ professional_id: 'd1', value: 10, completed_at: '2026-11-01' }], '2026-11', null)
+    expect(p.totalCentavos).toBe(1000)
+    expect(producao([{ professional_id: 'd1', value: 10, completed_at: '2026-11-01' }], '2026-10', null).totalCentavos).toBe(0)
+  })
+  it('paid_at 2026-11-01 conta em 2026-11', () => {
+    expect(resumoFinanceiro([r('A', 10, null, '2026-11-01')], '2026-11').recebidoCentavos).toBe(1000)
+  })
   it('filtro por dentista', () => {
     const p = producao(ts, '2026-11', 'd1')
     expect(p.totalCentavos).toBe(10000)
