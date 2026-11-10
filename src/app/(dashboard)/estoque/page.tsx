@@ -12,6 +12,8 @@ import { ModalEntrada } from '@/components/estoque/ModalEntrada'
 import { ModalSaida } from '@/components/estoque/ModalSaida'
 import { ModalContagem } from '@/components/estoque/ModalContagem'
 import { ModalDetalhes } from '@/components/estoque/ModalDetalhes'
+import { TabHistorico } from '@/components/estoque/TabHistorico'
+import { ModalListaCompras } from '@/components/estoque/ModalListaCompras'
 
 type Tab = 'produtos' | 'historico'
 
@@ -236,11 +238,7 @@ export default function EstoquePage() {
           </>
         )}
 
-        {activeTab === 'historico' && (
-          <div className="flex items-center justify-center h-48 text-tinta-4 text-sm">
-            Histórico de movimentação em desenvolvimento...
-          </div>
-        )}
+        {activeTab === 'historico' && <TabHistorico itens={itens} hojeYmd={hoje} />}
       </div>
 
       {janela?.tipo === 'produto' && (
@@ -277,7 +275,7 @@ export default function EstoquePage() {
           onAcao={(tipo, it) => setJanela({ tipo, item: it })}
         />
       )}
-      {/* Lista de compras: renderizada na Task 6. */}
+      {janela?.tipo === 'compras' && <ModalListaCompras itens={itens} hojeYmd={hoje} onClose={() => setJanela(null)} />}
     </div>
   )
 }

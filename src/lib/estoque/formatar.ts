@@ -22,3 +22,9 @@ export function umAnoAntes(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
   return new Date(Date.UTC(y - 1, m - 1, d)).toISOString().slice(0, 10)
 }
+
+/** Mesma data 30 dias antes, em aritmética UTC. */
+export function trintaDiasAntes(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d - 30)).toISOString().slice(0, 10)
+}
