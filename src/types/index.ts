@@ -4,7 +4,8 @@ export interface Clinic {
   cnpj?: string
   phone?: string
   address?: string
-  card_rates?: Record<string, string>
+  /** Taxas da maquininha por faixa (ver lib/payments/taxasMaquininha). */
+  card_rates?: Record<string, number | string>
   whatsapp_key?: string
   whatsapp_phone?: string
   budget_validity_days?: number

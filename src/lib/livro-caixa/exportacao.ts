@@ -130,7 +130,7 @@ export async function toPdf(ledger: Ledger, clinicName: string): Promise<Uint8Ar
   const totals: [string, number, boolean][] = [
     ['Receitas de pacientes', t.patientRevenueCents, false],
     ['Despesas de custeio', t.custeioCents, false],
-    ['Tarifas de cobrança (Asaas)', t.feesCents, false],
+    ['Tarifas de cobrança e maquininha', t.feesCents, false],
     ['Salários e encargos', t.pessoalCents, false],
     ['Emolumentos', t.emolumentosCents, false],
     ['Total dedutível', t.deductibleCents, true],

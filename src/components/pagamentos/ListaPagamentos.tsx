@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, FileText, MoreVertical, X } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { PAYMENT_METHOD_LABELS } from '@/types'
+import { useTaxaMaquininha } from './useTaxaMaquininha'
 import type { Payment, FiscalInvoice, PaymentMethod, PaymentStatus } from '@/types'
 import { fromDbPaidAt } from '@/lib/payments/dates'
 import { parseReaisInput, fromCents } from '@/lib/payments/money'
@@ -432,11 +433,13 @@ function DueDateDialog({ p, busy, error, onClose, onSubmit }: {
 
 function ReceiveDialog({ p, busy, error, onClose, onSubmit }: {
   p: Payment; busy: boolean; error: string; onClose: () => void
-  onSubmit: (body: { paidAt: string; amountCents: number; method?: PaymentMethod }, err?: string) => void
+  onSubmit: (body: { paidAt: string; amountCents: number; method?: PaymentMethod; netAmountCents?: number }, err?: string) => void
 }) {
   const [paidAt, setPaidAt] = useState(todayLocal)
   const [amount, setAmount] = useState(() => reaisInput(p.amount))
   const [method, setMethod] = useState<PaymentMethod | ''>(p.payment_method ?? '')
+  // Cobrança do Asaas já traz o líquido do próprio Asaas; a taxa da maquininha é só para lançamentos manuais.
+  const taxa = useTaxaMaquininha(method, parseReaisInput(amount) ?? 0, !p.provider_charge_id)
   return (
     <Shell title="Marcar como pago" onClose={onClose} busy={busy}>
       <div>
@@ -454,12 +457,17 @@ function ReceiveDialog({ p, busy, error, onClose, onSubmit }: {
           {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map(m => <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>)}
         </select>
       </div>
+      {taxa.campos}
       <Footer error={error} busy={busy} confirmLabel="Confirmar pagamento" onClose={onClose}
         onConfirm={() => {
           const cents = parseReaisInput(amount)
           if (!paidAt) return onSubmit({ paidAt, amountCents: 0 }, 'Informe a data do pagamento.')
           if (cents === null || cents <= 0) return onSubmit({ paidAt, amountCents: 0 }, 'Informe um valor válido.')
-          onSubmit({ paidAt, amountCents: cents, ...(method ? { method } : {}) })
+          if (taxa.erro) return onSubmit({ paidAt, amountCents: 0 }, taxa.erro)
+          onSubmit({
+            paidAt, amountCents: cents, ...(method ? { method } : {}),
+            ...(taxa.liquidoCentavos !== null ? { netAmountCents: taxa.liquidoCentavos } : {}),
+          })
         }} />
     </Shell>
   )
