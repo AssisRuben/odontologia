@@ -62,22 +62,34 @@ export default function AReceber() {
           pays.push(...rows)
           if (rows.length < PAGE) break
         }
+        async function carregarLembretes(bloco: string[]): Promise<Lembrete[]> {
+          const out: Lembrete[] = []
+          for (let from = 0; ; from += PAGE) {
+            const r = await supabase.from('messages').select('payment_id, type, sent_at')
+              .eq('clinic_id', clinicId!)
+              .in('payment_id', bloco)
+              .eq('status', 'sent')
+              .eq('direction', 'out')
+              .in('type', ['charge', 'payment_due', 'manual'])
+              .order('id')
+              .range(from, from + PAGE - 1)
+            if (r.error) throw r.error
+            const rows = (r.data as Lembrete[]) || []
+            out.push(...rows)
+            if (rows.length < PAGE) break
+          }
+          return out
+        }
         const inv: FiscalInvoice[] = []
         const lem: Lembrete[] = []
         for (const bloco of chunks(pays.map(p => p.id), CHUNK)) {
           const [ri, rl] = await Promise.all([
             supabase.from('fiscal_invoices').select('*').in('payment_id', bloco),
-            supabase.from('messages').select('payment_id, type, sent_at')
-              .eq('clinic_id', clinicId!)
-              .in('payment_id', bloco)
-              .eq('status', 'sent')
-              .eq('direction', 'out')
-              .in('type', ['charge', 'payment_due', 'manual']),
+            carregarLembretes(bloco),
           ])
           if (ri.error) throw ri.error
-          if (rl.error) throw rl.error
           inv.push(...((ri.data as FiscalInvoice[]) || []))
-          lem.push(...((rl.data as Lembrete[]) || []))
+          lem.push(...rl)
         }
         if (stale) return
         setPayments(pays)

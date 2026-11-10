@@ -10,6 +10,8 @@ import { fromDbPaidAt } from '@/lib/payments/dates'
 import { parseReaisInput, fromCents } from '@/lib/payments/money'
 import { ModalEmitirNota } from './ModalEmitirNota'
 import { errorText } from './errorText'
+import { statusExibido } from '@/lib/payments/statusExibido'
+import { todayYmd } from '@/lib/messaging/time'
 
 interface Props {
   payments: Payment[]
@@ -243,12 +245,14 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
   }
 
   const menuPayment = menu ? payments.find(p => p.id === menu.id) : undefined
+  const hoje = todayYmd(new Date(), 'America/Sao_Paulo')
 
   return (
     <>
       <div className="divide-y divide-porcelana">
         {payments.map(p => {
-          const st = STATUS[p.status] ?? { label: p.status, cls: 'bg-gray-100 text-gray-600' }
+          const shown = statusExibido(p, hoje)
+          const st = STATUS[shown] ?? { label: shown, cls: 'bg-gray-100 text-gray-600' }
           const inv = invoiceByPayment.get(p.id)
           const creating = p.provider_state === 'creating'
           const paidAt = fromDbPaidAt(p.paid_at ?? null)
