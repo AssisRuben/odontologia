@@ -8,6 +8,10 @@ import { alertasDoItem, resumoAlertas } from '@/lib/estoque/alertas'
 import { AvisosEstoque, type FiltroAviso } from '@/components/estoque/AvisosEstoque'
 import { TabelaProdutos, type AcaoProduto } from '@/components/estoque/TabelaProdutos'
 import { ModalProduto } from '@/components/estoque/ModalProduto'
+import { ModalEntrada } from '@/components/estoque/ModalEntrada'
+import { ModalSaida } from '@/components/estoque/ModalSaida'
+import { ModalContagem } from '@/components/estoque/ModalContagem'
+import { ModalDetalhes } from '@/components/estoque/ModalDetalhes'
 
 type Tab = 'produtos' | 'historico'
 
@@ -73,6 +77,13 @@ export default function EstoquePage() {
     setAviso(msg)
     if (avisoTimer.current) clearTimeout(avisoTimer.current)
     avisoTimer.current = setTimeout(() => setAviso(''), 4000)
+  }
+
+  function salvou(msg?: string) {
+    setJanela(null)
+    setErroAcao('')
+    if (msg) mostrarAviso(msg)
+    recarregar()
   }
 
   useEffect(() => () => { if (avisoTimer.current) clearTimeout(avisoTimer.current) }, [])
@@ -240,7 +251,33 @@ export default function EstoquePage() {
           onSaved={(msg) => { setJanela(null); if (msg) mostrarAviso(msg); recarregar() }}
         />
       )}
-      {/* Entrada, saída, contagem, detalhes e lista de compras: renderizados nas Tasks 5 e 6. */}
+      {janela?.tipo === 'entrada' && (
+        <ModalEntrada key={janela.item.id} item={janela.item} hojeYmd={hoje} onClose={() => setJanela(null)} onSaved={salvou} />
+      )}
+      {janela?.tipo === 'saida' && (
+        <ModalSaida
+          key={janela.item.id}
+          item={janela.item}
+          hojeYmd={hoje}
+          onClose={() => setJanela(null)}
+          onSaved={salvou}
+          onInsuficiente={() => { setJanela(null); setErroAcao('Estoque insuficiente'); recarregar() }}
+        />
+      )}
+      {janela?.tipo === 'contagem' && (
+        <ModalContagem key={janela.item.id} item={janela.item} hojeYmd={hoje} onClose={() => setJanela(null)} onSaved={salvou} />
+      )}
+      {janela?.tipo === 'detalhes' && (
+        <ModalDetalhes
+          key={janela.item.id}
+          item={janela.item}
+          hojeYmd={hoje}
+          onClose={() => setJanela(null)}
+          onSaved={salvou}
+          onAcao={(tipo, it) => setJanela({ tipo, item: it })}
+        />
+      )}
+      {/* Lista de compras: renderizada na Task 6. */}
     </div>
   )
 }
