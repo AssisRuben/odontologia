@@ -217,6 +217,33 @@ export interface Expense {
   due_date?: string
   paid_at?: string
   status: 'pending' | 'paid' | 'overdue'
+  recurrence_id?: string | null
+  recurrence_month?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CashBalance {
+  id: string
+  clinic_id: string
+  balance_date: string
+  amount: number
+  created_by: string | null
+  created_at: string
+}
+
+export interface ExpenseRecurrence {
+  id: string
+  clinic_id: string
+  description: string
+  amount: number
+  category: ExpenseCategory
+  deduction_group: DeductionGroup | null
+  payment_method: PaymentMethod | null
+  day_of_month: number
+  start_month: string
+  end_month: string | null
+  generated_until: string | null
   created_at: string
   updated_at: string
 }
