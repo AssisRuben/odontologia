@@ -14,6 +14,7 @@ import type { Pendencia } from '@/lib/convenios/pendencias'
 import { BuscaRapida } from './BuscaRapida'
 import { SinoPendencias } from './SinoPendencias'
 import { MenuUsuario } from './MenuUsuario'
+import { MenuMais } from './MenuMais'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
@@ -29,6 +30,8 @@ const navLinks = [
 ]
 
 const desktopPrimary  = navLinks.slice(0, 5)   // Agenda, Pacientes, Orçamentos, Financeiro, Convênios
+// No computador, Mensagens e Configurações já têm ícone no topo; o resto vai no "Mais".
+const desktopMais     = navLinks.filter((l) => !desktopPrimary.includes(l) && !['/mensagens', '/configuracoes'].includes(l.href))
 const bottomNavLinks  = navLinks.filter((l) => ['/agenda', '/pacientes', '/financeiro'].includes(l.href))
 const secondaryLinks  = navLinks.filter((l) => !bottomNavLinks.includes(l))  // itens do "Mais"
 
@@ -136,6 +139,7 @@ export function Navbar() {
                 )}
               </Link>
             ))}
+            <MenuMais itens={desktopMais} pathname={pathname} />
           </nav>
 
           {/* Desktop right icons */}
