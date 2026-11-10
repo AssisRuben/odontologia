@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { linhasDoKit, faltas, podeBaixar } from '@/lib/kits/baixa'
+import { linhasDoKit, faltas, podeBaixar, rotuloTratamento } from '@/lib/kits/baixa'
+import type { InventoryMovement } from '@/types'
 import type { Kit } from '@/types'
 
 const kit = {
@@ -27,5 +28,20 @@ describe('baixa', () => {
     expect(podeBaixar([{ itemId: 'a', quantity: 1 }, { itemId: 'a', quantity: 1 }], s)).toBe(false)
     expect(podeBaixar([{ itemId: 'a', quantity: 6 }], s)).toBe(false)
     expect(podeBaixar([{ itemId: 'a', quantity: 2 }, { itemId: 'b', quantity: 1 }], s)).toBe(true)
+  })
+})
+
+describe('rotuloTratamento', () => {
+  const base = { id: 'm', created_at: '2026-01-01' } as unknown as InventoryMovement
+  it('com paciente', () => {
+    const m = { ...base, treatment: { id: 't', procedure: 'Restauração', patient: { id: 'p', name: 'Ana' } } }
+    expect(rotuloTratamento(m)).toBe('Tratamento: Restauração — Ana')
+  })
+  it('sem paciente', () => {
+    expect(rotuloTratamento({ ...base, treatment: { id: 't', procedure: 'Limpeza', patient: null } })).toBe('Tratamento: Limpeza')
+  })
+  it('sem tratamento', () => {
+    expect(rotuloTratamento({ ...base, treatment: null })).toBeNull()
+    expect(rotuloTratamento(base)).toBeNull()
   })
 })
