@@ -10,6 +10,7 @@ export const ERROS_PROTESE: Mapa = {
   PACIENTE_INVALIDO: { status: 422, error: 'Paciente não encontrado' },
   PROFISSIONAL_INVALIDO: { status: 422, error: 'Profissional não encontrado' },
   LABORATORIO_INVALIDO: { status: 422, error: 'Laboratório não encontrado' },
+  '23505': { status: 409, error: 'Já existe um registro igual' },
 }
 
 export const ERROS_LABORATORIO: Mapa = {

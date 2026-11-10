@@ -85,9 +85,13 @@ export default function ProtesePage() {
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))
   }, [items])
 
+  // Filtro cuja opção sumiu (ex.: "Ver todas", recarga) vale como "Todos".
+  const dentistaSel = dentistas.some(([id]) => id === filtroDentista) ? filtroDentista : ''
+  const labSel = labs.some(([id]) => id === filtroLab) ? filtroLab : ''
+
   const filtrados = items.filter((i) =>
-    (!filtroDentista || i.professional?.id === filtroDentista) &&
-    (!filtroLab || i.lab?.id === filtroLab) &&
+    (!dentistaSel || i.professional?.id === dentistaSel) &&
+    (!labSel || i.lab?.id === labSel) &&
     (!soAtrasadas || diasDeAtraso(i, hojeYmd) > 0),
   )
 
@@ -109,11 +113,11 @@ export default function ProtesePage() {
       <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Prótese</h1>
         <div className="order-3 sm:order-2 w-full sm:w-auto flex flex-wrap items-center gap-2 sm:ml-auto">
-          <select aria-label="Dentista" value={filtroDentista} onChange={(e) => setFiltroDentista(e.target.value)} className={selectCls}>
+          <select aria-label="Dentista" value={dentistaSel} onChange={(e) => setFiltroDentista(e.target.value)} className={selectCls}>
             <option value="">Todos os dentistas</option>
             {dentistas.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
-          <select aria-label="Laboratório" value={filtroLab} onChange={(e) => setFiltroLab(e.target.value)} className={selectCls}>
+          <select aria-label="Laboratório" value={labSel} onChange={(e) => setFiltroLab(e.target.value)} className={selectCls}>
             <option value="">Todos os laboratórios</option>
             {labs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
@@ -204,6 +208,7 @@ export default function ProtesePage() {
         <DialogMover
           protese={mover.protese}
           para={mover.para}
+          hojeYmd={hojeYmd}
           onClose={() => { setMover(null); setOcupado(null) }}
           onMoved={(r) => {
             setMover(null)

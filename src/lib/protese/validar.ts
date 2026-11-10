@@ -55,7 +55,7 @@ export function parseProtese(raw: unknown): { ok: true; input: ProteseInput } | 
   let labCostCents: number | null = null
   if (o.labCostCents !== undefined && o.labCostCents !== null) {
     const c = o.labCostCents
-    if (typeof c !== 'number' || !Number.isInteger(c) || c < 0) return { ok: false, error: 'Custo inválido' }
+    if (typeof c !== 'number' || !Number.isInteger(c) || c < 0 || c > 9999999999) return { ok: false, error: 'Custo inválido' }
     labCostCents = c
   }
   return {

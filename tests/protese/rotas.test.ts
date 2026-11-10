@@ -79,10 +79,10 @@ describe('PATCH/DELETE /api/protese/[id]', () => {
   })
   it('PATCH corpo inválido → 422; ok → 200', async () => {
     expect((await editar(req('PATCH', {}), ctx(ID))).status).toBe(422)
-    rpc.mockResolvedValue({ data: { expense: null, aviso: null }, error: null })
+    rpc.mockResolvedValue({ data: { expense: null, aviso: null, despesa_removida: false }, error: null })
     const r = await editar(req('PATCH', { patientId: PAC }), ctx(ID))
     expect(r.status).toBe(200)
-    expect(await r.json()).toEqual({ expense: null, aviso: null })
+    expect(await r.json()).toEqual({ expense: null, aviso: null, despesaRemovida: false })
   })
   it('PATCH não encontrado → 404', async () => {
     rpc.mockResolvedValue({ data: null, error: { message: 'PROTESE_NAO_ENCONTRADA' } })

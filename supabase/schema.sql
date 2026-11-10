@@ -2788,7 +2788,7 @@ $fn$;
 --   paga: não mexe; se custo ou dentista mudaram, avisa 'despesa_paga';
 --   sem despesa, nunca gerada, em returned/installed e custo > 0: cria.
 -- Na edição o laboratório precisa pertencer à clínica e estar ativo, exceto o atual da prótese.
--- Devolve {"expense": {"id","amount"} | null, "aviso": 'despesa_paga' | null}.
+-- Devolve {"expense": {"id","amount"} | null, "aviso": 'despesa_paga' | null, "despesa_removida": bool}.
 -- Erros: PROTESE_NAO_ENCONTRADA, PACIENTE_INVALIDO, PROFISSIONAL_INVALIDO, LABORATORIO_INVALIDO.
 
 CREATE OR REPLACE FUNCTION public.update_prosthetic(
@@ -2807,6 +2807,7 @@ DECLARE
   v_exp     expenses%ROWTYPE;
   v_expense JSONB := NULL;
   v_aviso   TEXT := NULL;
+  v_removida BOOLEAN := false;
   v_exp_id  UUID;
 BEGIN
   SELECT * INTO v_old FROM prosthetics
@@ -2857,11 +2858,16 @@ BEGIN
         UPDATE prosthetics
         SET expense_id = NULL, expense_generated = false
         WHERE id = p_id AND clinic_id = p_clinic_id;
-      ELSE
+        v_removida := true;
+      ELSIF v_old.lab_cost IS DISTINCT FROM v_row.lab_cost
+            OR v_old.professional_id IS DISTINCT FROM v_row.professional_id THEN
         UPDATE expenses
         SET amount = v_row.lab_cost, professional_id = v_row.professional_id, updated_at = now()
         WHERE id = v_exp.id AND clinic_id = p_clinic_id;
         v_expense := jsonb_build_object('id', v_exp.id, 'amount', v_row.lab_cost);
+      ELSE
+        -- custo e dentista não mudaram: preserva a despesa como está no Financeiro
+        v_expense := jsonb_build_object('id', v_exp.id, 'amount', v_exp.amount);
       END IF;
     END IF;
   ELSIF NOT v_row.expense_generated
@@ -2871,7 +2877,7 @@ BEGIN
     v_expense := jsonb_build_object('id', v_exp_id, 'amount', v_row.lab_cost);
   END IF;
 
-  RETURN jsonb_build_object('expense', v_expense, 'aviso', v_aviso);
+  RETURN jsonb_build_object('expense', v_expense, 'aviso', v_aviso, 'despesa_removida', v_removida);
 END;
 $fn$;
 

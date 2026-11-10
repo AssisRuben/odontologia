@@ -62,14 +62,15 @@ export function createProteseRepo(admin: SupabaseClient) {
       clinicId: string,
       id: string,
       i: ProteseInput,
-    ): Promise<{ expense: Despesa; aviso: 'despesa_paga' | null }> {
+    ): Promise<{ expense: Despesa; aviso: 'despesa_paga' | null; despesaRemovida: boolean }> {
       const { data, error } = await admin.rpc('update_prosthetic', {
         p_clinic_id: clinicId,
         p_id: id,
         p_data: paraDados(i),
       })
       if (error) lancar(error)
-      return data as { expense: Despesa; aviso: 'despesa_paga' | null }
+      const r = data as { expense: Despesa; aviso: 'despesa_paga' | null; despesa_removida?: boolean }
+      return { expense: r.expense, aviso: r.aviso, despesaRemovida: r.despesa_removida === true }
     },
 
     async mover(

@@ -47,6 +47,7 @@ export function ModalProtese({ protese, pacienteFixo, onClose, onSaved }: Props)
   const [labs, setLabs] = useState<Lab[]>([])
   const [novoLab, setNovoLab] = useState<string | null>(null)
   const [erroLab, setErroLab] = useState('')
+  const [erroCarga, setErroCarga] = useState(false)
   const [confirmaExcluir, setConfirmaExcluir] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
@@ -62,7 +63,10 @@ export function ModalProtese({ protese, pacienteFixo, onClose, onSaved }: Props)
 
   useEffect(() => {
     let ativo = true
-    fetch('/api/laboratorios').then((r) => r.json()).then((j) => { if (ativo) setLabs(j.itens ?? []) }).catch(() => {})
+    fetch('/api/laboratorios')
+      .then((r) => { if (!r.ok) throw new Error('falha'); return r.json() })
+      .then((j) => { if (ativo) setLabs(j.itens ?? []) })
+      .catch(() => { if (ativo) setErroCarga(true) })
     return () => { ativo = false }
   }, [])
 
@@ -70,6 +74,8 @@ export function ModalProtese({ protese, pacienteFixo, onClose, onSaved }: Props)
   const custoCents = custoTexto ? parseReaisInput(custoTexto) : null
   const custoInvalido = custoTexto !== '' && custoCents === null
   const labsVisiveis = labs.filter((l) => l.active || l.id === labId)
+  // Edição: mostra o laboratório atual mesmo antes de a lista carregar.
+  if (protese?.lab && !labsVisiveis.some((l) => l.id === protese.lab!.id)) labsVisiveis.push(protese.lab)
   const podeSalvar = !!paciente && !custoInvalido && !enviando
 
   async function pedir(fn: () => Promise<void>) {
@@ -109,6 +115,7 @@ export function ModalProtese({ protese, pacienteFixo, onClose, onSaved }: Props)
       if (!res.ok) { setErro(json.error ?? 'Não foi possível salvar. Tente novamente.'); return }
       let msg: string | undefined
       if (json.aviso === 'despesa_paga') msg = MSG_PAGA
+      else if (json.despesaRemovida) msg = 'Despesa pendente removida do Financeiro'
       else if (json.expense && !protese?.expense_id) {
         msg = `Despesa de ${formatValor(Number(json.expense.amount))} lançada no Financeiro (a pagar)`
       }
@@ -185,6 +192,7 @@ export function ModalProtese({ protese, pacienteFixo, onClose, onSaved }: Props)
                 {labsVisiveis.map((l) => <option key={l.id} value={l.id}>{l.name}{l.active ? '' : ' (inativo)'}</option>)}
                 <option value="__novo">+ Novo laboratório</option>
               </select>
+              {erroCarga && <p className="text-xs text-red-600 mt-1">Não foi possível carregar os laboratórios.</p>}
             </div>
           </div>
 

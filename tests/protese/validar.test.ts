@@ -22,6 +22,8 @@ describe('parseProtese', () => {
     expect(ok(123456)).toMatchObject({ ok: true, input: { labCostCents: 123456 } })
     expect(ok(0)).toMatchObject({ ok: true, input: { labCostCents: 0 } })
     expect(ok(null)).toMatchObject({ ok: true, input: { labCostCents: null } })
+    expect(ok(9999999999)).toMatchObject({ ok: true, input: { labCostCents: 9999999999 } })
+    expect(ok(10000000000)).toEqual({ ok: false, error: 'Custo inválido' })
     for (const bad of [-1, 1.5, '350', NaN]) expect(ok(bad)).toEqual({ ok: false, error: 'Custo inválido' })
   })
   it('data, tamanhos e ids', () => {

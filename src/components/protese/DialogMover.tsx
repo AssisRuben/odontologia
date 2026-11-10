@@ -8,6 +8,7 @@ import { etapa } from '@/lib/protese/etapas'
 interface Props {
   protese: Prosthetic
   para: ProstheticStatus
+  hojeYmd: string
   onClose: () => void
   onMoved: (r: { expense: { amount: number } | null }) => void
   onConflito: () => void
@@ -15,9 +16,12 @@ interface Props {
 
 const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo'
 
-export function DialogMover({ protese, para, onClose, onMoved, onConflito }: Props) {
+export function DialogMover({ protese, para, hojeYmd, onClose, onMoved, onConflito }: Props) {
   const [observacao, setObservacao] = useState('')
-  const [previsao, setPrevisao] = useState(protese.expected_at?.slice(0, 10) ?? '')
+  // Só pré-preenche com a previsão anterior se ainda não passou (na 2ª ida ao laboratório já estaria vencida).
+  const anterior = protese.expected_at?.slice(0, 10) ?? ''
+  const anteriorPassou = !!anterior && !!hojeYmd && anterior < hojeYmd
+  const [previsao, setPrevisao] = useState(anterior && !anteriorPassou ? anterior : '')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const emAndamento = useRef(false)
@@ -67,6 +71,9 @@ export function DialogMover({ protese, para, onClose, onMoved, onConflito }: Pro
             <div>
               <label htmlFor="mv-prev" className="block text-sm font-medium text-tinta mb-1">Previsão de retorno</label>
               <input id="mv-prev" type="date" value={previsao} onChange={(e) => setPrevisao(e.target.value)} className={inputCls} />
+              {!previsao && anteriorPassou && (
+                <p className="text-xs text-tinta-3 mt-1">A previsão anterior já passou. Informe a nova data de retorno.</p>
+              )}
             </div>
           )}
           <div>

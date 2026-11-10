@@ -77,10 +77,15 @@ describe('RPCs', () => {
     await createProteseRepo({ rpc } as never).criar(CLINIC, USER, { ...input, labCostCents: null })
     expect(rpc.mock.calls[0][1].p_data.lab_cost).toBeNull()
   })
-  it('editar envia as 8 chaves', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: { expense: null, aviso: null }, error: null })
+  it('editar repassa despesa_removida como despesaRemovida', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { expense: null, aviso: null, despesa_removida: true }, error: null })
     const r = await createProteseRepo({ rpc } as never).editar(CLINIC, ID, input)
-    expect(r).toEqual({ expense: null, aviso: null })
+    expect(r.despesaRemovida).toBe(true)
+  })
+  it('editar envia as 8 chaves', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { expense: null, aviso: null, despesa_removida: false }, error: null })
+    const r = await createProteseRepo({ rpc } as never).editar(CLINIC, ID, input)
+    expect(r).toEqual({ expense: null, aviso: null, despesaRemovida: false })
     expect(rpc.mock.calls[0][0]).toBe('update_prosthetic')
     expect(rpc.mock.calls[0][1].p_id).toBe(ID)
     expect(Object.keys(rpc.mock.calls[0][1].p_data).sort()).toEqual(
