@@ -146,7 +146,7 @@ function ArchRow({ teeth, faceMap, upper, onTooth }: {
   )
 }
 
-const VSep = () => <div className="self-stretch mx-1 border-l border-dashed border-[#E5E7EB]" />
+const VSep = () => <div className="self-stretch mx-1 border-l border-dashed border-linha" />
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 
@@ -160,22 +160,22 @@ function DetailPanel({ num, details, onClose }: {
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative bg-white rounded-xl shadow-xl w-72 p-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-bold text-[#111827]">Dente {num}</p>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+          <p className="text-sm font-bold text-tinta">Dente {num}</p>
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="space-y-2">
           {details.map((d, i) => (
-            <div key={i} className="p-2.5 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6]">
+            <div key={i} className="p-2.5 rounded-lg bg-porcelana-2 border border-porcelana">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLOR[d.status] }} />
-                <span className="text-xs font-semibold text-[#111827]">{d.procedure}</span>
+                <span className="text-xs font-semibold text-tinta">{d.procedure}</span>
               </div>
               <div className="flex gap-2 mt-1 ml-4">
                 <span className="text-[10px]" style={{ color: STATUS_COLOR[d.status] }}>{STATUS_LABEL[d.status]}</span>
                 {d.faces.length > 0 && (
-                  <span className="text-[10px] text-[#9CA3AF]">· {d.faces.join(', ')}</span>
+                  <span className="text-[10px] text-tinta-4">· {d.faces.join(', ')}</span>
                 )}
               </div>
             </div>
@@ -264,17 +264,17 @@ export function Odontograma({ patientId, refreshKey }: OdontogramaProps) {
     <div>
       {/* Toggle */}
       <div className="flex items-center gap-2 mb-4">
-        <div className="flex rounded-lg border border-[#E5E7EB] overflow-hidden">
+        <div className="flex rounded-lg border border-linha overflow-hidden">
           {(['permanentes', 'deciduos'] as const).map(m => (
             <button key={m} onClick={() => setMode(m)}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                mode === m ? 'bg-[#3B82F6] text-white' : 'bg-white text-[#6B7280] hover:bg-[#F3F4F6]'
+                mode === m ? 'bg-petroleo text-white' : 'bg-white text-tinta-3 hover:bg-porcelana'
               }`}>
               {m === 'permanentes' ? 'Permanentes' : 'Decíduos'}
             </button>
           ))}
         </div>
-        <span className="text-[10px] text-[#9CA3AF]">Clique num dente colorido para ver detalhes</span>
+        <span className="text-[10px] text-tinta-4">Clique num dente colorido para ver detalhes</span>
       </div>
 
       {/* Chart */}
@@ -288,9 +288,9 @@ export function Odontograma({ patientId, refreshKey }: OdontogramaProps) {
           </div>
           {/* Linha midline */}
           <div className="w-full flex items-center gap-1 my-1">
-            <div className="flex-1 border-t border-dashed border-[#E5E7EB]" />
-            <span className="text-[9px] text-[#CBD5E1] px-1">Superior · Inferior</span>
-            <div className="flex-1 border-t border-dashed border-[#E5E7EB]" />
+            <div className="flex-1 border-t border-dashed border-linha" />
+            <span className="text-[9px] text-linha-forte px-1">Superior · Inferior</span>
+            <div className="flex-1 border-t border-dashed border-linha" />
           </div>
           {/* Inferior */}
           <div className="flex items-start">
@@ -304,13 +304,13 @@ export function Odontograma({ patientId, refreshKey }: OdontogramaProps) {
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 justify-center">
         {(Object.entries(STATUS_COLOR) as [TreatmentStatus, string][]).map(([s, c]) => (
-          <span key={s} className="flex items-center gap-1.5 text-xs text-[#6B7280]">
+          <span key={s} className="flex items-center gap-1.5 text-xs text-tinta-3">
             <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: c }} />
             {STATUS_LABEL[s]}
           </span>
         ))}
-        <span className="flex items-center gap-1.5 text-xs text-[#6B7280]">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#E2E8F0] inline-block" />
+        <span className="flex items-center gap-1.5 text-xs text-tinta-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-linha inline-block" />
           Sem tratamento
         </span>
       </div>
@@ -318,7 +318,7 @@ export function Odontograma({ patientId, refreshKey }: OdontogramaProps) {
       {/* Face legend */}
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-0.5 mt-2">
         {(['V','M','O','D','L'] as FaceKey[]).map(k => (
-          <span key={k} className="text-[9px] text-[#9CA3AF]">
+          <span key={k} className="text-[9px] text-tinta-4">
             <b>{k}</b>={({'V':'Vestibular','M':'Mesial','O':'Oclusal','D':'Distal','L':'Lingual'})[k]}
           </span>
         ))}

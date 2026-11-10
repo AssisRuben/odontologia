@@ -23,7 +23,7 @@ const DIAS: { key: string; label: string }[] = [
   { key: '6', label: 'Sábado' },
   { key: '0', label: 'Domingo' },
 ]
-const timeCls = 'h-9 px-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] disabled:opacity-40'
+const timeCls = 'h-9 px-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo disabled:opacity-40'
 
 function paraSemana(raw: unknown): Semana {
   const n = normalizeWorkingHours(raw)
@@ -220,14 +220,14 @@ export default function ProfissionaisPage() {
     <div className="p-6 max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+          <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold text-[#111827]">Gestão de profissionais</h1>
+          <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Gestão de profissionais</h1>
         </div>
         <button
           onClick={openNew}
-          className="flex items-center gap-1.5 px-4 h-9 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB] transition-colors"
+          className="flex items-center gap-1.5 px-4 h-9 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro transition-colors"
         >
           <Plus className="w-4 h-4" /> Novo profissional
         </button>
@@ -235,12 +235,12 @@ export default function ProfissionaisPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] divide-y divide-[#F3F4F6]">
+        <div className="bg-white rounded-xl border border-linha divide-y divide-porcelana">
           {professionals.length === 0 ? (
-            <div className="py-12 text-center text-sm text-[#6B7280]">
+            <div className="py-12 text-center text-sm text-tinta-3">
               Nenhum profissional cadastrado ainda.
             </div>
           ) : (
@@ -251,12 +251,12 @@ export default function ProfissionaisPage() {
                   {p.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#111827]">{p.name}</p>
-                  <p className="text-xs text-[#6B7280]">
+                  <p className="text-sm font-semibold text-tinta">{p.name}</p>
+                  <p className="text-xs text-tinta-3">
                     {[p.specialty, p.cro ? `CRO: ${p.cro}` : ''].filter(Boolean).join(' · ') || 'Sem especialidade informada'}
                   </p>
                   {p.commission_rate !== null && p.commission_rate !== undefined && (
-                    <p className="text-xs text-[#6B7280]">
+                    <p className="text-xs text-tinta-3">
                       Comissão: {pctTexto(p.commission_rate)}%
                       {p.commission_rate_insurance !== null && p.commission_rate_insurance !== undefined &&
                         ` · convênio ${pctTexto(p.commission_rate_insurance)}%`}
@@ -266,11 +266,11 @@ export default function ProfissionaisPage() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => openEdit(p)}
-                    className="p-1.5 rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#374151] transition-colors">
+                    className="p-1.5 rounded-lg text-tinta-3 hover:bg-porcelana hover:text-tinta-2 transition-colors">
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(p.id)} disabled={deletingId === p.id}
-                    className="p-1.5 rounded-lg text-[#6B7280] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
+                    className="p-1.5 rounded-lg text-tinta-3 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -285,62 +285,62 @@ export default function ProfissionaisPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeForm} />
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-              <h2 className="text-base font-semibold text-[#111827]">
+            <div className="flex items-center justify-between p-5 border-b border-linha">
+              <h2 className="text-base font-semibold text-tinta">
                 {editing ? 'Editar profissional' : 'Novo profissional'}
               </h2>
-              <button onClick={closeForm} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]">
+              <button onClick={closeForm} className="p-1 rounded text-tinta-4 hover:text-tinta-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-1">Nome *</label>
+                <label className="block text-sm font-medium text-tinta mb-1">Nome *</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                   placeholder="Dr. João Silva" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">CRO</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">CRO</label>
                   <input value={form.cro} onChange={e => setForm(f => ({ ...f, cro: e.target.value }))}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                     placeholder="SP-12345" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Especialidade</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Especialidade</label>
                   <input value={form.specialty} onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                     placeholder="Ortodontia" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">% comissão particular</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">% comissão particular</label>
                   <input inputMode="decimal" value={form.rate}
                     onChange={e => {
                       const rate = e.target.value
                       setForm(f => ({ ...f, rate, commissionStart: rate.trim() && !f.commissionStart ? mesAtual() : f.commissionStart }))
                     }}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                     placeholder="30" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">% comissão convênio (opcional; vazio = igual ao particular)</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">% comissão convênio (opcional; vazio = igual ao particular)</label>
                   <input inputMode="decimal" value={form.rateInsurance} onChange={e => setForm(f => ({ ...f, rateInsurance: e.target.value }))}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                     placeholder="20" />
                 </div>
               </div>
               <div>
-                <label htmlFor="commission-start" className="block text-sm font-medium text-[#111827] mb-1">Comissão a partir de</label>
+                <label htmlFor="commission-start" className="block text-sm font-medium text-tinta mb-1">Comissão a partir de</label>
                 <input id="commission-start" type="month" value={form.commissionStart}
                   onChange={e => setForm(f => ({ ...f, commissionStart: e.target.value }))}
-                  className="h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
-                <p className="text-xs text-[#6B7280] mt-1">O que foi recebido antes deste mês não entra na comissão.</p>
+                  className="h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
+                <p className="text-xs text-tinta-3 mt-1">O que foi recebido antes deste mês não entra na comissão.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-2">Cor na agenda</label>
+                <label className="block text-sm font-medium text-tinta mb-2">Cor na agenda</label>
                 <div className="flex gap-2 flex-wrap">
                   {COLORS.map(c => (
                     <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))}
@@ -353,18 +353,18 @@ export default function ProfissionaisPage() {
                   ))}
                 </div>
               </div>
-              <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
-                <label className="flex items-center justify-between gap-3 text-sm font-medium text-[#111827]">
+              <div className="border-t border-linha pt-4 space-y-3">
+                <label className="flex items-center justify-between gap-3 text-sm font-medium text-tinta">
                   Atende pelo WhatsApp
                   <input type="checkbox" role="switch" checked={form.whatsapp}
                     onChange={e => setForm(f => ({ ...f, whatsapp: e.target.checked }))}
-                    className="w-5 h-5 accent-[#3B82F6]" />
+                    className="w-5 h-5 accent-petroleo" />
                 </label>
                 {form.whatsapp && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs text-[#6B7280]">Horários que o agente pode oferecer</p>
-                      <button type="button" onClick={copiarSegunda} className="text-xs text-[#3B82F6] hover:underline">
+                      <p className="text-xs text-tinta-3">Horários que o agente pode oferecer</p>
+                      <button type="button" onClick={copiarSegunda} className="text-xs text-petroleo hover:underline">
                         Copiar segunda para os dias úteis
                       </button>
                     </div>
@@ -372,29 +372,29 @@ export default function ProfissionaisPage() {
                       const ps = semana[d.key]
                       return (
                         <div key={d.key} className="flex flex-wrap items-center gap-2 text-sm">
-                          <span className="w-16 text-[#111827]">{d.label}</span>
-                          <label className="flex items-center gap-1.5 text-[#6B7280]">
+                          <span className="w-16 text-tinta">{d.label}</span>
+                          <label className="flex items-center gap-1.5 text-tinta-3">
                             <input type="checkbox" checked={ps.length === 0}
-                              onChange={e => setNaoAtende(d.key, e.target.checked)} className="accent-[#3B82F6]" />
+                              onChange={e => setNaoAtende(d.key, e.target.checked)} className="accent-petroleo" />
                             Não atende
                           </label>
                           {ps.map((r, i) => (
                             <span key={i} className="flex items-center gap-1">
                               <input type="time" aria-label={`${d.label}: período ${i + 1} começa às`} value={r[0]}
                                 onChange={e => setPeriodo(d.key, i, 0, e.target.value)} className={timeCls} />
-                              <span className="text-[#6B7280]">às</span>
+                              <span className="text-tinta-3">às</span>
                               <input type="time" aria-label={`${d.label}: período ${i + 1} termina às`} value={r[1]}
                                 onChange={e => setPeriodo(d.key, i, 1, e.target.value)} className={timeCls} />
                               {ps.length > 1 && (
                                 <button type="button" aria-label={`${d.label}: remover período ${i + 1}`}
-                                  onClick={() => removePeriodo(d.key, i)} className="p-1 text-[#9CA3AF] hover:text-red-500">
+                                  onClick={() => removePeriodo(d.key, i)} className="p-1 text-tinta-4 hover:text-red-500">
                                   <X className="w-4 h-4" />
                                 </button>
                               )}
                             </span>
                           ))}
                           {ps.length > 0 && ps.length < 2 && (
-                            <button type="button" onClick={() => addPeriodo(d.key)} className="text-xs text-[#3B82F6] hover:underline">
+                            <button type="button" onClick={() => addPeriodo(d.key)} className="text-xs text-petroleo hover:underline">
                               + período
                             </button>
                           )}
@@ -407,11 +407,11 @@ export default function ProfissionaisPage() {
               {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={closeForm}
-                  className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
+                  className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana">
                   Cancelar
                 </button>
                 <button type="submit" disabled={saving}
-                  className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+                  className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
                   {saving ? 'Salvando...' : editing ? 'Salvar' : 'Criar'}
                 </button>
               </div>

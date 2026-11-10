@@ -124,26 +124,26 @@ export function ModalEditarConsulta({
           />
         )}
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
           <div>
-            <h2 className="text-base font-semibold text-[#111827]">Editar consulta</h2>
-            <p className="text-xs text-[#6B7280] mt-0.5">{apt.patient?.name || 'Paciente'}</p>
+            <h2 className="text-base font-semibold text-tinta">Editar consulta</h2>
+            <p className="text-xs text-tinta-3 mt-0.5">{apt.patient?.name || 'Paciente'}</p>
           </div>
           <div className="flex items-center gap-2">
             {status === 'confirmed' ? (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#DBEAFE] text-[#1D4ED8] text-xs font-semibold">
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-petroleo-100 text-petroleo-escuro text-xs font-semibold">
                 ✓ Confirmado
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => setStatus('confirmed')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3B82F6] text-white text-xs font-semibold hover:bg-[#2563EB] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-petroleo text-white text-xs font-semibold hover:bg-petroleo-escuro transition-colors"
               >
                 ✓ Confirmar
               </button>
             )}
-            <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+            <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -152,11 +152,11 @@ export function ModalEditarConsulta({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Profissional */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Profissional</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Profissional</label>
             <select
               value={professionalId}
               onChange={(e) => setProfessionalId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
               {professionals.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -167,28 +167,28 @@ export function ModalEditarConsulta({
           {/* Data e horários */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Data</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Data</label>
               <input
                 type="date" value={date} onChange={(e) => setDate(e.target.value)} required
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Início</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Início</label>
               <button
                 type="button"
                 onClick={() => setActivePicker('start')}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm text-left bg-white text-[#111827] hover:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] transition-colors"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm text-left bg-white text-tinta hover:border-petroleo focus:outline-none focus:ring-2 focus:ring-petroleo transition-colors"
               >
                 {startTime}
               </button>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Fim</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Fim</label>
               <button
                 type="button"
                 onClick={() => setActivePicker('end')}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm text-left bg-white text-[#111827] hover:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] transition-colors"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm text-left bg-white text-tinta hover:border-petroleo focus:outline-none focus:ring-2 focus:ring-petroleo transition-colors"
               >
                 {endTime}
               </button>
@@ -197,21 +197,21 @@ export function ModalEditarConsulta({
 
           {/* Procedimento */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Procedimento</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Procedimento</label>
             <input
               type="text" value={procedure} onChange={(e) => setProcedure(e.target.value)}
               placeholder="Ex: Limpeza, Canal, Restauração..."
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
           </div>
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Status</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
               {statusOptions.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -221,12 +221,12 @@ export function ModalEditarConsulta({
 
           {/* Observações */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Observações</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Observações</label>
             <textarea
               value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Informações adicionais..."
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none"
             />
           </div>
 
@@ -239,21 +239,21 @@ export function ModalEditarConsulta({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
             >
               {loading ? 'Salvando...' : 'Salvar alterações'}
             </button>
           </div>
 
           {/* Excluir */}
-          <div className="border-t border-[#F3F4F6] pt-3">
+          <div className="border-t border-porcelana pt-3">
             {!confirmDelete ? (
               <button
                 type="button"
@@ -265,7 +265,7 @@ export function ModalEditarConsulta({
               </button>
             ) : (
               <div className="flex items-center gap-3">
-                <span className="text-xs text-[#374151]">Confirmar exclusão?</span>
+                <span className="text-xs text-tinta-2">Confirmar exclusão?</span>
                 <button
                   type="button"
                   onClick={handleDelete}
@@ -277,7 +277,7 @@ export function ModalEditarConsulta({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="text-xs text-[#6B7280] hover:underline"
+                  className="text-xs text-tinta-3 hover:underline"
                 >
                   Não
                 </button>

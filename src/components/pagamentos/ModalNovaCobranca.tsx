@@ -13,6 +13,7 @@ import { toDbPaidAt } from '@/lib/payments/dates'
 import { PAYMENT_METHOD_LABELS } from '@/types'
 import type { PaymentMethod } from '@/types'
 import { errorText } from './errorText'
+import { useTaxaMaquininha } from './useTaxaMaquininha'
 
 export interface NovaCobrancaPatient {
   id: string
@@ -47,7 +48,7 @@ function ddmm(iso: string): string {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 }
 
-const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
+const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo'
 
 export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props) {
   const { clinicId } = useClinicStore()
@@ -90,6 +91,8 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
   const parsedCents = parseReaisInput(amount)
   const amountCents = parsedCents ?? 0
   const needCpf = isAsaas && !patient.cpf
+  // Taxa da maquininha só no lançamento manual já recebido; "a receber" aplica ao marcar como pago.
+  const taxa = useTaxaMaquininha(method, amountCents, effectiveMode === 'manual' && received)
 
   const waBlock = patient.whatsapp_opt_out
     ? 'Paciente optou por não receber WhatsApp'
@@ -115,7 +118,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
     return `${installmentCount}x de ${formatCurrency(parts[0].amountCents / 100)} · vencimentos ${ddmm(firstDue)} a ${ddmm(last.dueDate)}`
   }, [amountCents, installmentCount, firstDue, validation])
 
-  const canSubmit = !submitting && !amountOnlyError && !dateMissing && description.trim().length > 0 &&
+  const canSubmit = !submitting && !amountOnlyError && !dateMissing && !taxa.erro && description.trim().length > 0 &&
     (effectiveMode !== 'manual' || !!clinicId) && (!isAsaas || asaasOk === true)
 
   async function handleSubmit() {
@@ -134,6 +137,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
           payment_method: method,
           status: received ? 'paid' : 'pending',
           ...(received ? { paid_at: toDbPaidAt(paidDate) } : { due_date: firstDue }),
+          ...(received && taxa.liquidoCentavos !== null ? { net_amount: taxa.liquidoCentavos / 100 } : {}),
           charge_kind: 'manual',
           ...(budget ? { budget_id: budget.id } : {}),
         })
@@ -183,9 +187,9 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={submitting ? undefined : onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Nova cobrança</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]" aria-label="Fechar">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Nova cobrança</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-4 hover:text-tinta-2" aria-label="Fechar">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -193,19 +197,19 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
         {notices ? (
           <div className="p-5 space-y-4">
             {notices.map((n) => (
-              <p key={n} role="status" className="text-sm text-[#374151] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">{n}</p>
+              <p key={n} role="status" className="text-sm text-tinta-2 bg-porcelana-2 border border-linha rounded-lg px-3 py-2">{n}</p>
             ))}
             <button type="button" onClick={onClose}
-              className="w-full h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB]">
+              className="w-full h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro">
               Fechar
             </button>
           </div>
         ) : (
           <div className="p-5 space-y-4">
-            <p className="text-sm text-[#6B7280]">Paciente: <span className="font-medium text-[#111827]">{patient.name}</span></p>
+            <p className="text-sm text-tinta-3">Paciente: <span className="font-medium text-tinta">{patient.name}</span></p>
 
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Forma</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Forma</label>
               <div className="grid grid-cols-2 gap-2">
                 {MODES.map((m) => {
                   const disabled = m.value !== 'manual' && asaasOk !== true
@@ -213,7 +217,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
                   return (
                     <button key={m.value} type="button" disabled={disabled} onClick={() => setMode(m.value)}
                       className={`h-10 rounded-lg border text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                        active ? 'border-[#3B82F6] bg-[#EFF6FF] text-[#3B82F6]' : 'border-[#E5E7EB] text-[#374151] hover:bg-[#F3F4F6]'
+                        active ? 'border-petroleo bg-petroleo-50 text-petroleo' : 'border-linha text-tinta-2 hover:bg-porcelana'
                       }`}>
                       {m.label}
                     </button>
@@ -221,22 +225,22 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
                 })}
               </div>
               {asaasOk === false && (
-                <p className="text-xs text-[#6B7280] mt-1.5">
+                <p className="text-xs text-tinta-3 mt-1.5">
                   Asaas não conectado.{' '}
-                  <Link href="/configuracoes/pagamentos" className="font-medium text-[#3B82F6] underline">Conectar o Asaas</Link>
+                  <Link href="/configuracoes/pagamentos" className="font-medium text-petroleo underline">Conectar o Asaas</Link>
                 </p>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="nc-valor" className="block text-sm font-medium text-[#111827] mb-1">Valor total (R$)</label>
+                <label htmlFor="nc-valor" className="block text-sm font-medium text-tinta mb-1">Valor total (R$)</label>
                 <input id="nc-valor" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
                   placeholder="0,00" className={inputCls} />
               </div>
               {(effectiveMode === 'carne' || effectiveMode === 'cartao_parcelado') && (
                 <div>
-                  <label htmlFor="nc-parcelas" className="block text-sm font-medium text-[#111827] mb-1">Parcelas</label>
+                  <label htmlFor="nc-parcelas" className="block text-sm font-medium text-tinta mb-1">Parcelas</label>
                   <input id="nc-parcelas" type="number" min={2} max={MAX_INSTALLMENTS} value={count}
                     onChange={(e) => setCount(Math.floor(Number(e.target.value)) || 0)} className={inputCls} />
                 </div>
@@ -244,21 +248,21 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
             </div>
 
             <div>
-              <label htmlFor="nc-desc" className="block text-sm font-medium text-[#111827] mb-1">Descrição</label>
+              <label htmlFor="nc-desc" className="block text-sm font-medium text-tinta mb-1">Descrição</label>
               <input id="nc-desc" value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} />
             </div>
 
             {effectiveMode === 'manual' && (
               <>
                 <div>
-                  <label htmlFor="nc-metodo" className="block text-sm font-medium text-[#111827] mb-1">Forma de pagamento</label>
+                  <label htmlFor="nc-metodo" className="block text-sm font-medium text-tinta mb-1">Forma de pagamento</label>
                   <select id="nc-metodo" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className={inputCls}>
                     {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((k) => (
                       <option key={k} value={k}>{PAYMENT_METHOD_LABELS[k]}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex gap-4 text-sm text-[#374151]">
+                <div className="flex gap-4 text-sm text-tinta-2">
                   <label className="flex items-center gap-1.5">
                     <input type="radio" checked={received} onChange={() => setReceived(true)} /> Já recebido
                   </label>
@@ -266,11 +270,12 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
                     <input type="radio" checked={!received} onChange={() => setReceived(false)} /> A receber
                   </label>
                 </div>
+                {taxa.campos}
               </>
             )}
 
             <div>
-              <label htmlFor="nc-data" className="block text-sm font-medium text-[#111827] mb-1">
+              <label htmlFor="nc-data" className="block text-sm font-medium text-tinta mb-1">
                 {effectiveMode === 'manual' && received ? 'Data do pagamento'
                   : installmentCount > 1 ? 'Primeiro vencimento' : 'Vencimento'}
               </label>
@@ -283,7 +288,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
 
             {needCpf && (
               <div>
-                <label htmlFor="nc-cpf" className="block text-sm font-medium text-[#111827] mb-1">CPF do paciente</label>
+                <label htmlFor="nc-cpf" className="block text-sm font-medium text-tinta mb-1">CPF do paciente</label>
                 <input id="nc-cpf" inputMode="numeric" value={cpf} onChange={(e) => setCpf(e.target.value)}
                   placeholder="000.000.000-00" className={inputCls} />
               </div>
@@ -291,17 +296,17 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
 
             {isAsaas && (
               <div>
-                <label className={`flex items-center gap-2 text-sm ${waBlock ? 'text-[#9CA3AF]' : 'text-[#374151]'}`}>
+                <label className={`flex items-center gap-2 text-sm ${waBlock ? 'text-tinta-4' : 'text-tinta-2'}`}>
                   <input type="checkbox" checked={!waBlock && sendWa} disabled={!!waBlock}
                     onChange={(e) => setSendWa(e.target.checked)} />
                   Enviar link agora pelo WhatsApp
                 </label>
-                {waBlock && <p className="text-xs text-[#6B7280] mt-1 ml-6">{waBlock}</p>}
+                {waBlock && <p className="text-xs text-tinta-3 mt-1 ml-6">{waBlock}</p>}
               </div>
             )}
 
             {summary && !amountOnlyError && (
-              <p className="text-sm text-[#374151] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">{summary}</p>
+              <p className="text-sm text-tinta-2 bg-porcelana-2 border border-linha rounded-lg px-3 py-2">{summary}</p>
             )}
             {amountOnlyError && amount.trim() !== '' && (
               <p className="text-sm text-red-600">{amountOnlyError}</p>
@@ -310,11 +315,11 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
 
             <div className="flex gap-3">
               <button type="button" onClick={onClose} disabled={submitting}
-                className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] disabled:opacity-50">
+                className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana disabled:opacity-50">
                 {budget ? 'Cobrar depois' : 'Cancelar'}
               </button>
               <button type="button" onClick={handleSubmit} disabled={!canSubmit}
-                className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+                className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
                 {submitting ? 'Enviando...' : effectiveMode === 'manual' ? 'Registrar' : 'Criar cobrança'}
               </button>
             </div>

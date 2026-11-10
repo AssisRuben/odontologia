@@ -22,9 +22,9 @@ function textoPrazoRecurso(prazo: string, hoje: string): string {
   return `Prazo de recurso: ${dmy(prazo)} (${quando})`
 }
 
-const BTN = 'px-3 py-1.5 text-sm rounded-lg border border-[#E5E7EB] text-[#374151] hover:bg-[#F9FAFB]'
-const BTN_PRIMARIO = 'px-3 py-1.5 text-sm rounded-lg bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-50'
-const CARD = 'bg-white rounded-xl border border-[#E5E7EB] divide-y divide-[#F3F4F6]'
+const BTN = 'px-3 py-1.5 text-sm rounded-lg border border-linha text-tinta-2 hover:bg-porcelana-2'
+const BTN_PRIMARIO = 'px-3 py-1.5 text-sm rounded-lg bg-petroleo text-white hover:bg-petroleo-escuro disabled:opacity-50'
+const CARD = 'bg-white rounded-xl border border-linha divide-y divide-porcelana'
 
 export function AbaPagamentos() {
   const [dados, setDados] = useState<Pagamentos | null>(null)
@@ -138,7 +138,7 @@ export function AbaPagamentos() {
     }
   }
 
-  if (!dados) return <p className="text-sm text-[#6B7280]">{erro || 'Carregando...'}</p>
+  if (!dados) return <p className="text-sm text-tinta-3">{erro || 'Carregando...'}</p>
 
   const hoje = todayYmd(new Date(), 'America/Sao_Paulo')
   return (
@@ -147,9 +147,9 @@ export function AbaPagamentos() {
       {aviso && <p className="text-sm text-[#92400E] bg-[#FEF3C7] rounded-lg px-3 py-2">{aviso}</p>}
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-[#111827]">Aguardando pagamento</h2>
+        <h2 className="text-sm font-semibold text-tinta">Aguardando pagamento</h2>
         {dados.aguardando.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-6 text-center text-sm text-[#6B7280]">
+          <div className="bg-white rounded-xl border border-linha p-6 text-center text-sm text-tinta-3">
             Nenhum lote aguardando pagamento.
           </div>
         ) : (
@@ -157,7 +157,7 @@ export function AbaPagamentos() {
             {dados.aguardando.map((l) => (
               <div key={l.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium text-[#111827]">
+                  <p className="font-medium text-tinta">
                     {l.plan_name} · {mmaaaa(l.period_end)}
                     {l.atrasado && (
                       <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-[#FEF3C7] text-[#92400E]">
@@ -165,13 +165,13 @@ export function AbaPagamentos() {
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-[#6B7280]">
+                  <p className="text-xs text-tinta-3">
                     Enviado em {dmy(l.sent_at.slice(0, 10))}
                     {l.protocol ? ` · protocolo ${l.protocol}` : ''} · previsto para {dmy(l.data_prevista)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-[#111827]">{formatCurrency(l.total)}</span>
+                  <span className="text-sm font-medium text-tinta">{formatCurrency(l.total)}</span>
                   <button type="button" onClick={() => abrirPagamento(l)} disabled={ocupado === l.id} className={BTN_PRIMARIO}>
                     Registrar pagamento
                   </button>
@@ -183,9 +183,9 @@ export function AbaPagamentos() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-[#111827]">Glosas</h2>
+        <h2 className="text-sm font-semibold text-tinta">Glosas</h2>
         {dados.glosas.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-6 text-center text-sm text-[#6B7280]">
+          <div className="bg-white rounded-xl border border-linha p-6 text-center text-sm text-tinta-3">
             Nenhuma glosa em aberto.
           </div>
         ) : (
@@ -203,14 +203,14 @@ export function AbaPagamentos() {
               return (
                 <div key={g.item_id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-48 flex-1">
-                    <p className="font-medium text-[#111827]">
+                    <p className="font-medium text-tinta">
                       {g.patient_name} · {g.code} · {g.name}
                     </p>
-                    <p className="text-xs text-[#6B7280]">
+                    <p className="text-xs text-tinta-3">
                       {g.glosa_code ? `Motivo ${g.glosa_code}${g.glosa_reason ? ` — ${g.glosa_reason}` : ''}` : 'Sem motivo'}
                       {g.glosa_note ? ` · ${g.glosa_note}` : ''}
                     </p>
-                    <p className="text-xs text-[#6B7280]">
+                    <p className="text-xs text-tinta-3">
                       {g.appeal_status === 'nenhum'
                         ? textoPrazoRecurso(g.prazo_recurso, hoje)
                         : `${situacao}${g.appeal_at ? ` · recurso em ${dmy(g.appeal_at)}` : ''}${
@@ -256,9 +256,9 @@ export function AbaPagamentos() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-[#111827]">Pagos (últimos 6 meses)</h2>
+        <h2 className="text-sm font-semibold text-tinta">Pagos (últimos 6 meses)</h2>
         {dados.pagos.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-6 text-center text-sm text-[#6B7280]">
+          <div className="bg-white rounded-xl border border-linha p-6 text-center text-sm text-tinta-3">
             Nenhum lote pago neste período.
           </div>
         ) : (
@@ -266,10 +266,10 @@ export function AbaPagamentos() {
             {dados.pagos.map((l) => (
               <div key={l.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium text-[#111827]">
+                  <p className="font-medium text-tinta">
                     {l.plan_name} · {mmaaaa(l.period_end)}
                   </p>
-                  <p className="text-xs text-[#6B7280]">
+                  <p className="text-xs text-tinta-3">
                     Pago em {dmy(l.paid_at.slice(0, 10))} · enviado {formatCurrency(l.totais.enviado)} · pago{' '}
                     {formatCurrency(l.totais.pago)} · glosado {formatCurrency(l.totais.glosado)}
                   </p>

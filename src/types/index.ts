@@ -4,7 +4,8 @@ export interface Clinic {
   cnpj?: string
   phone?: string
   address?: string
-  card_rates?: Record<string, string>
+  /** Taxas da maquininha por faixa (ver lib/payments/taxasMaquininha). */
+  card_rates?: Record<string, number | string>
   whatsapp_key?: string
   whatsapp_phone?: string
   budget_validity_days?: number
@@ -275,14 +276,26 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   no_show: 'Faltou',
 }
 
+/** Cor forte de cada status (etiquetas, faixas). */
 export const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, string> = {
-  scheduled: '#F59E0B',
-  confirmed: '#3B82F6',
-  waiting: '#8B5CF6',
-  in_progress: '#10B981',
-  completed: '#6B7280',
-  cancelled: '#EF4444',
-  no_show: '#EF4444',
+  scheduled: '#A86B12',
+  confirmed: '#173B47',
+  waiting: '#5B4BB0',
+  in_progress: '#2F9A5E',
+  completed: '#6E7C82',
+  cancelled: '#C24767',
+  no_show: '#C24767',
+}
+
+/** Fundo suave + texto de cada status, para os blocos da agenda. */
+export const APPOINTMENT_STATUS_SOFT: Record<AppointmentStatus, { bg: string; fg: string }> = {
+  scheduled: { bg: '#FFF5E1', fg: '#6A4A0C' },
+  confirmed: { bg: '#E4EFF2', fg: '#173B47' },
+  waiting: { bg: '#ECE7FA', fg: '#43348A' },
+  in_progress: { bg: '#DDF1E5', fg: '#175536' },
+  completed: { bg: '#F1F3F4', fg: '#6E7C82' },
+  cancelled: { bg: '#FCEEF1', fg: '#962A47' },
+  no_show: { bg: '#FCEEF1', fg: '#962A47' },
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {

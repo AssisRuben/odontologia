@@ -250,7 +250,7 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
 
   const botao =
     'inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50'
-  const neutro = 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6]'
+  const neutro = 'border-linha bg-white text-tinta-2 hover:border-petroleo hover:text-petroleo'
   const ativo = 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
   const livre = modo === 'parado'
 
@@ -278,12 +278,12 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
           </button>
         )}
         {modo === 'transcrevendo' && (
-          <span className="inline-flex items-center gap-1.5 text-sm text-[#6B7280]">
+          <span className="inline-flex items-center gap-1.5 text-sm text-tinta-3">
             <Loader2 className="w-4 h-4 animate-spin" /> Transcrevendo…
           </span>
         )}
       </div>
-      {parcial && <p className="text-sm text-[#9CA3AF] italic">{parcial}</p>}
+      {parcial && <p className="text-sm text-tinta-4 italic">{parcial}</p>}
       {erro && <p className="text-sm text-red-600">{erro}</p>}
     </div>
   )

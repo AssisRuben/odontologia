@@ -12,7 +12,7 @@ export type ItemPagamentoLote = { id: string; patient_name: string; code: string
 type Linha = { paid: string; glosaCode: string; glosaLabel: string; glosaNote: string }
 type Motivo = { code: string; name: string }
 
-const INPUT = 'h-9 px-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white'
+const INPUT = 'h-9 px-2.5 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white'
 const mmaaaa = (ymd: string) => `${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`
 
 function BuscaMotivo({
@@ -65,11 +65,11 @@ function BuscaMotivo({
 
   if (code) {
     return (
-      <div className="flex items-center gap-2 text-xs text-[#111827]">
+      <div className="flex items-center gap-2 text-xs text-tinta">
         <span className="min-w-0 flex-1 truncate" title={label}>
-          <span className="font-mono text-[#6B7280]">{code}</span> {label}
+          <span className="font-mono text-tinta-3">{code}</span> {label}
         </span>
-        <button type="button" onClick={() => onPick(null)} className="text-[#3B82F6] hover:underline shrink-0">
+        <button type="button" onClick={() => onPick(null)} className="text-petroleo hover:underline shrink-0">
           Trocar
         </button>
       </div>
@@ -85,13 +85,13 @@ function BuscaMotivo({
         className={`${INPUT} w-full`}
       />
       {q.trim().length >= 2 && (
-        <div className="bg-white rounded-lg border border-[#E5E7EB] divide-y divide-[#F3F4F6] max-h-40 overflow-y-auto">
+        <div className="bg-white rounded-lg border border-linha divide-y divide-porcelana max-h-40 overflow-y-auto">
           {searching ? (
-            <p className="px-3 py-2 text-xs text-[#6B7280]">Buscando...</p>
+            <p className="px-3 py-2 text-xs text-tinta-3">Buscando...</p>
           ) : erro ? (
             <p className="px-3 py-2 text-xs text-[#DC2626]">{erro}</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-[#6B7280]">Nenhum motivo encontrado.</p>
+            <p className="px-3 py-2 text-xs text-tinta-3">Nenhum motivo encontrado.</p>
           ) : (
             results.map((m) => (
               <button
@@ -101,9 +101,9 @@ function BuscaMotivo({
                   onPick(m)
                   setQ('')
                 }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F3F4F6]"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-porcelana"
               >
-                <span className="font-mono text-[#6B7280] mr-2">{m.code}</span>
+                <span className="font-mono text-tinta-3 mr-2">{m.code}</span>
                 {m.name}
               </button>
             ))
@@ -198,20 +198,20 @@ export function ModalPagamentoLote({
     <div className="no-print fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-5 pt-5 pb-2">
-          <h2 className="font-semibold text-[#111827]">
+          <h2 className="font-semibold text-tinta">
             Registrar pagamento · {lote.plano} · {mmaaaa(lote.periodEnd)}
           </h2>
           <button type="button" onClick={onClose} aria-label="Fechar">
-            <X className="w-5 h-5 text-[#6B7280]" />
+            <X className="w-5 h-5 text-tinta-3" />
           </button>
         </div>
 
-        <div className="px-5 py-2 flex flex-wrap items-end gap-3 border-b border-[#F3F4F6]">
-          <label className="text-sm text-[#374151]">
+        <div className="px-5 py-2 flex flex-wrap items-end gap-3 border-b border-porcelana">
+          <label className="text-sm text-tinta-2">
             Data do depósito
             <input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} className={`${INPUT} block mt-1`} />
           </label>
-          <label className="text-sm text-[#374151]">
+          <label className="text-sm text-tinta-2">
             Valor depositado (R$)
             <input
               value={deposit}
@@ -223,13 +223,13 @@ export function ModalPagamentoLote({
           <button
             type="button"
             onClick={tudoPago}
-            className="px-3 h-9 text-sm rounded-lg border border-[#E5E7EB] text-[#374151] hover:bg-[#F9FAFB]"
+            className="px-3 h-9 text-sm rounded-lg border border-linha text-tinta-2 hover:bg-porcelana-2"
           >
             Tudo pago
           </button>
         </div>
 
-        <div className="px-5 py-2 overflow-y-auto flex-1 divide-y divide-[#F3F4F6]">
+        <div className="px-5 py-2 overflow-y-auto flex-1 divide-y divide-porcelana">
           {itens.map((i) => {
             const l = linhas[i.id]
             const p = pago(i)
@@ -239,12 +239,12 @@ export function ModalPagamentoLote({
               <div key={i.id} className="py-2 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <div className="flex-1 min-w-48">
-                    <p className="text-[#111827] font-medium">{i.patient_name}</p>
-                    <p className="text-xs text-[#6B7280]">
+                    <p className="text-tinta font-medium">{i.patient_name}</p>
+                    <p className="text-xs text-tinta-3">
                       {i.code} · {i.name}
                     </p>
                   </div>
-                  <span className="text-xs text-[#6B7280]">Enviado {formatCurrency(i.value)}</span>
+                  <span className="text-xs text-tinta-3">Enviado {formatCurrency(i.value)}</span>
                   <input
                     value={l.paid}
                     onChange={(e) => mudar(i.id, { paid: e.target.value })}
@@ -253,7 +253,7 @@ export function ModalPagamentoLote({
                     aria-label={`Valor pago de ${i.patient_name} (${i.code})`}
                     className={`${INPUT} w-28 text-right`}
                   />
-                  <span className={`w-28 text-right text-xs ${glosa > 0 ? 'text-[#DC2626]' : 'text-[#6B7280]'}`}>
+                  <span className={`w-28 text-right text-xs ${glosa > 0 ? 'text-[#DC2626]' : 'text-tinta-3'}`}>
                     Glosado {formatCurrency(glosa)}
                   </span>
                 </div>
@@ -279,8 +279,8 @@ export function ModalPagamentoLote({
           })}
         </div>
 
-        <div className="px-5 py-3 border-t border-[#E5E7EB] space-y-2">
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-[#111827]">
+        <div className="px-5 py-3 border-t border-linha space-y-2">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-tinta">
             <span>Enviado: <strong>{formatCurrency(totais.enviado)}</strong></span>
             <span>Pago: <strong>{formatCurrency(totais.pago)}</strong></span>
             <span>Glosado: <strong>{formatCurrency(totais.glosado)}</strong></span>
@@ -293,14 +293,14 @@ export function ModalPagamentoLote({
           )}
           {erro && <p className="text-sm text-[#DC2626]">{erro}</p>}
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-3 py-2 text-sm rounded-lg border border-[#E5E7EB]">
+            <button type="button" onClick={onClose} className="px-3 py-2 text-sm rounded-lg border border-linha">
               Cancelar
             </button>
             <button
               type="button"
               onClick={salvar}
               disabled={loading}
-              className="px-3 py-2 text-sm rounded-lg bg-[#3B82F6] text-white disabled:opacity-50"
+              className="px-3 py-2 text-sm rounded-lg bg-petroleo text-white disabled:opacity-50"
             >
               {loading ? 'Salvando...' : 'Registrar pagamento'}
             </button>

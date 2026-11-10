@@ -66,11 +66,11 @@ export function SinoPendencias({ conversas, orcamentosAprovados, convenios }: Pr
         aria-expanded={open}
         aria-label={total > 0 ? `Pendências: ${total}` : 'Pendências'}
         title="Pendências"
-        className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+        className="relative w-9 h-9 grid place-items-center rounded-[10px] bg-white text-tinta-3 ring-1 ring-inset ring-linha hover:text-tinta transition-colors"
       >
         <Bell className="w-4 h-4" />
         {total > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+          <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-gengiva text-white text-[10px] font-bold">
             {total > 99 ? '99+' : total}
           </span>
         )}
@@ -79,11 +79,11 @@ export function SinoPendencias({ conversas, orcamentosAprovados, convenios }: Pr
       {open && (
         <div
           onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setOpen(false) }}
-          className="absolute right-0 top-full mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-xl border border-[#E5E7EB] z-50">
-          <p className="px-4 py-3 text-sm font-semibold text-[#111827] border-b border-[#E5E7EB]">Pendências</p>
+          className="absolute right-0 top-full mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-xl border border-linha z-50">
+          <p className="px-4 py-3 text-sm font-semibold text-tinta border-b border-linha">Pendências</p>
 
           {conversas > 0 && (
-            <Linha href="/mensagens" icon={<MessageSquare className="w-4 h-4 text-[#3B82F6]" />}>
+            <Linha href="/mensagens" icon={<MessageSquare className="w-4 h-4 text-petroleo" />}>
               {conversas === 1 ? '1 conversa aguardando resposta' : `${conversas} conversas aguardando resposta`}
             </Linha>
           )}
@@ -97,15 +97,15 @@ export function SinoPendencias({ conversas, orcamentosAprovados, convenios }: Pr
           )}
 
           {convenios.itens.length > 0 && (
-            <div className="border-t border-[#F3F4F6]">
-              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Convênios</p>
+            <div className="border-t border-porcelana">
+              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-tinta-3 uppercase tracking-wide">Convênios</p>
               {convenios.itens.slice(0, MAX_CONVENIOS).map((p, i) => (
                 <Linha key={`${p.href}-${i}`} href={p.href} icon={<ShieldCheck className="w-4 h-4 text-[#F97316]" />}>
                   {p.texto}
                 </Linha>
               ))}
               {convenios.itens.length > MAX_CONVENIOS && (
-                <Link href="/convenios" className="block px-4 py-2 text-xs font-medium text-[#3B82F6] hover:bg-[#EFF6FF]">
+                <Link href="/convenios" className="block px-4 py-2 text-xs font-medium text-petroleo hover:bg-petroleo-50">
                   Ver todas as {convenios.itens.length} pendências de convênio
                 </Link>
               )}
@@ -113,8 +113,8 @@ export function SinoPendencias({ conversas, orcamentosAprovados, convenios }: Pr
           )}
 
           {aniversariantes && aniversariantes.length > 0 && (
-            <div className="border-t border-[#F3F4F6]">
-              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Aniversariantes de hoje</p>
+            <div className="border-t border-porcelana">
+              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-tinta-3 uppercase tracking-wide">Aniversariantes de hoje</p>
               {aniversariantes.map((p) => (
                 <Linha key={p.id} href={`/pacientes/${p.id}`} icon={<Cake className="w-4 h-4 text-[#F59E0B]" />}>
                   {p.name}
@@ -124,10 +124,10 @@ export function SinoPendencias({ conversas, orcamentosAprovados, convenios }: Pr
           )}
 
           {aniversariantes === null && total === 0 && (
-            <p className="px-4 py-6 text-sm text-center text-[#9CA3AF]">Carregando…</p>
+            <p className="px-4 py-6 text-sm text-center text-tinta-4">Carregando…</p>
           )}
           {nada && (
-            <p className="px-4 py-6 text-sm text-center text-[#6B7280]">Nenhuma pendência no momento.</p>
+            <p className="px-4 py-6 text-sm text-center text-tinta-3">Nenhuma pendência no momento.</p>
           )}
         </div>
       )}
@@ -139,11 +139,11 @@ function Linha({ href, icon, children }: { href: string; icon: React.ReactNode; 
   return (
     <Link
       href={href}
-      className="flex items-start gap-3 px-4 py-2.5 text-sm text-[#374151] hover:bg-[#F9FAFB]"
+      className="flex items-start gap-3 px-4 py-2.5 text-sm text-tinta-2 hover:bg-porcelana-2"
     >
       <span className="mt-0.5 shrink-0">{icon}</span>
       <span className="flex-1 min-w-0">{children}</span>
-      <ChevronRight className="w-4 h-4 text-[#D1D5DB] shrink-0 mt-0.5" />
+      <ChevronRight className="w-4 h-4 text-linha-forte shrink-0 mt-0.5" />
     </Link>
   )
 }

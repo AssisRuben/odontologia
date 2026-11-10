@@ -57,68 +57,68 @@ export default function ClinicaPage() {
   return (
     <div className="p-6 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-xl font-semibold text-[#111827]">Configurações da clínica</h1>
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Configurações da clínica</h1>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <form onSubmit={handleSave} className="bg-white rounded-xl border border-[#E5E7EB] p-6 space-y-5">
+        <form onSubmit={handleSave} className="bg-white rounded-xl border border-linha p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Nome da clínica *</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Nome da clínica *</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               placeholder="Ex: Clínica Odontológica Anne"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">CNPJ</label>
+            <label className="block text-sm font-medium text-tinta mb-1">CNPJ</label>
             <input
               value={cnpj}
               onChange={(e) => setCnpj(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               placeholder="00.000.000/0001-00"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Telefone</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Telefone</label>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               placeholder="(11) 99999-0000"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Endereço</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Endereço</label>
             <textarea
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none"
               placeholder="Rua, número, bairro, cidade — SP"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Validade padrão dos orçamentos (dias)</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Validade padrão dos orçamentos (dias)</label>
             <input
               type="number"
               min={1}
               max={180}
               value={validity}
               onChange={(e) => setValidity(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
           </div>
 
@@ -135,7 +135,7 @@ export default function ClinicaPage() {
             <button
               type="submit"
               disabled={saving}
-              className="ml-auto h-10 px-6 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+              className="ml-auto h-10 px-6 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Salvar alterações'}
             </button>

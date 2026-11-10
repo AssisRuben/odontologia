@@ -83,14 +83,14 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
     setNotice({ kind: 'ok', text: 'Alterações salvas.' })
   }
 
-  const inputCls = 'w-20 px-2 py-1.5 border border-[#E5E7EB] rounded-lg text-sm text-[#111827] focus:outline-none focus:border-[#3B82F6]'
+  const inputCls = 'w-20 px-2 py-1.5 border border-linha rounded-lg text-sm text-tinta focus:outline-none focus:border-petroleo'
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+    <div className="bg-white rounded-xl border border-linha p-5">
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h3 className="font-semibold text-[#111827]">{meta.title}</h3>
-          <p className="text-sm text-[#6B7280]">{meta.description}</p>
+          <h3 className="font-semibold text-tinta">{meta.title}</h3>
+          <p className="text-sm text-tinta-3">{meta.description}</p>
         </div>
         {type !== 'budget' && (
         <button
@@ -100,14 +100,14 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
           aria-label={`${setting.enabled ? 'Desligar' : 'Ligar'} ${meta.title}`}
           disabled={toggling}
           onClick={handleToggle}
-          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${setting.enabled ? 'bg-[#10B981]' : 'bg-[#D1D5DB]'}`}
+          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${setting.enabled ? 'bg-[#10B981]' : 'bg-linha-forte'}`}
         >
           <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${setting.enabled ? 'translate-x-5' : ''}`} />
         </button>
         )}
       </div>
 
-      <div className="mb-4 text-sm text-[#111827] flex items-center gap-2 flex-wrap">
+      <div className="mb-4 text-sm text-tinta flex items-center gap-2 flex-wrap">
         {(type === 'confirmation' || type === 'reminder') && (
           <>
             <label htmlFor={`cfg-${type}`} className="font-medium">Horas antes</label>
@@ -159,32 +159,32 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
             ))}
           </>
         )}
-        {type === 'birthday' && <span className="text-[#6B7280]">Enviado no dia, às 9h</span>}
+        {type === 'birthday' && <span className="text-tinta-3">Enviado no dia, às 9h</span>}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor={`tpl-${type}`} className="block text-sm font-medium text-[#111827] mb-1">Texto da mensagem</label>
+          <label htmlFor={`tpl-${type}`} className="block text-sm font-medium text-tinta mb-1">Texto da mensagem</label>
           <textarea
             id={`tpl-${type}`}
             ref={areaRef}
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
             rows={7}
-            className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#111827] focus:outline-none focus:border-[#3B82F6]"
+            className="w-full px-3 py-2 border border-linha rounded-lg text-sm text-tinta focus:outline-none focus:border-petroleo"
           />
           <div className="flex flex-wrap gap-1.5 mt-2">
             {variablesFor(type, TEMPLATE_VARIABLES).map((v) => (
               <button key={v} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insertVariable(v)}
-                className="px-2 py-0.5 text-xs rounded-full bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]">
+                className="px-2 py-0.5 text-xs rounded-full bg-petroleo-50 text-petroleo hover:bg-petroleo-100">
                 {`{${v}}`}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <div className="block text-sm font-medium text-[#111827] mb-1">Prévia</div>
-          <div className="rounded-lg bg-[#DCF8C6] px-3 py-2 text-sm text-[#111827] whitespace-pre-wrap min-h-[8.5rem] break-words">
+          <div className="block text-sm font-medium text-tinta mb-1">Prévia</div>
+          <div className="rounded-lg bg-[#DCF8C6] px-3 py-2 text-sm text-tinta whitespace-pre-wrap min-h-[8.5rem] break-words">
             {preview}
           </div>
         </div>
@@ -202,11 +202,11 @@ function SettingCard({ setting, clinicName, tz, onSaved, onToggle, saveSetting }
 
       <div className="mt-4 flex items-center gap-3">
         <button type="button" onClick={handleSave} disabled={empty || saving}
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed">
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-petroleo text-white hover:bg-petroleo-escuro disabled:opacity-50 disabled:cursor-not-allowed">
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
         <button type="button" onClick={() => setTemplate(DEFAULT_TEMPLATES[type])}
-          className="px-4 py-2 rounded-lg text-sm font-medium border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827]">
+          className="px-4 py-2 rounded-lg text-sm font-medium border border-linha text-tinta-3 hover:text-tinta">
           Restaurar texto padrão
         </button>
       </div>
@@ -281,8 +281,8 @@ export default function TabAutomaticas() {
   }
 
   if (loadError) return <p className="text-sm text-red-600">{loadError}</p>
-  if (!settings) return <p className="text-sm text-[#9CA3AF]">Carregando...</p>
-  if (settings.length === 0) return <p className="text-sm text-[#6B7280]">Nenhuma mensagem automática configurada para esta clínica.</p>
+  if (!settings) return <p className="text-sm text-tinta-4">Carregando...</p>
+  if (settings.length === 0) return <p className="text-sm text-tinta-3">Nenhuma mensagem automática configurada para esta clínica.</p>
 
   return (
     <div className="space-y-4 max-w-5xl">

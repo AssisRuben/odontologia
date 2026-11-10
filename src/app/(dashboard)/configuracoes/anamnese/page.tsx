@@ -117,52 +117,52 @@ export default function AnamnesesPage() {
     <div className="p-6 max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+          <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold text-[#111827]">Modelos de anamnese</h1>
+          <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Modelos de anamnese</h1>
         </div>
         <button onClick={openNew}
-          className="flex items-center gap-1.5 px-4 h-9 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB] transition-colors">
+          className="flex items-center gap-1.5 px-4 h-9 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro transition-colors">
           <Plus className="w-4 h-4" /> Novo modelo
         </button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="space-y-3">
           {templates.length === 0 ? (
-            <div className="bg-white rounded-xl border border-[#E5E7EB] py-12 text-center text-sm text-[#6B7280]">
+            <div className="bg-white rounded-xl border border-linha py-12 text-center text-sm text-tinta-3">
               Nenhum modelo criado ainda. Crie o primeiro acima.
             </div>
           ) : (
             templates.map(t => (
-              <div key={t.id} className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+              <div key={t.id} className="bg-white rounded-xl border border-linha p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#111827]">{t.name}</p>
-                    <p className="text-xs text-[#6B7280] mt-0.5">{t.questions.length} pergunta{t.questions.length !== 1 ? 's' : ''}</p>
+                    <p className="text-sm font-semibold text-tinta">{t.name}</p>
+                    <p className="text-xs text-tinta-3 mt-0.5">{t.questions.length} pergunta{t.questions.length !== 1 ? 's' : ''}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {t.questions.slice(0, 3).map(q => (
-                        <span key={q.id} className="text-xs bg-[#F3F4F6] text-[#374151] px-2 py-0.5 rounded-full truncate max-w-[180px]">
+                        <span key={q.id} className="text-xs bg-porcelana text-tinta-2 px-2 py-0.5 rounded-full truncate max-w-[180px]">
                           {q.text || '—'}
                         </span>
                       ))}
                       {t.questions.length > 3 && (
-                        <span className="text-xs text-[#9CA3AF]">+{t.questions.length - 3} mais</span>
+                        <span className="text-xs text-tinta-4">+{t.questions.length - 3} mais</span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(t)}
-                      className="px-3 h-8 rounded-lg text-xs font-medium border border-[#E5E7EB] text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                      className="px-3 h-8 rounded-lg text-xs font-medium border border-linha text-tinta-2 hover:bg-porcelana transition-colors">
                       Editar
                     </button>
                     <button onClick={() => handleDelete(t.id)} disabled={deletingId === t.id}
-                      className="p-1.5 rounded-lg text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
+                      className="p-1.5 rounded-lg text-tinta-4 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -178,28 +178,28 @@ export default function AnamnesesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeForm} />
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB] shrink-0">
-              <h2 className="text-base font-semibold text-[#111827]">
+            <div className="flex items-center justify-between p-5 border-b border-linha shrink-0">
+              <h2 className="text-base font-semibold text-tinta">
                 {editing ? 'Editar modelo' : 'Novo modelo de anamnese'}
               </h2>
-              <button onClick={closeForm} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]">
+              <button onClick={closeForm} className="p-1 rounded text-tinta-4 hover:text-tinta-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-1">Nome do modelo *</label>
+                <label className="block text-sm font-medium text-tinta mb-1">Nome do modelo *</label>
                 <input value={templateName} onChange={e => setTemplateName(e.target.value)}
                   placeholder="Ex: Anamnese Geral, Anamnese Infantil..."
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-[#111827]">Perguntas</label>
+                  <label className="text-sm font-medium text-tinta">Perguntas</label>
                   <button type="button" onClick={addQuestion}
-                    className="flex items-center gap-1 text-xs text-[#3B82F6] hover:text-[#2563EB] font-medium">
+                    className="flex items-center gap-1 text-xs text-petroleo hover:text-petroleo-escuro font-medium">
                     <Plus className="w-3.5 h-3.5" /> Adicionar pergunta
                   </button>
                 </div>
@@ -208,13 +208,13 @@ export default function AnamnesesPage() {
                     const Icon = QUESTION_TYPE_ICONS[q.type]
                     return (
                       <div key={q.id} className="flex gap-2 items-start">
-                        <GripVertical className="w-4 h-4 text-[#D1D5DB] mt-2.5 shrink-0" />
-                        <div className="flex-1 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB] p-3 space-y-2">
+                        <GripVertical className="w-4 h-4 text-linha-forte mt-2.5 shrink-0" />
+                        <div className="flex-1 bg-porcelana-2 rounded-lg border border-linha p-3 space-y-2">
                           <input
                             value={q.text}
                             onChange={e => updateQuestion(q.id, { text: e.target.value })}
                             placeholder={`Pergunta ${i + 1}`}
-                            className="w-full bg-transparent text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none"
+                            className="w-full bg-transparent text-sm text-tinta placeholder-tinta-4 focus:outline-none"
                           />
                           <div className="flex gap-1.5">
                             {(['yesno', 'text', 'options'] as const).map(type => {
@@ -222,7 +222,7 @@ export default function AnamnesesPage() {
                               return (
                                 <button key={type} type="button"
                                   onClick={() => updateQuestion(q.id, { type })}
-                                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${q.type === type ? 'bg-[#3B82F6] text-white' : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#3B82F6] hover:text-[#3B82F6]'}`}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${q.type === type ? 'bg-petroleo text-white' : 'bg-white border border-linha text-tinta-3 hover:border-petroleo hover:text-petroleo'}`}
                                 >
                                   <TIcon className="w-3 h-3" />
                                   {QUESTION_TYPE_LABELS[type]}
@@ -235,12 +235,12 @@ export default function AnamnesesPage() {
                               value={q.options?.join(', ') || ''}
                               onChange={e => updateQuestion(q.id, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                               placeholder="Opção 1, Opção 2, Opção 3..."
-                              className="w-full bg-white border border-[#E5E7EB] rounded px-2 py-1 text-xs text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
+                              className="w-full bg-white border border-linha rounded px-2 py-1 text-xs text-tinta-2 focus:outline-none focus:ring-1 focus:ring-petroleo"
                             />
                           )}
                         </div>
                         <button type="button" onClick={() => removeQuestion(q.id)}
-                          className="p-1.5 mt-1 rounded text-[#D1D5DB] hover:text-red-400 transition-colors shrink-0">
+                          className="p-1.5 mt-1 rounded text-linha-forte hover:text-red-400 transition-colors shrink-0">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -252,13 +252,13 @@ export default function AnamnesesPage() {
               {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
             </form>
 
-            <div className="p-5 border-t border-[#E5E7EB] flex gap-3 shrink-0">
+            <div className="p-5 border-t border-linha flex gap-3 shrink-0">
               <button type="button" onClick={closeForm}
-                className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
+                className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana">
                 Cancelar
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+                className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
                 {saving ? 'Salvando...' : editing ? 'Salvar' : 'Criar modelo'}
               </button>
             </div>

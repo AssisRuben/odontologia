@@ -78,6 +78,27 @@ describe('markReceived', () => {
     expect(provider.receiveInCash).not.toHaveBeenCalled()
     expect(deps.updateRows).toHaveBeenCalledWith('c1', ['p1'], { status: 'paid', paid_at: '2027-01-09' })
   })
+  it('manual with machine fee stores the net amount', async () => {
+    const { deps } = makeDeps({ providerChargeId: null, providerState: null, chargeKind: 'manual' })
+    const r = await markReceived('c1', 'p1', { paidAt: '2027-01-09', amountCents: 10000, method: 'cartao_credito', netAmountCents: 9690 }, deps, NOW)
+    expect(r.status).toBe(200)
+    expect(deps.updateRows).toHaveBeenCalledWith('c1', ['p1'], {
+      status: 'paid', paid_at: '2027-01-09', payment_method: 'cartao_credito', net_amount_cents: 9690,
+    })
+  })
+  it('rejects a net amount that is not between 0 and the amount received', async () => {
+    const { deps } = makeDeps({ providerChargeId: null, providerState: null, chargeKind: 'manual' })
+    for (const net of [-1, 10001, 12.5]) {
+      expect(await markReceived('c1', 'p1', { paidAt: '2027-01-09', amountCents: 10000, netAmountCents: net }, deps, NOW))
+        .toEqual({ status: 422, body: { error: 'Valor líquido inválido' } })
+    }
+    expect(deps.updateRows).not.toHaveBeenCalled()
+  })
+  it('ignores the net amount on Asaas charges (Asaas reports its own)', async () => {
+    const { deps } = makeDeps()
+    await markReceived('c1', 'p1', { paidAt: '2027-01-10', amountCents: 10000, netAmountCents: 9000 }, deps, NOW)
+    expect(deps.updateRows).toHaveBeenCalledWith('c1', ['p1'], { status: 'paid', paid_at: '2027-01-10' })
+  })
   it('rejects future date, bad amount and non-open', async () => {
     const { deps } = makeDeps()
     expect(await markReceived('c1', 'p1', { paidAt: '2027-01-11', amountCents: 100 }, deps, NOW))

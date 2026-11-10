@@ -101,67 +101,67 @@ export default function ConversaPainel({ id, onBack, onChanged }: Props) {
   if (loadError && !conversa) {
     return (
       <div className="flex-1 flex flex-col">
-        <button onClick={onBack} aria-label="Voltar" className="sm:hidden p-3 text-[#6B7280] self-start"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={onBack} aria-label="Voltar" className="sm:hidden p-3 text-tinta-3 self-start"><ArrowLeft className="w-5 h-5" /></button>
         <p className="p-6 text-sm text-[#EF4444]">{loadError}</p>
       </div>
     )
   }
-  if (!conversa) return <div className="flex-1 p-6 text-sm text-[#6B7280]">Carregando…</div>
+  if (!conversa) return <div className="flex-1 p-6 text-sm text-tinta-3">Carregando…</div>
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <div className="px-4 py-3 border-b border-[#E5E7EB] flex items-center gap-3">
-        <button onClick={onBack} aria-label="Voltar" className="sm:hidden text-[#6B7280]"><ArrowLeft className="w-5 h-5" /></button>
+      <div className="px-4 py-3 border-b border-linha flex items-center gap-3">
+        <button onClick={onBack} aria-label="Voltar" className="sm:hidden text-tinta-3"><ArrowLeft className="w-5 h-5" /></button>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[#111827] truncate">{conversa.label}</p>
-          <p className="text-xs text-[#6B7280]">{formatWhatsAppPhone(conversa.phone)}</p>
+          <p className="text-sm font-semibold text-tinta truncate">{conversa.label}</p>
+          <p className="text-xs text-tinta-3">{formatWhatsAppPhone(conversa.phone)}</p>
         </div>
         {conversa.patient_id ? (
-          <Link href={`/pacientes/${conversa.patient_id}`} className="text-sm text-[#3B82F6] hover:underline shrink-0">Ver ficha</Link>
+          <Link href={`/pacientes/${conversa.patient_id}`} className="text-sm text-petroleo hover:underline shrink-0">Ver ficha</Link>
         ) : (
-          <button onClick={() => setModal(true)} className="text-sm font-medium text-[#3B82F6] border border-[#3B82F6] rounded-lg px-3 py-1.5 shrink-0">
+          <button onClick={() => setModal(true)} className="text-sm font-medium text-petroleo border border-petroleo rounded-lg px-3 py-1.5 shrink-0">
             Cadastrar paciente
           </button>
         )}
       </div>
 
-      <div className={`px-4 py-2 border-b border-[#E5E7EB] flex items-center gap-3 text-sm ${conversa.handler === 'human' ? 'bg-[#FEF3C7]' : agenteLigado ? 'bg-[#EFF6FF]' : 'bg-[#F9FAFB]'}`}>
-        <span className="flex-1 text-[#111827]">
+      <div className={`px-4 py-2 border-b border-linha flex items-center gap-3 text-sm ${conversa.handler === 'human' ? 'bg-[#FEF3C7]' : agenteLigado ? 'bg-petroleo-50' : 'bg-porcelana-2'}`}>
+        <span className="flex-1 text-tinta">
           {conversa.handler === 'human'
             ? `Passada para a equipe${conversa.handoff_reason ? `: ${conversa.handoff_reason}` : ''}`
             : agenteLigado ? 'O assistente está atendendo' : 'Agente desligado'}
         </span>
         {(conversa.handler === 'human' || agenteLigado) && (
           <button disabled={busy} onClick={() => toggleHandler(conversa.handler === 'human' ? 'encerrar' : 'assumir')}
-            className="px-3 py-1.5 text-sm font-medium bg-[#3B82F6] text-white rounded-lg disabled:opacity-50 shrink-0">
+            className="px-3 py-1.5 text-sm font-medium bg-petroleo text-white rounded-lg disabled:opacity-50 shrink-0">
             {conversa.handler === 'human' ? 'Encerrar atendimento' : 'Assumir conversa'}
           </button>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#F9FAFB]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-porcelana-2">
         {msgs.map((m) => {
           const mine = m.role !== 'paciente'
           return (
             <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm border ${mine ? 'bg-[#EFF6FF] border-[#BFDBFE]' : 'bg-white border-[#E5E7EB]'}`}>
-                {mine && <p className="text-[10px] font-medium text-[#6B7280] mb-0.5">{ROLE_LABEL[m.role]}</p>}
-                <p className="text-[#111827] whitespace-pre-wrap break-words">
-                  {m.transcribed && <Mic className="inline w-3.5 h-3.5 mr-1 text-[#6B7280]" aria-label="Áudio transcrito" />}
+              <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm border ${mine ? 'bg-petroleo-50 border-petroleo-200' : 'bg-white border-linha'}`}>
+                {mine && <p className="text-[10px] font-medium text-tinta-3 mb-0.5">{ROLE_LABEL[m.role]}</p>}
+                <p className="text-tinta whitespace-pre-wrap break-words">
+                  {m.transcribed && <Mic className="inline w-3.5 h-3.5 mr-1 text-tinta-3" aria-label="Áudio transcrito" />}
                   {m.body}
                 </p>
                 {m.agent_action && ACTION_LABEL[m.agent_action] && (
                   m.appointment_date ? (
-                    <Link href={`/agenda?data=${m.appointment_date}`} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#3B82F6] hover:underline">
+                    <Link href={`/agenda?data=${m.appointment_date}`} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-petroleo hover:underline">
                       <CalendarCheck className="w-3.5 h-3.5" />{ACTION_LABEL[m.agent_action]}
                     </Link>
                   ) : (
-                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#6B7280]">
+                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-tinta-3">
                       <CalendarCheck className="w-3.5 h-3.5" />{ACTION_LABEL[m.agent_action]}
                     </span>
                   )
                 )}
-                <p className="text-[10px] text-[#6B7280] mt-1 text-right">{format(new Date(m.at), 'dd/MM HH:mm')}</p>
+                <p className="text-[10px] text-tinta-3 mt-1 text-right">{format(new Date(m.at), 'dd/MM HH:mm')}</p>
               </div>
             </div>
           )
@@ -169,15 +169,15 @@ export default function ConversaPainel({ id, onBack, onChanged }: Props) {
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-[#E5E7EB] p-3 bg-white">
+      <div className="border-t border-linha p-3 bg-white">
         {sendError && <p className="text-sm text-[#EF4444] mb-2">{sendError}</p>}
         <div className="flex gap-2 items-end">
           <textarea value={texto} rows={2} maxLength={MAX_REPLY_CHARS} placeholder="Escreva uma resposta…"
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            className="flex-1 border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] resize-none focus:outline-none focus:border-[#3B82F6]" />
+            className="flex-1 border border-linha rounded-lg px-3 py-2 text-sm text-tinta resize-none focus:outline-none focus:border-petroleo" />
           <button onClick={send} disabled={sending || !texto.trim()}
-            className="px-4 py-2 text-sm font-medium bg-[#3B82F6] text-white rounded-lg disabled:opacity-50">
+            className="px-4 py-2 text-sm font-medium bg-petroleo text-white rounded-lg disabled:opacity-50">
             {sending ? 'Enviando…' : 'Enviar'}
           </button>
         </div>

@@ -66,7 +66,7 @@ export function ClockPicker({ value, onChange, onClose }: ClockPickerProps) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-[#3B82F6] px-6 py-4 flex items-center justify-center gap-1 select-none">
+        <div className="bg-petroleo px-6 py-4 flex items-center justify-center gap-1 select-none">
           <button
             type="button"
             onClick={() => setMode('hour')}
@@ -90,11 +90,11 @@ export function ClockPicker({ value, onChange, onClose }: ClockPickerProps) {
         <div className="flex justify-center py-3 px-3">
           <svg width={SIZE} height={SIZE}>
             {/* Face */}
-            <circle cx={CX} cy={CY} r={CX - 4} fill="#F3F4F6" />
+            <circle cx={CX} cy={CY} r={CX - 4} fill="#EEF2F2" />
 
             {/* Hand */}
-            <line x1={CX} y1={CY} x2={handEnd.x} y2={handEnd.y} stroke="#3B82F6" strokeWidth={2} />
-            <circle cx={CX} cy={CY} r={4} fill="#3B82F6" />
+            <line x1={CX} y1={CY} x2={handEnd.x} y2={handEnd.y} stroke="#173B47" strokeWidth={2} />
+            <circle cx={CX} cy={CY} r={4} fill="#173B47" />
 
             {mode === 'hour' ? (
               <>
@@ -104,11 +104,11 @@ export function ClockPicker({ value, onChange, onClose }: ClockPickerProps) {
                   return (
                     <g key={hr} onClick={() => pickHour(hr)} style={{ cursor: 'pointer' }}>
                       <circle cx={p.x} cy={p.y} r={22} fill="transparent" />
-                      <circle cx={p.x} cy={p.y} r={18} fill={sel ? '#3B82F6' : 'transparent'} />
+                      <circle cx={p.x} cy={p.y} r={18} fill={sel ? '#173B47' : 'transparent'} />
                       <text
                         x={p.x} y={p.y}
                         textAnchor="middle" dominantBaseline="central"
-                        fontSize={13} fill={sel ? '#fff' : '#111827'}
+                        fontSize={13} fill={sel ? '#fff' : '#1B2A33'}
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
                       >
                         {hr}
@@ -122,11 +122,11 @@ export function ClockPicker({ value, onChange, onClose }: ClockPickerProps) {
                   return (
                     <g key={`i${hr}`} onClick={() => pickHour(hr)} style={{ cursor: 'pointer' }}>
                       <circle cx={p.x} cy={p.y} r={17} fill="transparent" />
-                      <circle cx={p.x} cy={p.y} r={13} fill={sel ? '#3B82F6' : 'transparent'} />
+                      <circle cx={p.x} cy={p.y} r={13} fill={sel ? '#173B47' : 'transparent'} />
                       <text
                         x={p.x} y={p.y}
                         textAnchor="middle" dominantBaseline="central"
-                        fontSize={10} fill={sel ? '#fff' : '#6B7280'}
+                        fontSize={10} fill={sel ? '#fff' : '#5E6E75'}
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
                       >
                         {String(hr).padStart(2, '0')}
@@ -142,11 +142,11 @@ export function ClockPicker({ value, onChange, onClose }: ClockPickerProps) {
                 return (
                   <g key={mn} onClick={() => pickMinute(mn)} style={{ cursor: 'pointer' }}>
                     <circle cx={p.x} cy={p.y} r={22} fill="transparent" />
-                    <circle cx={p.x} cy={p.y} r={18} fill={sel ? '#3B82F6' : 'transparent'} />
+                    <circle cx={p.x} cy={p.y} r={18} fill={sel ? '#173B47' : 'transparent'} />
                     <text
                       x={p.x} y={p.y}
                       textAnchor="middle" dominantBaseline="central"
-                      fontSize={12} fill={sel ? '#fff' : '#111827'}
+                      fontSize={12} fill={sel ? '#fff' : '#1B2A33'}
                       style={{ userSelect: 'none', pointerEvents: 'none' }}
                     >
                       {String(mn).padStart(2, '0')}
@@ -163,14 +163,14 @@ export function ClockPicker({ value, onChange, onClose }: ClockPickerProps) {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-tinta-3 hover:bg-porcelana rounded-lg transition-colors"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={confirm}
-            className="px-4 py-2 text-sm font-semibold text-[#3B82F6] hover:bg-[#EFF6FF] rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-semibold text-petroleo hover:bg-petroleo-50 rounded-lg transition-colors"
           >
             OK
           </button>

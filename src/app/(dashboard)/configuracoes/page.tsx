@@ -7,7 +7,7 @@ const configCards = [
     title: 'Configurações da clínica',
     description: 'Nome, CNPJ, telefone, endereço e logotipo da clínica.',
     icon: Building2,
-    color: '#3B82F6',
+    color: '#173B47',
   },
   {
     id: 'profissionais',
@@ -19,7 +19,7 @@ const configCards = [
   {
     id: 'taxas',
     title: 'Taxas de maquininhas',
-    description: 'Configure as taxas de cada bandeira de cartão.',
+    description: 'Débito, crédito e Pix: usadas no valor líquido e na comissão.',
     icon: CreditCard,
     color: '#F59E0B',
   },
@@ -70,13 +70,13 @@ const configCards = [
 export default function ConfiguracoesPage() {
   return (
     <div className="p-6 max-w-5xl">
-      <h1 className="text-xl font-semibold text-[#111827] mb-6">Configurações</h1>
+      <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight mb-6">Configurações</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {configCards.map((card) => (
           <Link
             key={card.id}
             href={`/configuracoes/${card.id}`}
-            className="bg-white rounded-xl border border-[#E5E7EB] p-6 text-left hover:border-[#3B82F6] hover:shadow-md transition-all group flex items-start gap-4"
+            className="bg-white rounded-xl border border-linha p-6 text-left hover:border-petroleo hover:shadow-md transition-all group flex items-start gap-4"
           >
             <div
               className="w-12 h-12 rounded-xl shrink-0 flex items-center justify-center"
@@ -85,12 +85,12 @@ export default function ConfiguracoesPage() {
               <card.icon className="w-6 h-6" style={{ color: card.color }} />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-[#111827] mb-1 group-hover:text-[#3B82F6] transition-colors">
+              <h2 className="font-semibold text-tinta mb-1 group-hover:text-petroleo transition-colors">
                 {card.title}
               </h2>
-              <p className="text-sm text-[#6B7280]">{card.description}</p>
+              <p className="text-sm text-tinta-3">{card.description}</p>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#D1D5DB] group-hover:text-[#3B82F6] shrink-0 mt-1 transition-colors" />
+            <ChevronRight className="w-4 h-4 text-linha-forte group-hover:text-petroleo shrink-0 mt-1 transition-colors" />
           </Link>
         ))}
       </div>
