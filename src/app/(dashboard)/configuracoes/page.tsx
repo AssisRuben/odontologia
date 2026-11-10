@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, Sparkles, Bot, ChevronRight } from 'lucide-react'
+import { Building2, Users, CreditCard, MessageSquare, Shield, FileText, Wallet, Sparkles, Bot, FlaskConical, ChevronRight } from 'lucide-react'
 
 const configCards = [
   {
@@ -22,6 +22,13 @@ const configCards = [
     description: 'Débito, crédito e Pix: usadas no valor líquido e na comissão.',
     icon: CreditCard,
     color: '#F59E0B',
+  },
+  {
+    id: 'laboratorios',
+    title: 'Laboratórios de prótese',
+    description: 'Laboratórios usados nos trabalhos de prótese.',
+    icon: FlaskConical,
+    color: '#8B5CF6',
   },
   {
     id: 'mensagens',
