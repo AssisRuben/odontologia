@@ -5,6 +5,7 @@ import type { InventoryItem } from '@/types'
 import { KIND_LABEL, KINDS_SAIDA } from '@/lib/estoque/rotulos'
 import { ordemFefo, planoSaida } from '@/lib/estoque/fefo'
 import { rotuloLote } from '@/lib/estoque/formatar'
+import { situacaoLote } from '@/lib/estoque/validade'
 import { ModalBase, CaixaErro, inputCls, labelCls, btnPriCls, btnSecCls } from './ModalBase'
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   onInsuficiente: () => void
 }
 
-export function ModalSaida({ item, onClose, onSaved, onInsuficiente }: Props) {
+export function ModalSaida({ item, hojeYmd, onClose, onSaved, onInsuficiente }: Props) {
   const [qtd, setQtd] = useState('')
   const [kind, setKind] = useState<(typeof KINDS_SAIDA)[number]>('uso')
   const [loteId, setLoteId] = useState('')
@@ -27,10 +28,17 @@ export function ModalSaida({ item, onClose, onSaved, onInsuficiente }: Props) {
   const lotes = useMemo(() => ordemFefo((item.lots ?? []).filter((l) => l.quantity > 0)), [item.lots])
   const comLotes = item.tracks_expiry && lotes.length > 0
   const loteEscolhido = lotes.find((l) => l.id === loteId)
-  const saldo = loteEscolhido ? loteEscolhido.quantity : item.quantity
+  const pularVencidos = kind === 'uso'
+  const vencido = (l: { expires_at: string | null }) => situacaoLote(l.expires_at, hojeYmd) === 'vencido'
+  const rotulo = (l: (typeof lotes)[number]) => `${rotuloLote(l)}${vencido(l) ? ' (vencido)' : ''}`
+  const saldoAuto = comLotes && pularVencidos
+    ? lotes.filter((l) => !vencido(l)).reduce((s, l) => s + l.quantity, 0)
+    : item.quantity
+  const saldo = loteEscolhido ? loteEscolhido.quantity : saldoAuto
+  const soVencidos = comLotes && pularVencidos && !loteEscolhido && saldoAuto === 0
   const qtdN = /^\d+$/.test(qtd.trim()) ? Number(qtd.trim()) : 0
   const insuficiente = qtdN > saldo
-  const plano = comLotes && !loteEscolhido && qtdN > 0 && !insuficiente ? planoSaida(lotes, qtdN) : null
+  const plano = comLotes && !loteEscolhido && qtdN > 0 && !insuficiente ? planoSaida(lotes, qtdN, { hojeYmd, pularVencidos }) : null
   const podeSalvar = qtdN > 0 && !insuficiente && !enviando
 
   async function salvar() {
@@ -84,6 +92,7 @@ export function ModalSaida({ item, onClose, onSaved, onInsuficiente }: Props) {
         </div>
       </div>
       {insuficiente && <p role="alert" className="text-xs text-red-600 -mt-2">Estoque insuficiente</p>}
+      {soVencidos && <p className="text-xs text-tinta-3 -mt-2">Só há lotes vencidos. Escolha o lote ou use o motivo Vencido.</p>}
 
       {comLotes && (
         <>
@@ -91,14 +100,14 @@ export function ModalSaida({ item, onClose, onSaved, onInsuficiente }: Props) {
             <label htmlFor="sai-lote" className={labelCls}>Sair de um lote específico</label>
             <select id="sai-lote" className={inputCls} value={loteId} onChange={(e) => setLoteId(e.target.value)}>
               <option value="">Automático (vence primeiro)</option>
-              {lotes.map((l) => <option key={l.id} value={l.id}>{rotuloLote(l)}: {l.quantity}</option>)}
+              {lotes.map((l) => <option key={l.id} value={l.id}>{rotulo(l)}: {l.quantity}</option>)}
             </select>
           </div>
           {plano && (
             <ul className="text-sm text-tinta-2 rounded-lg bg-porcelana-2 p-3 space-y-1">
               {plano.map((p) => {
                 const l = lotes.find((x) => x.id === p.lotId)
-                return l ? <li key={p.lotId}>{rotuloLote(l)}: {p.quantidade}</li> : null
+                return l ? <li key={p.lotId}>{rotulo(l)}: {p.quantidade}</li> : null
               })}
             </ul>
           )}

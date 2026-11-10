@@ -22,7 +22,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
 
         const { data: professional, error } = await supabase
           .from('professionals')
-          .select('id, name, clinic_id')
+          .select('id, name, clinic_id, clinic:clinics(name)')
           .eq('user_id', user.id)
           .order('created_at')
           .limit(1)
@@ -31,9 +31,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         if (error) { setProblem('error'); return }
         if (!professional) { setProblem('no-clinic'); return }
 
+        // O embed pode vir como objeto ou lista, conforme a inferência do cliente.
+        const emb = professional.clinic as unknown as { name?: string } | { name?: string }[] | null
+        const clinicName = (Array.isArray(emb) ? emb[0]?.name : emb?.name) ?? ''
         setClinic({
           clinicId: professional.clinic_id,
-          clinicName: '',
+          clinicName,
           professionalId: professional.id,
           professionalName: professional.name,
         })

@@ -18,8 +18,9 @@ describe('listar', () => {
     {
       id: 'a', name: 'Anestésico',
       lots: [
-        { id: 'l1', quantity: 0 },
-        { id: 'l2', quantity: 3 },
+        { id: 'l1', clinic_id: CLINIC, quantity: 0 },
+        { id: 'l2', clinic_id: CLINIC, quantity: 3 },
+        { id: 'l3', clinic_id: 'outra-clinica', quantity: 9 },
       ],
     },
   ]
@@ -30,7 +31,7 @@ describe('listar', () => {
     expect(q.table).toBe('inventory_items')
     expect(temEq(q, 'clinic_id', CLINIC)).toBe(true)
     expect(temEq(q, 'active', true)).toBe(true)
-    expect(q.calls.find((x) => x[0] === 'select')?.[1]).toContain('lots:inventory_lots(id,item_id,lot_code,expires_at,quantity,created_at)')
+    expect(q.calls.find((x) => x[0] === 'select')?.[1]).toContain('lots:inventory_lots(id,item_id,clinic_id,lot_code,expires_at,quantity,created_at)')
     expect(r.map((i) => i.id)).toEqual(['a', 'b'])
     expect(r[0].lots!.map((l) => l.id)).toEqual(['l2'])
   })

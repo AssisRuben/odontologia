@@ -42,11 +42,13 @@ describe('parseProduto', () => {
     expect(parseProduto({ name: 'x', expiresAt: '2026-02-30' }, true)).toEqual(erro('Data inválida'))
     expect(parseProduto({ name: 'x', lotCode: 'a'.repeat(41) }, true)).toEqual(erro('Lote muito longo'))
   })
-  it('edição exige active booleano', () => {
+  it('edição exige active e trackExpiry booleanos', () => {
     expect(parseProduto({ name: 'x' }, false)).toEqual(erro('Dados inválidos'))
-    expect(parseProduto({ name: 'x', active: 'sim' }, false)).toEqual(erro('Dados inválidos'))
-    expect(parseProduto({ name: 'x', active: false }, false)).toMatchObject({ ok: true, input: { active: false } })
-    const r = parseProduto({ name: 'x', active: true, initialQuantity: 5 }, false)
+    expect(parseProduto({ name: 'x', active: 'sim', trackExpiry: false }, false)).toEqual(erro('Dados inválidos'))
+    expect(parseProduto({ name: 'x', active: true }, false)).toEqual(erro('Dados inválidos'))
+    expect(parseProduto({ name: 'x', active: true, trackExpiry: 'sim' }, false)).toEqual(erro('Dados inválidos'))
+    expect(parseProduto({ name: 'x', active: false, trackExpiry: false }, false)).toMatchObject({ ok: true, input: { active: false } })
+    const r = parseProduto({ name: 'x', active: true, trackExpiry: false, initialQuantity: 5 }, false)
     expect(r.ok && 'initialQuantity' in r.input).toBe(false)
   })
 })

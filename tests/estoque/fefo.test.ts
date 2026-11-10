@@ -31,6 +31,19 @@ describe('FEFO', () => {
     ])
     expect(planoSaida(lotes, 20)).toBeNull()
   })
+  it('pularVencidos ignora lote vencido', () => {
+    const lotes = [lote('V', 5, '2026-10-01'), lote('A', 5, '2027-01-01'), lote('N', 5, null)]
+    const o = { hojeYmd: '2026-11-10', pularVencidos: true }
+    expect(planoSaida(lotes, 7, o)).toEqual([{ lotId: 'A', quantidade: 5 }, { lotId: 'N', quantidade: 2 }])
+    expect(planoSaida(lotes, 11, o)).toBeNull()
+  })
+  it('sem a flag o lote vencido é usado', () => {
+    const lotes = [lote('V', 5, '2026-10-01'), lote('A', 5, '2027-01-01')]
+    expect(planoSaida(lotes, 7, { hojeYmd: '2026-11-10', pularVencidos: false })).toEqual([{ lotId: 'V', quantidade: 5 }, { lotId: 'A', quantidade: 2 }])
+  })
+  it('só estoque vencido com pularVencidos retorna null', () => {
+    expect(planoSaida([lote('V', 5, '2026-10-01')], 1, { hojeYmd: '2026-11-10', pularVencidos: true })).toBeNull()
+  })
   it('lote com saldo 0 é ignorado', () => {
     const lotes = [lote('Z', 0, '2026-01-01'), lote('A', 3, '2027-01-01')]
     expect(planoSaida(lotes, 2)).toEqual([{ lotId: 'A', quantidade: 2 }])

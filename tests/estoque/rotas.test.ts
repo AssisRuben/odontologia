@@ -85,18 +85,18 @@ describe('POST /api/estoque', () => {
 
 describe('PATCH /api/estoque/[id]', () => {
   it('id inválido → 404; sem active → 422; ok → 200', async () => {
-    expect((await editar(req('PATCH', { name: 'A', active: true }), ctx('x'))).status).toBe(404)
+    expect((await editar(req('PATCH', { name: 'A', active: true, trackExpiry: false }), ctx('x'))).status).toBe(404)
     expect((await editar(req('PATCH', { name: 'A' }), ctx(ID))).status).toBe(422)
     rpc.mockResolvedValue(ok(null))
-    const r = await editar(req('PATCH', { name: 'A', active: true }), ctx(ID))
+    const r = await editar(req('PATCH', { name: 'A', active: true, trackExpiry: false }), ctx(ID))
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ ok: true })
   })
   it('não encontrado → 404; nome repetido → 409', async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { message: 'PRODUTO_NAO_ENCONTRADO' } })
-    expect((await editar(req('PATCH', { name: 'A', active: true }), ctx(ID))).status).toBe(404)
+    expect((await editar(req('PATCH', { name: 'A', active: true, trackExpiry: false }), ctx(ID))).status).toBe(404)
     rpc.mockResolvedValueOnce({ data: null, error: { code: '23505', message: 'dup' } })
-    const r = await editar(req('PATCH', { name: 'Luvas M', active: true }), ctx(ID))
+    const r = await editar(req('PATCH', { name: 'Luvas M', active: true, trackExpiry: false }), ctx(ID))
     expect(r.status).toBe(409)
     expect(await r.json()).toEqual({ error: 'Já existe um produto com esse nome' })
   })

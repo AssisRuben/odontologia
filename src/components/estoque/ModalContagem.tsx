@@ -13,8 +13,8 @@ interface Props {
   onSaved: (msg?: string) => void
 }
 
-function diferencaTexto(d: number): string {
-  return d > 0 ? `+${d}` : `−${Math.abs(d)} unid.`
+function diferencaTexto(d: number, unidade?: string | null): string {
+  return `${d > 0 ? '+' : '−'}${Math.abs(d)} ${unidade?.trim() || 'unid.'}`
 }
 
 export function ModalContagem({ item, onClose, onSaved }: Props) {
@@ -103,7 +103,7 @@ export function ModalContagem({ item, onClose, onSaved }: Props) {
             <input id={`cont-${l.chave}`} className={inputCls} inputMode="numeric" value={valores[l.chave] ?? ''}
               onChange={(e) => setValores((v) => ({ ...v, [l.chave]: e.target.value }))} />
           </div>
-          <span className="w-20 pb-2 text-sm font-medium text-tinta-2">{l.contado !== null && l.diff !== 0 ? diferencaTexto(l.diff) : ''}</span>
+          <span className="w-24 pb-2 text-sm font-medium text-tinta-2">{l.contado !== null && l.diff !== 0 ? diferencaTexto(l.diff, item.unit) : ''}</span>
         </div>
       ))}
       {analise.some((l) => l.invalido) && <p className="text-xs text-red-600">Use apenas números inteiros.</p>}

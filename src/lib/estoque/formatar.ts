@@ -12,9 +12,9 @@ export function dataBr(ymd: string): string {
   return `${d}/${m}/${y}`
 }
 
-/** 'Lote A23 (vence 03/2027)'; sem código -> 'Lote sem lote'. */
+/** 'Lote A23 (vence 03/2027)'; sem código -> 'Sem lote'. */
 export function rotuloLote(lot: { lot_code: string | null; expires_at: string | null }): string {
-  return `Lote ${lot.lot_code ?? 'sem lote'}${lot.expires_at ? ` (vence ${mesAno(lot.expires_at)})` : ''}`
+  return `${lot.lot_code ? `Lote ${lot.lot_code}` : 'Sem lote'}${lot.expires_at ? ` (vence ${mesAno(lot.expires_at)})` : ''}`
 }
 
 /** Mesma data um ano antes (29/02 vira 01/03), em aritmética UTC. */

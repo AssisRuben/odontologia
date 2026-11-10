@@ -42,6 +42,7 @@ export default function EstoquePage() {
   const [categoria, setCategoria] = useState('')
   const [soAlerta, setSoAlerta] = useState(false)
   const [inativos, setInativos] = useState(false)
+  const [temInativos, setTemInativos] = useState(false)
   const [filtroAviso, setFiltroAviso] = useState<FiltroAviso>(null)
 
   useEffect(() => {
@@ -58,6 +59,14 @@ export default function EstoquePage() {
         setHoje(j.hoje ?? '')
         setErroCarga(false)
         setLoading(false)
+        if (!inativos && (j.itens ?? []).length === 0) {
+          fetch('/api/estoque?inativos=1')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((k) => { if (!cancelado) setTemInativos((k?.itens ?? []).length > 0) })
+            .catch(() => {})
+        } else {
+          setTemInativos(false)
+        }
       })
       .catch(() => {
         if (cancelado) return
@@ -228,7 +237,9 @@ export default function EstoquePage() {
               </div>
             ) : itens.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 gap-3">
-                <p className="text-sm text-tinta-3 text-center">Nenhum produto cadastrado. Cadastre o primeiro para controlar o estoque.</p>
+                <p className="text-sm text-tinta-3 text-center">{temInativos && !inativos
+                    ? 'Nenhum produto ativo. Marque “Mostrar inativos” para ver os desativados.'
+                    : 'Nenhum produto cadastrado. Cadastre o primeiro para controlar o estoque.'}</p>
               </div>
             ) : visiveis.length === 0 ? (
               <p className="text-sm text-tinta-3 text-center py-12">Nenhum produto encontrado com esses filtros.</p>

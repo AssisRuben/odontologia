@@ -107,6 +107,7 @@ export function TabHistorico({ itens, hojeYmd }: Props) {
         <p className="text-sm text-tinta-3 text-center py-12">Nenhuma movimentação no período.</p>
       ) : (
         <>
+          {movs.length >= 500 && <p className="text-xs text-tinta-3">Mostrando as 500 mais recentes — reduza o período.</p>}
           <div className="hidden md:block overflow-x-auto rounded-xl border border-linha bg-white">
             <table className="w-full text-sm">
               <thead>

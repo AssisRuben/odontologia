@@ -31,6 +31,15 @@ describe('lista de compras', () => {
     expect(g[1].itens.map((i) => i.nome)).toEqual(['Anestésico', 'Seringa'])
     expect(g[1].itens[0]).toEqual({ id: 'Anestésico', nome: 'Anestésico', quantidade: 8, unidade: 'caixa' })
   })
+  it('agrupa fornecedor sem diferenciar caixa e espaços', () => {
+    const g = listaDeCompras([
+      item({ name: 'A', quantity: 1, min_quantity: 4, supplier: 'Dental Sul' }),
+      item({ name: 'B', quantity: 1, min_quantity: 4, supplier: 'dental sul ' }),
+    ])
+    expect(g).toHaveLength(1)
+    expect(g[0].fornecedor).toBe('Dental Sul')
+    expect(g[0].itens).toHaveLength(2)
+  })
   it('texto exato do WhatsApp', () => {
     const t = textoListaCompras(listaDeCompras(itens), 'Clínica Sorriso', '2026-11-10')
     expect(t).toBe(

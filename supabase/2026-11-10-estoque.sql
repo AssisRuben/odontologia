@@ -356,7 +356,9 @@ $fn$;
 -- ── Saída (service role) ────────────────────────────────────
 -- p_kind: uso | perda | vencido. Produto com validade: com p_lot_id sai só desse lote;
 -- sem p_lot_id sai primeiro o que vence antes (FEFO: expires_at ASC NULLS LAST,
--- created_at ASC), atravessando lotes, com um movimento por lote tocado. Produto sem
+-- created_at ASC), atravessando lotes, com um movimento por lote tocado. No motivo 'uso'
+-- o automático pula lotes vencidos (expires_at < hoje em America/Sao_Paulo); perda,
+-- vencido e lote explícito alcançam lotes vencidos. Produto sem
 -- validade: um único movimento, sem lote (p_lot_id deve ser nulo).
 -- Devolve {"quantity": novo saldo, "lotes": [{"lot_id","lot_code","quantidade"}]}.
 -- Erros: TIPO_INVALIDO, QUANTIDADE_INVALIDA, PRODUTO_NAO_ENCONTRADO, PRODUTO_INATIVO,
@@ -408,13 +410,17 @@ BEGIN
         'lot_id', v_lot.id, 'lot_code', v_lot.lot_code, 'quantidade', p_quantity));
     ELSE
       SELECT coalesce(sum(l.quantity), 0) INTO v_avail FROM inventory_lots l
-      WHERE l.item_id = p_item_id AND l.clinic_id = p_clinic_id AND l.quantity > 0;
+      WHERE l.item_id = p_item_id AND l.clinic_id = p_clinic_id AND l.quantity > 0
+        AND (p_kind <> 'uso' OR l.expires_at IS NULL
+             OR l.expires_at >= (now() AT TIME ZONE 'America/Sao_Paulo')::date);
       IF p_quantity > v_avail THEN RAISE EXCEPTION 'ESTOQUE_INSUFICIENTE'; END IF;
 
       v_left := p_quantity;
       FOR v_lot IN
         SELECT * FROM inventory_lots l
         WHERE l.item_id = p_item_id AND l.clinic_id = p_clinic_id AND l.quantity > 0
+          AND (p_kind <> 'uso' OR l.expires_at IS NULL
+               OR l.expires_at >= (now() AT TIME ZONE 'America/Sao_Paulo')::date)
         ORDER BY l.expires_at ASC NULLS LAST, l.created_at ASC, l.id ASC
         FOR UPDATE
       LOOP

@@ -74,6 +74,7 @@ export function parseProduto(
     idealQuantity = o.idealQuantity
   }
   if (o.trackExpiry !== undefined && typeof o.trackExpiry !== 'boolean') return DADOS
+  if (!criacao && typeof o.trackExpiry !== 'boolean') return DADOS
 
   const input: ProdutoInput & { active?: boolean; initialQuantity?: number; lotCode?: string | null; expiresAt?: string | null } = {
     name, category, unit, minQuantity, idealQuantity, supplier, trackExpiry: o.trackExpiry === true,

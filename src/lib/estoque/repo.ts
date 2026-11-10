@@ -19,13 +19,13 @@ export function createEstoqueRepo(admin: SupabaseClient) {
     async listar(clinicId: string, f: { inativos: boolean }): Promise<InventoryItem[]> {
       let q = admin
         .from('inventory_items')
-        .select('*, lots:inventory_lots(id,item_id,lot_code,expires_at,quantity,created_at)')
+        .select('*, lots:inventory_lots(id,item_id,clinic_id,lot_code,expires_at,quantity,created_at)')
         .eq('clinic_id', clinicId)
       if (!f.inativos) q = q.eq('active', true)
       const { data, error } = await q.order('name')
       if (error) lancar(error)
       return ((data ?? []) as unknown as InventoryItem[])
-        .map((i) => ({ ...i, lots: (i.lots ?? []).filter((l) => l.quantity > 0) }))
+        .map((i) => ({ ...i, lots: (i.lots ?? []).filter((l) => l.quantity > 0 && (l as { clinic_id?: string }).clinic_id === clinicId) }))
         .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
     },
 

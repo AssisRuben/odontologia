@@ -44,6 +44,8 @@ export function ModalProduto({ item, categorias, onClose, onSaved }: Props) {
 
   async function salvar() {
     if (!podeSalvar || emAndamento.current) return
+    if (item?.tracks_expiry && !validade && (item.lots?.length ?? 0) > 0 &&
+        !window.confirm('Os lotes e validades deste produto serão apagados. Continuar?')) return
     emAndamento.current = true
     setEnviando(true)
     setErro('')
