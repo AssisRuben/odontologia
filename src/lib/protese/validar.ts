@@ -100,3 +100,34 @@ export function parseLaboratorio(raw: unknown): { ok: true; input: LaboratorioIn
   if (typeof o.active === 'boolean') input.active = o.active
   return { ok: true, input }
 }
+
+/** Atualização parcial de laboratório: aceita qualquer subconjunto de name/phone/notes/active. */
+export function parseLaboratorioParcial(raw: unknown): { ok: true; input: Partial<LaboratorioInput> } | Falha {
+  const o = objeto(raw)
+  if (!o) return { ok: false, error: 'Dados inválidos' }
+  const input: Partial<LaboratorioInput> = {}
+  if ('name' in o) {
+    const name = typeof o.name === 'string' ? o.name.trim() : ''
+    if (name === '') return { ok: false, error: 'Informe o nome' }
+    if (name.length > 80) return { ok: false, error: 'Nome muito longo' }
+    input.name = name
+  }
+  if ('phone' in o) {
+    const phone = texto(o.phone)
+    if (phone === undefined) return { ok: false, error: 'Dados inválidos' }
+    if (phone && phone.length > 30) return { ok: false, error: 'Telefone muito longo' }
+    input.phone = phone
+  }
+  if ('notes' in o) {
+    const notes = texto(o.notes)
+    if (notes === undefined) return { ok: false, error: 'Dados inválidos' }
+    if (notes && notes.length > 500) return { ok: false, error: 'Observações muito longas' }
+    input.notes = notes
+  }
+  if ('active' in o) {
+    if (typeof o.active !== 'boolean') return { ok: false, error: 'Dados inválidos' }
+    input.active = o.active
+  }
+  if (Object.keys(input).length === 0) return { ok: false, error: 'Dados inválidos' }
+  return { ok: true, input }
+}

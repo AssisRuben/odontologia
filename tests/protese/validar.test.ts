@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseProtese, parseMover, parseLaboratorio } from '@/lib/protese/validar'
+import { parseProtese, parseMover, parseLaboratorio, parseLaboratorioParcial } from '@/lib/protese/validar'
 import { parseReaisInput } from '@/lib/payments/money'
 
 const UUID = '123e4567-e89b-42d3-a456-426614174000'
@@ -81,5 +81,26 @@ describe('parseLaboratorio', () => {
   it('active só se boolean', () => {
     expect(parseLaboratorio({ name: 'Lab', active: false })).toMatchObject({ input: { active: false } })
     expect(parseLaboratorio({ name: 'Lab', active: 'x' })).toEqual({ ok: true, input: { name: 'Lab', phone: null, notes: null } })
+  })
+})
+
+describe('parseLaboratorioParcial', () => {
+  it('só active', () => {
+    expect(parseLaboratorioParcial({ active: false })).toEqual({ ok: true, input: { active: false } })
+  })
+  it('só os campos enviados, com trim e vazio virando null', () => {
+    expect(parseLaboratorioParcial({ name: ' Lab X ', phone: ' ' })).toEqual({ ok: true, input: { name: 'Lab X', phone: null } })
+  })
+  it('objeto vazio ou sem campos conhecidos', () => {
+    expect(parseLaboratorioParcial({})).toEqual({ ok: false, error: 'Dados inválidos' })
+    expect(parseLaboratorioParcial({ foo: 1 })).toEqual({ ok: false, error: 'Dados inválidos' })
+    expect(parseLaboratorioParcial(null)).toEqual({ ok: false, error: 'Dados inválidos' })
+  })
+  it('regras por campo', () => {
+    expect(parseLaboratorioParcial({ name: '  ' })).toEqual({ ok: false, error: 'Informe o nome' })
+    expect(parseLaboratorioParcial({ name: 'a'.repeat(81) })).toEqual({ ok: false, error: 'Nome muito longo' })
+    expect(parseLaboratorioParcial({ phone: 'x'.repeat(31) })).toEqual({ ok: false, error: 'Telefone muito longo' })
+    expect(parseLaboratorioParcial({ notes: 'x'.repeat(501) })).toEqual({ ok: false, error: 'Observações muito longas' })
+    expect(parseLaboratorioParcial({ active: 'sim' })).toEqual({ ok: false, error: 'Dados inválidos' })
   })
 })
