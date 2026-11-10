@@ -45,7 +45,7 @@ export function ModalSaida({ item, onClose, onSaved, onInsuficiente }: Props) {
         body: JSON.stringify({ quantity: qtdN, kind, lotId: loteId || null, notes: obs.trim() || null }),
       })
       const json = await res.json().catch(() => ({}))
-      if (res.status === 409) { onInsuficiente(); return }
+      if (res.status === 409 && json.error === 'Estoque insuficiente') { onInsuficiente(); return }
       if (!res.ok) { setErro(json.error ?? 'Não foi possível salvar. Tente novamente.'); return }
       onSaved('Saída registrada')
     } catch {

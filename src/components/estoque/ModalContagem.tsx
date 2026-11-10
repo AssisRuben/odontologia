@@ -24,6 +24,7 @@ export function ModalContagem({ item, onClose, onSaved }: Props) {
   const [obs, setObs] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
+  const [parcial, setParcial] = useState(false)
   const emAndamento = useRef(false)
 
   // Um campo por lote (com validade) ou um campo único.
@@ -38,6 +39,12 @@ export function ModalContagem({ item, onClose, onSaved }: Props) {
   })
   const alteradas = analise.filter((l) => l.contado !== null && l.diff !== 0)
   const podeSalvar = alteradas.length > 0 && !analise.some((l) => l.invalido) && !enviando
+
+  // Após falha parcial os saldos mudaram: fechar recarrega a lista.
+  function fechar() {
+    if (parcial) onSaved()
+    else onClose()
+  }
 
   async function salvar() {
     if (!podeSalvar || emAndamento.current) return
@@ -55,6 +62,7 @@ export function ModalContagem({ item, onClose, onSaved }: Props) {
         const json = await res.json().catch(() => ({}))
         if (!res.ok) {
           const base = json.error ?? 'Não foi possível salvar. Tente novamente.'
+          if (feitas > 0) setParcial(true)
           setErro(feitas > 0 ? `${base} ${feitas} de ${alteradas.length} lotes já foram ajustados; feche e confira os saldos.` : base)
           return
         }
@@ -62,7 +70,10 @@ export function ModalContagem({ item, onClose, onSaved }: Props) {
       }
       onSaved('Contagem registrada')
     } catch {
-      setErro('Não foi possível concluir. Verifique a conexão e tente novamente.')
+      if (feitas > 0) setParcial(true)
+      setErro(feitas > 0
+        ? `Não foi possível concluir. ${feitas} de ${alteradas.length} lotes já foram ajustados; feche e confira os saldos.`
+        : 'Não foi possível concluir. Verifique a conexão e tente novamente.')
     } finally {
       emAndamento.current = false
       setEnviando(false)
@@ -72,18 +83,18 @@ export function ModalContagem({ item, onClose, onSaved }: Props) {
   return (
     <ModalBase
       titulo={`Contagem — ${item.name}`}
-      onClose={onClose}
+      onClose={fechar}
       bloqueado={enviando}
       rodape={
         <>
-          <button onClick={onClose} disabled={enviando} className={btnSecCls}>Cancelar</button>
+          <button onClick={fechar} disabled={enviando} className={btnSecCls}>Cancelar</button>
           <button onClick={salvar} disabled={!podeSalvar} className={btnPriCls}>{enviando ? 'Salvando...' : 'Confirmar'}</button>
         </>
       }
     >
       {erro && <CaixaErro>{erro}</CaixaErro>}
       <p className="text-sm text-tinta-3">Saldo no sistema: <span className="font-medium text-tinta">{item.quantity} {item.unit ?? ''}</span></p>
-      {porLote && lotes.length === 0 && <p className="text-sm text-tinta-3">Este produto não tem lotes com saldo para contar.</p>}
+      {porLote && lotes.length === 0 && <p className="text-sm text-tinta-3">Este produto não tem lotes com saldo para contar. Para registrar unidades encontradas, use Entrada com o tipo Ajuste.</p>}
 
       {analise.map((l) => (
         <div key={l.chave} className="flex items-end gap-3">

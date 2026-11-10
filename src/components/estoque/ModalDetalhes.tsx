@@ -5,7 +5,7 @@ import type { InventoryItem, InventoryMovement } from '@/types'
 import { KIND_LABEL } from '@/lib/estoque/rotulos'
 import { ordemFefo } from '@/lib/estoque/fefo'
 import { diasParaVencer, situacaoLote, type SituacaoLote } from '@/lib/estoque/validade'
-import { dataBr } from '@/lib/estoque/formatar'
+import { dataBr, umAnoAntes } from '@/lib/estoque/formatar'
 import { ModalBase, CaixaErro, btnPriCls, btnSecCls } from './ModalBase'
 
 interface Props {
@@ -21,11 +21,6 @@ const SELO: Record<SituacaoLote, { texto: string; cls: string }> = {
   vence_em_breve: { texto: 'Vence em breve', cls: 'bg-amber-50 text-amber-700' },
   ok: { texto: 'Em dia', cls: 'bg-green-50 text-green-700' },
   sem_validade: { texto: 'Sem validade', cls: 'bg-porcelana-2 text-tinta-3' },
-}
-
-function umAnoAntes(ymd: string): string {
-  const [y, m, d] = ymd.split('-')
-  return `${Number(y) - 1}-${m}-${d}`
 }
 
 function motivo(m: InventoryMovement): string {
@@ -90,10 +85,12 @@ export function ModalDetalhes({ item, hojeYmd, onClose, onSaved, onAcao }: Props
       bloqueado={enviando}
       largo
       rodape={
-        <>
-          <button onClick={() => onAcao('saida', item)} disabled={enviando} className={btnSecCls}>Saída</button>
-          <button onClick={() => onAcao('entrada', item)} disabled={enviando} className={btnPriCls}>Entrada</button>
-        </>
+        item.active ? (
+          <>
+            <button onClick={() => onAcao('saida', item)} disabled={enviando} className={btnSecCls}>Saída</button>
+            <button onClick={() => onAcao('entrada', item)} disabled={enviando} className={btnPriCls}>Entrada</button>
+          </>
+        ) : undefined
       }
     >
       {erro && <CaixaErro>{erro}</CaixaErro>}

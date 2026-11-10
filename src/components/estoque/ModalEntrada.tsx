@@ -36,7 +36,7 @@ export function ModalEntrada({ item, hojeYmd, onClose, onSaved }: Props) {
   const comCusto = kind === 'compra' && valor.trim() !== ''
   const centavos = comCusto ? parseReaisInput(valor) : null
   const valorOk = !comCusto || (centavos !== null && centavos > 0 && centavos <= 9999999999)
-  const pagamentoOk = !comCusto || (pagamento === 'paid' ? !!dataPgto : !!vencimento)
+  const pagamentoOk = !comCusto || (pagamento === 'paid' ? !!forma && !!dataPgto : !!vencimento)
   const validadeOk = !item.tracks_expiry || validade !== ''
   const vencido = item.tracks_expiry && validade !== '' && validade < hojeYmd
   const podeSalvar = qtdN > 0 && valorOk && pagamentoOk && validadeOk && !enviando
@@ -156,6 +156,11 @@ export function ModalEntrada({ item, hojeYmd, onClose, onSaved }: Props) {
                   <label htmlFor="ent-venc" className={labelCls}>Vencimento *</label>
                   <input id="ent-venc" type="date" className={inputCls} value={vencimento} onChange={(e) => setVencimento(e.target.value)} />
                 </div>
+              )}
+              {!pagamentoOk && (
+                <p className="text-xs text-red-600">
+                  {pagamento === 'pending' ? 'Informe o vencimento' : !forma ? 'Informe a forma de pagamento' : 'Informe a data do pagamento'}
+                </p>
               )}
             </>
           )}

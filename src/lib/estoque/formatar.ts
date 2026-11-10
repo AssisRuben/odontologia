@@ -16,3 +16,9 @@ export function dataBr(ymd: string): string {
 export function rotuloLote(lot: { lot_code: string | null; expires_at: string | null }): string {
   return `Lote ${lot.lot_code ?? 'sem lote'}${lot.expires_at ? ` (vence ${mesAno(lot.expires_at)})` : ''}`
 }
+
+/** Mesma data um ano antes (29/02 vira 01/03), em aritmética UTC. */
+export function umAnoAntes(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y - 1, m - 1, d)).toISOString().slice(0, 10)
+}
