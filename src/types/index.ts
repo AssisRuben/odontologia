@@ -271,6 +271,17 @@ export interface Prosthetic {
   events?: ProstheticEvent[]
 }
 
+export type MovementKind = 'compra' | 'devolucao' | 'ajuste' | 'uso' | 'perda' | 'vencido'
+
+export interface InventoryLot {
+  id: string
+  item_id: string
+  lot_code: string | null
+  expires_at: string | null
+  quantity: number
+  created_at: string
+}
+
 export interface InventoryItem {
   id: string
   clinic_id: string
@@ -280,6 +291,12 @@ export interface InventoryItem {
   min_quantity: number
   unit?: string
   created_at: string
+  active: boolean
+  tracks_expiry: boolean
+  ideal_quantity?: number | null
+  supplier?: string | null
+  updated_at?: string
+  lots?: InventoryLot[]
 }
 
 export interface InventoryMovement {
@@ -290,6 +307,12 @@ export interface InventoryMovement {
   reason?: string
   created_at: string
   item?: InventoryItem
+  kind?: MovementKind | null
+  lot_id?: string | null
+  expense_id?: string | null
+  notes?: string | null
+  created_by?: string | null
+  lot?: { lot_code: string | null; expires_at: string | null } | null
 }
 
 export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
