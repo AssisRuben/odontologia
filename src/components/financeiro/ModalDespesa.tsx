@@ -13,6 +13,8 @@ import {
   type ExpenseForm,
 } from '@/lib/livro-caixa/despesas'
 import { fromDbPaidAt } from '@/lib/payments/dates'
+import { parseReaisInput } from '@/lib/payments/money'
+import { diaDe, mesDe } from '@/lib/fluxo/recorrencia'
 
 export const RECEIPT_BUCKET = 'expense-receipts'
 export const RECEIPT_FAILED_MSG = 'Comprovante não enviado. Tente anexar de novo.'
@@ -53,6 +55,14 @@ export async function attachReceipt(
   return true
 }
 
+/** Chama a API de recorrências. Devolve a mensagem de erro, ou null se deu certo. */
+async function chamarRecorrencia(url: string, method: 'POST' | 'PATCH', body: unknown): Promise<string | null> {
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  if (res.ok) return null
+  const json = await res.json().catch(() => null) as { error?: string } | null
+  return json?.error ?? 'Não foi possível salvar a despesa. Tente novamente.'
+}
+
 interface Props {
   expense?: Expense
   onClose: () => void
@@ -91,6 +101,10 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
   const [fileError, setFileError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [repeat, setRepeat] = useState(false)
+  const [repDay, setRepDay] = useState<string | null>(null) // null = acompanha o dia do vencimento
+  const [repUntil, setRepUntil] = useState('')
+  const [askScope, setAskScope] = useState(false)
   // despesa já gravada nesta janela (se o comprovante falhar, salvar de novo atualiza em vez de duplicar)
   const savedRef = useRef<{ id: string; receipt_path?: string | null } | null>(expense ?? null)
   const inFlight = useRef(false)
@@ -115,17 +129,66 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
     setFile(err ? null : f)
   }
 
-  async function handleSubmit() {
+  const canRepeat = !expense && !form.paid
+  const repeating = repeat && canRepeat
+  const repDayValue = repDay ?? (form.dueDate ? String(diaDe(form.dueDate)) : '')
+
+  async function handleSubmit(scope?: 'one' | 'following') {
     if (inFlight.current || !clinicId) return
     setError('')
     const result = validateExpense(form)
-    if (!result.ok) { setErrors(result.errors); return }
+    if (!result.ok) { setAskScope(false); setErrors(result.errors); return }
     setErrors({})
+    if (expense?.recurrence_id && !scope) { setAskScope(true); return }
+    setAskScope(false)
+    const cents = parseReaisInput(form.amount) as number
+    const camposRecorrencia = {
+      description: result.row.description,
+      amountCentavos: cents,
+      category: form.category,
+      deductionGroup: form.deductionGroup,
+      paymentMethod: form.paymentMethod || null,
+    }
+    if (repeating) {
+      const dia = Number(repDayValue)
+      if (!Number.isInteger(dia) || dia < 1 || dia > 31) { setErrors({ dueDate: 'Dia do vencimento inválido' }); return }
+    }
     inFlight.current = true
     setSubmitting(true)
     try {
       const supabase = createClient()
+      if (repeating) {
+        const msg = await chamarRecorrencia('/api/financeiro/recorrencias', 'POST', {
+          ...camposRecorrencia,
+          dayOfMonth: Number(repDayValue),
+          startMonth: mesDe(form.dueDate),
+          endMonth: repUntil || null,
+        })
+        if (msg) { setError(msg); return }
+        onSaved()
+        onClose()
+        return
+      }
       let saved = savedRef.current
+      const seguintes = scope === 'following' && expense?.recurrence_id && expense.recurrence_month
+      if (seguintes) {
+        if (!form.dueDate) { setErrors({ dueDate: 'Informe o vencimento' }); return }
+        let dayOfMonth = diaDe(form.dueDate)
+        if (form.dueDate === expense.due_date?.slice(0, 10)) {
+          // vencimento intacto: mantém o dia guardado na recorrência (o da despesa pode estar ajustado ao mês curto)
+          const { data: rec, error: recErr } = await supabase.from('expense_recurrences')
+            .select('day_of_month').eq('id', expense.recurrence_id!).eq('clinic_id', clinicId).single()
+          if (recErr || !rec) { setError('Não foi possível ler a recorrência. Tente novamente.'); return }
+          dayOfMonth = Number(rec.day_of_month)
+        }
+        const msg = await chamarRecorrencia(`/api/financeiro/recorrencias/${expense.recurrence_id}`, 'PATCH', {
+          ...camposRecorrencia,
+          dayOfMonth,
+          aPartirDe: mesDe(expense.recurrence_month!),
+        })
+        if (msg) { setError(msg); return }
+        saved = { id: expense.id, receipt_path: expense.receipt_path }
+      }
       if (saved) {
         const { error: dbErr } = await supabase.from('expenses')
           .update({ ...result.row, updated_at: new Date().toISOString() })
@@ -222,6 +285,40 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
             Já foi paga
           </label>
 
+          {!expense && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-tinta-2">
+                <input type="checkbox" checked={repeating} disabled={form.paid}
+                  onChange={(e) => {
+                    setRepeat(e.target.checked)
+                    if (e.target.checked) onPickFile(null)
+                    if (e.target.checked && fileRef.current) fileRef.current.value = ''
+                  }} />
+                Repete todo mês
+              </label>
+              {repeating && form.category === 'laboratorio' && (
+                <p className="text-xs text-tinta-3">Despesas recorrentes não ficam ligadas a um dentista (não descontam da comissão).</p>
+              )}
+              {form.paid && (
+                <p className="text-xs text-tinta-3">Para repetir todo mês, desmarque &quot;Já foi paga&quot;.</p>
+              )}
+              {repeating && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="dp-rep-dia" className="block text-sm font-medium text-tinta mb-1">Dia do vencimento</label>
+                    <input id="dp-rep-dia" type="number" min={1} max={31} value={repDayValue}
+                      onChange={(e) => setRepDay(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label htmlFor="dp-rep-ate" className="block text-sm font-medium text-tinta mb-1">Até (opcional)</label>
+                    <input id="dp-rep-ate" type="month" value={repUntil}
+                      onChange={(e) => setRepUntil(e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="dp-venc" className="block text-sm font-medium text-tinta mb-1">Vencimento</label>
@@ -245,15 +342,18 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
                 {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>)}
               </select>
             </div>
-            <div>
-              <label htmlFor="dp-prof" className="block text-sm font-medium text-tinta mb-1">Dentista (opcional)</label>
-              <select id="dp-prof" value={form.professionalId} onChange={(e) => set('professionalId', e.target.value)} className={inputCls}>
-                <option value="">Nenhum</option>
-                {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
+            {!repeating && (
+              <div>
+                <label htmlFor="dp-prof" className="block text-sm font-medium text-tinta mb-1">Dentista (opcional)</label>
+                <select id="dp-prof" value={form.professionalId} onChange={(e) => set('professionalId', e.target.value)} className={inputCls}>
+                  <option value="">Nenhum</option>
+                  {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
+          {!repeating && (
           <div>
             <label htmlFor="dp-file" className="block text-sm font-medium text-tinta mb-1">
               {expense?.receipt_path ? 'Trocar comprovante' : 'Comprovante'}
@@ -263,25 +363,46 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
               className="block w-full text-sm text-tinta-2" />
             {fileError && <p className="text-xs text-red-600 mt-1">{fileError}</p>}
           </div>
+          )}
 
+          {!repeating && (
           <div>
             <label htmlFor="dp-obs" className="block text-sm font-medium text-tinta mb-1">Observação</label>
             <textarea id="dp-obs" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo" />
           </div>
+          )}
 
           {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
+          {askScope ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-tinta">Esta despesa se repete todo mês. O que alterar?</p>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => handleSubmit('one')} disabled={submitting}
+                  className="flex-1 h-10 rounded-lg border border-petroleo text-petroleo text-sm font-medium hover:bg-porcelana disabled:opacity-50">
+                  Alterar só esta
+                </button>
+                <button type="button" onClick={() => handleSubmit('following')} disabled={submitting}
+                  className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
+                  Esta e as próximas
+                </button>
+              </div>
+              <button type="button" onClick={() => setAskScope(false)} disabled={submitting}
+                className="w-full h-9 text-sm text-tinta-3 hover:underline">Voltar</button>
+            </div>
+          ) : (
           <div className="flex gap-3">
             <button type="button" onClick={onClose} disabled={submitting}
               className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana disabled:opacity-50">
               {error === RECEIPT_FAILED_MSG ? 'Fechar' : 'Cancelar'}
             </button>
-            <button type="button" onClick={handleSubmit} disabled={submitting || !clinicId}
+            <button type="button" onClick={() => handleSubmit()} disabled={submitting || !clinicId}
               className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
               {submitting ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Paperclip, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Paperclip, Plus, Repeat } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { formatCurrency } from '@/lib/utils'
@@ -10,6 +10,7 @@ import { categoryLabel } from '@/lib/livro-caixa/categorias'
 import { monthLabel, monthRange, shiftMonth } from '@/lib/livro-caixa/mes'
 import { checkReceiptFile, RECEIPT_TYPES } from '@/lib/livro-caixa/despesas'
 import { fromDbPaidAt, toDbPaidAt } from '@/lib/payments/dates'
+import { mesDe, rotuloMes } from '@/lib/fluxo/recorrencia'
 import { signedUrls } from '@/lib/storage/documentos'
 import { ModalDespesa, RECEIPT_BUCKET, RECEIPT_FAILED_MSG, attachReceipt, todayLocal } from './ModalDespesa'
 
@@ -73,6 +74,41 @@ export default function ListaDespesas() {
     load()
     return () => { stale = true }
   }, [clinicId, month, reloadKey])
+
+  // gera as despesas recorrentes que faltam e recarrega se algo foi criado
+  useEffect(() => {
+    if (!clinicId) return
+    let cancelled = false
+    fetch('/api/financeiro/recorrencias/gerar', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { criadas?: number } | null) => { if (!cancelled && json && (json.criadas ?? 0) > 0) reload() })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [clinicId, reload])
+
+  async function encerrar(e: Expense) {
+    if (!e.recurrence_id || !e.recurrence_month) return
+    if (!window.confirm(`Encerrar após ${rotuloMes(mesDe(e.recurrence_month))}? As próximas ainda não pagas serão apagadas.`)) return
+    setBusyId(e.id)
+    setError('')
+    try {
+      const res = await fetch(`/api/financeiro/recorrencias/${e.recurrence_id}/encerrar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ultimoMes: mesDe(e.recurrence_month) }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null) as { error?: string } | null
+        setError(json?.error ?? 'Não foi possível encerrar a recorrência. Tente novamente.')
+        return
+      }
+      reload()
+    } catch {
+      setError('Não foi possível encerrar a recorrência. Tente novamente.')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   async function markPaid(e: Expense) {
     if (!clinicId || !payDate) return
@@ -171,6 +207,7 @@ export default function ListaDespesas() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-tinta flex items-center gap-1.5">
                       <span className="truncate">{e.description}</span>
+                      {e.recurrence_id && <span title="Despesa recorrente" className="shrink-0"><Repeat className="w-3.5 h-3.5 text-tinta-3" aria-label="Despesa recorrente" /></span>}
                       {e.receipt_path && <Paperclip className="w-3.5 h-3.5 text-tinta-3 shrink-0" aria-label="Tem comprovante" />}
                     </p>
                     <p className="text-xs text-tinta-4">
@@ -211,6 +248,9 @@ export default function ListaDespesas() {
                     </button>
                     {link && (
                       <a href={link} target="_blank" rel="noopener noreferrer" className="hover:underline">Ver comprovante</a>
+                    )}
+                    {e.recurrence_id && (
+                      <button disabled={busy} onClick={() => encerrar(e)} className="hover:underline disabled:opacity-50">Encerrar recorrência</button>
                     )}
                     <button disabled={busy} onClick={() => remove(e)} className="text-[#EF4444] hover:underline disabled:opacity-50">Excluir</button>
                   </div>
