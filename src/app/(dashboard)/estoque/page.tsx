@@ -111,6 +111,8 @@ export default function EstoquePage() {
   }
 
   const resumo = useMemo(() => resumoAlertas(itens, hoje), [itens, hoje])
+  // Filtro de aviso só vale enquanto o chip correspondente existe (contagem > 0).
+  const filtroEfetivo: FiltroAviso = filtroAviso && resumo[filtroAviso] > 0 ? filtroAviso : null
   const categorias = useMemo(
     () => [...new Set(itens.map((i) => i.category).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [itens],
@@ -120,14 +122,14 @@ export default function EstoquePage() {
     return itens.filter((i) => {
       if (q && !i.name.toLowerCase().includes(q)) return false
       if (categoria && i.category !== categoria) return false
-      const a = alertasDoItem(i, hoje)
+      const a = i.active ? alertasDoItem(i, hoje) : { baixo: false, vencidos: 0, vencendo: 0 }
       if (soAlerta && !(a.baixo || a.vencidos > 0 || a.vencendo > 0)) return false
-      if (filtroAviso === 'baixo' && !(i.active && a.baixo)) return false
-      if (filtroAviso === 'vencidos' && a.vencidos === 0) return false
-      if (filtroAviso === 'vencendo' && a.vencendo === 0) return false
+      if (filtroEfetivo === 'baixo' && !a.baixo) return false
+      if (filtroEfetivo === 'vencidos' && a.vencidos === 0) return false
+      if (filtroEfetivo === 'vencendo' && a.vencendo === 0) return false
       return true
     })
-  }, [itens, hoje, busca, categoria, soAlerta, filtroAviso])
+  }, [itens, hoje, busca, categoria, soAlerta, filtroEfetivo])
 
   if (clinicLoading) {
     return (
@@ -181,7 +183,7 @@ export default function EstoquePage() {
           <>
             {erroAcao && <div role="alert" className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">{erroAcao}</div>}
 
-            {!loading && !erroCarga && <AvisosEstoque resumo={resumo} filtro={filtroAviso} onFiltro={setFiltroAviso} />}
+            {!loading && !erroCarga && <AvisosEstoque resumo={resumo} filtro={filtroEfetivo} onFiltro={setFiltroAviso} />}
 
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[180px] sm:max-w-xs">

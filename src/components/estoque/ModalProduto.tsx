@@ -97,39 +97,39 @@ export function ModalProduto({ item, categorias, onClose, onSaved }: Props) {
           {erro && <div role="alert" className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">{erro}</div>}
 
           <div>
-            <label className={labelCls}>Nome *</label>
-            <input className={inputCls} value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
+            <label htmlFor="prod-nome" className={labelCls}>Nome *</label>
+            <input id="prod-nome" className={inputCls} value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Categoria</label>
-              <input className={inputCls} list="estoque-categorias" value={categoria} maxLength={40} onChange={(e) => setCategoria(e.target.value)} />
+              <label htmlFor="prod-categoria" className={labelCls}>Categoria</label>
+              <input id="prod-categoria" className={inputCls} list="estoque-categorias" value={categoria} maxLength={40} onChange={(e) => setCategoria(e.target.value)} />
               <datalist id="estoque-categorias">
                 {categorias.map((c) => <option key={c} value={c} />)}
               </datalist>
             </div>
             <div>
-              <label className={labelCls}>Unidade</label>
-              <input className={inputCls} placeholder="un, cx, ml..." value={unidade} maxLength={40} onChange={(e) => setUnidade(e.target.value)} />
+              <label htmlFor="prod-unidade" className={labelCls}>Unidade</label>
+              <input id="prod-unidade" className={inputCls} placeholder="un, cx, ml..." value={unidade} maxLength={40} onChange={(e) => setUnidade(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Estoque mínimo</label>
-              <input className={inputCls} inputMode="numeric" value={minimo} onChange={(e) => setMinimo(e.target.value)} />
+              <label htmlFor="prod-minimo" className={labelCls}>Estoque mínimo</label>
+              <input id="prod-minimo" className={inputCls} inputMode="numeric" value={minimo} onChange={(e) => setMinimo(e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>Estoque ideal</label>
-              <input className={inputCls} inputMode="numeric" placeholder="opcional" value={ideal} onChange={(e) => setIdeal(e.target.value)} />
+              <label htmlFor="prod-ideal" className={labelCls}>Estoque ideal</label>
+              <input id="prod-ideal" className={inputCls} inputMode="numeric" placeholder="opcional" value={ideal} onChange={(e) => setIdeal(e.target.value)} />
             </div>
           </div>
           {!numerosOk && <p className="text-xs text-red-600 -mt-2">Use apenas números inteiros.</p>}
 
           <div>
-            <label className={labelCls}>Fornecedor</label>
-            <input className={inputCls} value={fornecedor} maxLength={80} onChange={(e) => setFornecedor(e.target.value)} />
+            <label htmlFor="prod-fornecedor" className={labelCls}>Fornecedor</label>
+            <input id="prod-fornecedor" className={inputCls} value={fornecedor} maxLength={80} onChange={(e) => setFornecedor(e.target.value)} />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-tinta">
@@ -140,18 +140,18 @@ export function ModalProduto({ item, categorias, onClose, onSaved }: Props) {
           {!item && (
             <div className="rounded-lg border border-linha p-3 space-y-3">
               <div>
-                <label className={labelCls}>Saldo inicial</label>
-                <input className={inputCls} inputMode="numeric" placeholder="0" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
+                <label htmlFor="prod-saldo" className={labelCls}>Saldo inicial</label>
+                <input id="prod-saldo" className={inputCls} inputMode="numeric" placeholder="0" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
               </div>
               {validade && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelCls}>Lote</label>
-                    <input className={inputCls} placeholder="opcional" value={lote} maxLength={40} onChange={(e) => setLote(e.target.value)} />
+                    <label htmlFor="prod-lote" className={labelCls}>Lote</label>
+                    <input id="prod-lote" className={inputCls} placeholder="opcional" value={lote} maxLength={40} onChange={(e) => setLote(e.target.value)} />
                   </div>
                   <div>
-                    <label className={labelCls}>Validade</label>
-                    <input type="date" className={inputCls} value={venceEm} onChange={(e) => setVenceEm(e.target.value)} />
+                    <label htmlFor="prod-validade-lote" className={labelCls}>Validade</label>
+                    <input id="prod-validade-lote" type="date" className={inputCls} value={venceEm} onChange={(e) => setVenceEm(e.target.value)} />
                   </div>
                 </div>
               )}

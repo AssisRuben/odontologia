@@ -47,23 +47,35 @@ function Situacao({ item, hojeYmd }: { item: InventoryItem; hojeYmd: string }) {
 
 function Menu({ item, onAcao }: { item: InventoryItem; onAcao: Props['onAcao'] }) {
   const [aberto, setAberto] = useState(false)
+  const [pos, setPos] = useState({ top: 0, right: 0 })
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!aberto) return
     const fora = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setAberto(false) }
+    const fecha = () => setAberto(false)
     document.addEventListener('mousedown', fora)
-    return () => document.removeEventListener('mousedown', fora)
+    window.addEventListener('scroll', fecha, true)
+    window.addEventListener('resize', fecha)
+    return () => {
+      document.removeEventListener('mousedown', fora)
+      window.removeEventListener('scroll', fecha, true)
+      window.removeEventListener('resize', fecha)
+    }
   }, [aberto])
   const opcao = 'block w-full text-left px-3 py-2 text-sm text-tinta hover:bg-porcelana-2'
   const escolher = (t: AcaoProduto) => { setAberto(false); onAcao(t, item) }
   return (
     <div className="relative" ref={ref}>
-      <button type="button" aria-label="Mais ações" aria-expanded={aberto} onClick={() => setAberto((v) => !v)}
+      <button type="button" aria-label="Mais ações" aria-expanded={aberto} onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setPos({ top: r.bottom + 4, right: window.innerWidth - r.right })
+          setAberto((v) => !v)
+        }}
         className="p-1.5 rounded-lg text-tinta-3 hover:bg-porcelana-2">
         <MoreHorizontal className="w-4 h-4" />
       </button>
       {aberto && (
-        <div className="absolute right-0 z-20 mt-1 w-40 bg-white border border-linha rounded-lg shadow-lg py-1">
+        <div style={{ top: pos.top, right: pos.right }} className="fixed z-30 w-40 bg-white border border-linha rounded-lg shadow-lg py-1">
           {item.active && <button className={opcao} onClick={() => escolher('contagem')}>Contagem</button>}
           <button className={opcao} onClick={() => escolher('editar')}>Editar</button>
           <button className={opcao} onClick={() => escolher('ativar')}>{item.active ? 'Desativar' : 'Reativar'}</button>
@@ -85,11 +97,10 @@ function Botoes({ item, onAcao }: { item: InventoryItem; onAcao: Props['onAcao']
 }
 
 export function TabelaProdutos({ itens, hojeYmd, onAcao }: Props) {
-  const qtdCor = (i: InventoryItem) => (i.active && alertasDoItem(i, hojeYmd).baixo ? 'text-red-600' : 'text-tinta')
   return (
     <>
-      <div className="hidden sm:block bg-white rounded-xl border border-linha">
-        <table className="w-full text-sm">
+      <div className="hidden sm:block bg-white rounded-xl border border-linha overflow-x-auto">
+        <table className="w-full text-sm min-w-[860px]">
           <thead>
             <tr className="border-b border-linha bg-porcelana-2 text-left text-tinta-3">
               <th className="px-4 py-3 font-medium">Produto</th>
@@ -108,7 +119,7 @@ export function TabelaProdutos({ itens, hojeYmd, onAcao }: Props) {
                   <button className="font-medium text-tinta hover:text-petroleo text-left" onClick={() => onAcao('detalhes', i)}>{i.name}</button>
                 </td>
                 <td className="px-4 py-3 text-tinta-3">{i.category || '—'}</td>
-                <td className={`px-4 py-3 text-center font-medium ${qtdCor(i)}`}>{i.quantity} {i.unit || ''}</td>
+                <td className={`px-4 py-3 text-center font-medium text-tinta`}>{i.quantity} {i.unit || ''}</td>
                 <td className="px-4 py-3 text-center text-tinta-3">{i.min_quantity}</td>
                 <td className="px-4 py-3"><SeloValidade item={i} hojeYmd={hojeYmd} /></td>
                 <td className="px-4 py-3 text-center"><Situacao item={i} hojeYmd={hojeYmd} /></td>
@@ -130,7 +141,7 @@ export function TabelaProdutos({ itens, hojeYmd, onAcao }: Props) {
               <Situacao item={i} hojeYmd={hojeYmd} />
             </div>
             <div className="mt-2 flex items-center justify-between text-sm">
-              <span className={`font-medium ${qtdCor(i)}`}>{i.quantity} {i.unit || ''} <span className="text-tinta-4 font-normal">(mín. {i.min_quantity})</span></span>
+              <span className={`font-medium text-tinta`}>{i.quantity} {i.unit || ''} <span className="text-tinta-4 font-normal">(mín. {i.min_quantity})</span></span>
               <SeloValidade item={i} hojeYmd={hojeYmd} />
             </div>
             <div className="mt-3"><Botoes item={i} onAcao={onAcao} /></div>
