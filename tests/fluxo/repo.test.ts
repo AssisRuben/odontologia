@@ -61,3 +61,32 @@ describe('saldoAtual', () => {
     expect(await createFluxoRepo(c.admin).saldoAtual(CLINIC)).toBeNull()
   })
 })
+
+describe('dados: paginação e filtros', () => {
+  const linha = (i: number) => ({ id: `e${i}`, amount: 1, status: 'pending', due_date: '2026-11-20', paid_at: null, description: 'd', recurrence_id: null })
+
+  it('pede a página seguinte enquanto vier página cheia e concatena', async () => {
+    const pagina = new Map<number, number>()
+    const c = fakeAdmin((q) => {
+      if (q.table !== 'expenses' || !q.calls.some((x) => x[0] === 'eq' && x[1] === 'status' && x[2] === 'pending') && !q.calls.some((x) => x[0] === 'in')) return ok([])
+      const r = q.calls.find((x) => x[0] === 'range') as [string, number, number]
+      pagina.set(r[1], r[2])
+      return ok(r[1] === 0 ? Array.from({ length: 1000 }, (_, i) => linha(i)) : [linha(1000)])
+    })
+    const r = await createFluxoRepo(c.admin).dados(CLINIC, { inicio: '2026-09-01', fim: '2027-04-30' }, '2026-09-01')
+    expect([...pagina.entries()]).toEqual([[0, 999], [1000, 1999]])
+    expect(r.despesas).toHaveLength(1001)
+    expect(c.queries.every((q) => q.calls.some((x) => x[0] === 'order' && x[1] === 'id'))).toBe(true)
+  })
+
+  it('consultas de não pagos filtram status e vencimento até o fim da janela', async () => {
+    const c = fakeAdmin(() => ok([]))
+    await createFluxoRepo(c.admin).dados(CLINIC, { inicio: '2026-09-01', fim: '2027-04-30' }, '2026-09-01')
+    const abertas = c.queries.filter((q) => q.calls.some((x) => x[0] === 'in'))
+    expect(abertas.map((q) => q.table).sort()).toEqual(['expenses', 'payments'])
+    for (const q of abertas) {
+      expect(q.calls.some((x) => x[0] === 'in' && x[1] === 'status' && JSON.stringify(x[2]) === '["pending","overdue"]')).toBe(true)
+      expect(q.calls.some((x) => x[0] === 'lte' && x[1] === 'due_date' && x[2] === '2027-04-30')).toBe(true)
+    }
+  })
+})

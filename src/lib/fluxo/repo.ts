@@ -47,6 +47,22 @@ const payload = (i: RecorrenciaInput) => ({
   day_of_month: i.dayOfMonth,
 })
 
+const PAGINA = 1000
+
+/** Lê todas as páginas de uma consulta (o PostgREST limita cada resposta a 1000 linhas). */
+async function todas<T>(
+  pagina: (de: number, ate: number) => PromiseLike<{ data: unknown; error: Erro | null }>,
+): Promise<T[]> {
+  const out: T[] = []
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await pagina(de, de + PAGINA - 1)
+    if (error) lancar(error)
+    const rows = (data ?? []) as T[]
+    out.push(...rows)
+    if (rows.length < PAGINA) return out
+  }
+}
+
 const mesDia1 = (ym: string) => `${ym}-01`
 
 export function createFluxoRepo(admin: SupabaseClient) {
@@ -86,15 +102,26 @@ export function createFluxoRepo(admin: SupabaseClient) {
       desde: string,
     ): Promise<{ pagamentos: PagamentoFluxo[]; despesas: DespesaFluxo[] }> {
       const ini = inicioDoDia(desde)
+      const pag = (f: (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) => unknown) => (de: number, ate: number) =>
+        (f(admin.from('payments').select(SEL_PAG)) as { order: (c: string) => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: Erro | null }> } })
+          .order('id')
+          .range(de, ate)
+      const des = (f: (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) => unknown) => (de: number, ate: number) =>
+        (f(admin.from('expenses').select(SEL_DES)) as { order: (c: string) => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: Erro | null }> } })
+          .order('id')
+          .range(de, ate)
+      const pagoQ = (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) =>
+        q.eq('clinic_id', clinicId).eq('status', 'paid').gte('paid_at', ini)
+      const abertoQ = (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) =>
+        q.eq('clinic_id', clinicId).in('status', ['pending', 'overdue']).lte('due_date', janela.fim)
       const [pagos, abertos, dPagas, dAbertas] = await Promise.all([
-        admin.from('payments').select(SEL_PAG).eq('clinic_id', clinicId).eq('status', 'paid').gte('paid_at', ini),
-        admin.from('payments').select(SEL_PAG).eq('clinic_id', clinicId).in('status', ['pending', 'overdue']).lte('due_date', janela.fim),
-        admin.from('expenses').select(SEL_DES).eq('clinic_id', clinicId).eq('status', 'paid').gte('paid_at', ini),
-        admin.from('expenses').select(SEL_DES).eq('clinic_id', clinicId).in('status', ['pending', 'overdue']).lte('due_date', janela.fim),
+        todas<PagRow>(pag(pagoQ)),
+        todas<PagRow>(pag(abertoQ)),
+        todas<DesRow>(des(pagoQ)),
+        todas<DesRow>(des(abertoQ)),
       ])
-      for (const r of [pagos, abertos, dPagas, dAbertas]) if (r.error) lancar(r.error)
 
-      const pagamentos = [...((pagos.data ?? []) as unknown as PagRow[]), ...((abertos.data ?? []) as unknown as PagRow[])].map(
+      const pagamentos = [...pagos, ...abertos].map(
         (r): PagamentoFluxo => {
           const pac = Array.isArray(r.patient) ? r.patient[0] : r.patient
           return {
@@ -108,7 +135,7 @@ export function createFluxoRepo(admin: SupabaseClient) {
           }
         },
       )
-      const despesas = [...((dPagas.data ?? []) as unknown as DesRow[]), ...((dAbertas.data ?? []) as unknown as DesRow[])].map(
+      const despesas = [...dPagas, ...dAbertas].map(
         (r): DespesaFluxo => ({
           id: r.id,
           valorCentavos: centavos(r.amount),
