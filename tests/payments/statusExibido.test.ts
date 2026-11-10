@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { statusExibido } from './statusExibido'
+﻿import { describe, it, expect } from 'vitest'
+import { statusExibido } from '@/lib/payments/statusExibido'
 
 describe('statusExibido', () => {
   const hoje = '2026-11-10'
