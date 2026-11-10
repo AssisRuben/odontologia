@@ -16,8 +16,8 @@ interface Props {
 }
 
 /**
- * Renderizada em portal no <body>: o layout do painel tem `print:hidden`, então
- * ao imprimir só esta janela aparece (sem fundo, barra lateral ou botões).
+ * Renderizada em portal no <body>; o <style> abaixo só existe enquanto a janela
+ * está aberta e esconde o resto da página ao imprimir (sem barra lateral ou botões).
  */
 export function ModalListaCompras({ itens, hojeYmd, onClose }: Props) {
   const clinicName = useClinicStore((s) => s.clinicName)
@@ -54,7 +54,8 @@ export function ModalListaCompras({ itens, hojeYmd, onClose }: Props) {
   }
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center print:static print:block">
+    <div className="compras-root fixed inset-0 z-50 flex items-center justify-center print:static print:block">
+      <style>{`@media print { body > *:not(.compras-root) { display: none !important } }`}</style>
       <div className="absolute inset-0 bg-black/50 print:hidden" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[92vh] overflow-y-auto print:max-h-none print:max-w-none print:mx-0 print:shadow-none print:rounded-none print:overflow-visible">
         <div className="flex items-center justify-between p-5 border-b border-linha">

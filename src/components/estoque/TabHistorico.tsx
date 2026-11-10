@@ -40,8 +40,8 @@ export function TabHistorico({ itens, hojeYmd }: Props) {
   const [erro, setErro] = useState('')
   const [versao, setVersao] = useState(0)
 
-  const de = deSel ?? (hojeYmd ? trintaDiasAntes(hojeYmd) : '')
-  const ate = ateSel ?? hojeYmd
+  const de = deSel || (hojeYmd ? trintaDiasAntes(hojeYmd) : '')
+  const ate = ateSel || hojeYmd
 
   useEffect(() => {
     if (!de || !ate) return
