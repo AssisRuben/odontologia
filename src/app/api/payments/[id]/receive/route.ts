@@ -43,6 +43,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/payments/[i
         paidAt: typeof j.paidAt === 'string' ? j.paidAt : '',
         amountCents: typeof j.amountCents === 'number' ? j.amountCents : NaN,
         method,
+        // Número inválido (ex.: texto) vira NaN e cai na validação (422).
+        ...(j.netAmountCents !== undefined && j.netAmountCents !== null
+          ? { netAmountCents: typeof j.netAmountCents === 'number' ? j.netAmountCents : NaN }
+          : {}),
       },
       deps,
     )

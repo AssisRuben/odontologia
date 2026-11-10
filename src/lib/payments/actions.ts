@@ -116,7 +116,8 @@ export async function changeDueDate(
 export async function markReceived(
   clinicId: string,
   paymentId: string,
-  input: { paidAt: string; amountCents: number; method?: PaymentMethod },
+  /** `netAmountCents`: líquido depois da taxa da maquininha; só vale para lançamentos sem Asaas. */
+  input: { paidAt: string; amountCents: number; method?: PaymentMethod; netAmountCents?: number },
   deps: ActionDeps,
   now: Date = new Date(),
 ): Promise<ActionResult> {
@@ -131,6 +132,10 @@ export async function markReceived(
   if (!isRealDate(input.paidAt) || input.paidAt > (await deps.today(clinicId, now))) {
     return fail(422, 'Data de pagamento inválida')
   }
+  const net = input.netAmountCents
+  if (net !== undefined && (!Number.isInteger(net) || net < 0 || net > input.amountCents)) {
+    return fail(422, 'Valor líquido inválido')
+  }
 
   const conn = await connectionFor(clinicId, p, deps)
   if (conn === undefined) return fail(409, NO_CONNECTION)
@@ -143,6 +148,8 @@ export async function markReceived(
   }
   const patch: RowPatch = { status: 'paid', paid_at: input.paidAt }
   if (input.method) patch.payment_method = input.method
+  // No Asaas o líquido vem do próprio Asaas (o webhook sobrescreveria).
+  if (net !== undefined && !conn) patch.net_amount_cents = net
   if ((await deps.updateRows(clinicId, [p.id], patch)) === 0) return fail(409, NOT_OPEN)
   // O webhook do Asaas chega com o lançamento já pago e não emite a nota: emite aqui.
   if (conn?.connection.nfse_auto) {

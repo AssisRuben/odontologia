@@ -13,6 +13,7 @@ import { toDbPaidAt } from '@/lib/payments/dates'
 import { PAYMENT_METHOD_LABELS } from '@/types'
 import type { PaymentMethod } from '@/types'
 import { errorText } from './errorText'
+import { useTaxaMaquininha } from './useTaxaMaquininha'
 
 export interface NovaCobrancaPatient {
   id: string
@@ -90,6 +91,8 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
   const parsedCents = parseReaisInput(amount)
   const amountCents = parsedCents ?? 0
   const needCpf = isAsaas && !patient.cpf
+  // Taxa da maquininha só no lançamento manual já recebido; "a receber" aplica ao marcar como pago.
+  const taxa = useTaxaMaquininha(method, amountCents, effectiveMode === 'manual' && received)
 
   const waBlock = patient.whatsapp_opt_out
     ? 'Paciente optou por não receber WhatsApp'
@@ -115,7 +118,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
     return `${installmentCount}x de ${formatCurrency(parts[0].amountCents / 100)} · vencimentos ${ddmm(firstDue)} a ${ddmm(last.dueDate)}`
   }, [amountCents, installmentCount, firstDue, validation])
 
-  const canSubmit = !submitting && !amountOnlyError && !dateMissing && description.trim().length > 0 &&
+  const canSubmit = !submitting && !amountOnlyError && !dateMissing && !taxa.erro && description.trim().length > 0 &&
     (effectiveMode !== 'manual' || !!clinicId) && (!isAsaas || asaasOk === true)
 
   async function handleSubmit() {
@@ -134,6 +137,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
           payment_method: method,
           status: received ? 'paid' : 'pending',
           ...(received ? { paid_at: toDbPaidAt(paidDate) } : { due_date: firstDue }),
+          ...(received && taxa.liquidoCentavos !== null ? { net_amount: taxa.liquidoCentavos / 100 } : {}),
           charge_kind: 'manual',
           ...(budget ? { budget_id: budget.id } : {}),
         })
@@ -266,6 +270,7 @@ export function ModalNovaCobranca({ patient, budget, onClose, onCreated }: Props
                     <input type="radio" checked={!received} onChange={() => setReceived(false)} /> A receber
                   </label>
                 </div>
+                {taxa.campos}
               </>
             )}
 

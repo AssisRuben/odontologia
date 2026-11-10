@@ -192,7 +192,7 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
           <div className="bg-white rounded-xl border border-linha p-5 space-y-2">
             <Line label="Receitas de pacientes" value={t.patientRevenueCents} />
             <Line label="Despesas de custeio" value={t.custeioCents} />
-            {t.feesCents > 0 && <Line sub label="Tarifas de cobrança (Asaas)" value={t.feesCents} />}
+            {t.feesCents > 0 && <Line sub label="Tarifas de cobrança e maquininha" value={t.feesCents} />}
             <Line label="Salários e encargos" value={t.pessoalCents} />
             <Line label="Emolumentos" value={t.emolumentosCents} />
             <Line label="Total dedutível" value={t.deductibleCents} />

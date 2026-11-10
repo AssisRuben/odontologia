@@ -19,7 +19,7 @@ const configCards = [
   {
     id: 'taxas',
     title: 'Taxas de maquininhas',
-    description: 'Configure as taxas de cada bandeira de cartão.',
+    description: 'Débito, crédito e Pix: usadas no valor líquido e na comissão.',
     icon: CreditCard,
     color: '#F59E0B',
   },
