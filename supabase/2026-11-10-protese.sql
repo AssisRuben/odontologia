@@ -77,6 +77,7 @@ INSERT INTO laboratories (clinic_id, name)
 SELECT DISTINCT clinic_id, btrim(laboratory)
 FROM prosthetics
 WHERE btrim(coalesce(laboratory, '')) <> ''
+  AND laboratory_id IS NULL
 ON CONFLICT DO NOTHING;
 
 UPDATE prosthetics p
@@ -109,10 +110,12 @@ BEGIN
   SELECT name INTO v_patient FROM patients
   WHERE id = p_row.patient_id AND clinic_id = p_row.clinic_id;
 
-  v_lab := p_row.laboratory;
+  -- O texto antigo só vale para registros sem laboratório cadastrado.
   IF p_row.laboratory_id IS NOT NULL THEN
-    SELECT coalesce(l.name, p_row.laboratory) INTO v_lab FROM laboratories l
+    SELECT l.name INTO v_lab FROM laboratories l
     WHERE l.id = p_row.laboratory_id AND l.clinic_id = p_row.clinic_id;
+  ELSE
+    v_lab := p_row.laboratory;
   END IF;
 
   v_desc := 'Prótese: ' || coalesce(nullif(btrim(p_row.type), ''), 'Prótese')
@@ -243,7 +246,7 @@ $fn$;
 --     e libera a geração futura (expense_generated = false);
 --   paga: não mexe; se custo ou dentista mudaram, avisa 'despesa_paga';
 --   sem despesa, nunca gerada, em returned/installed e custo > 0: cria.
--- Na edição o laboratório só precisa pertencer à clínica (o atual vale mesmo inativo).
+-- Na edição o laboratório precisa pertencer à clínica e estar ativo, exceto o atual da prótese.
 -- Devolve {"expense": {"id","amount"} | null, "aviso": 'despesa_paga' | null}.
 -- Erros: PROTESE_NAO_ENCONTRADA, PACIENTE_INVALIDO, PROFISSIONAL_INVALIDO, LABORATORIO_INVALIDO.
 
@@ -280,12 +283,14 @@ BEGIN
 
   IF v_lab IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM laboratories WHERE id = v_lab AND clinic_id = p_clinic_id
+      AND (active OR id = v_old.laboratory_id)
   ) THEN RAISE EXCEPTION 'LABORATORIO_INVALIDO'; END IF;
 
   UPDATE prosthetics
   SET patient_id      = v_patient,
       professional_id = v_prof,
       laboratory_id   = v_lab,
+      laboratory      = NULL,  -- texto antigo é só leitura de registros migrados
       type            = nullif(btrim(p_data->>'type'), ''),
       tooth_region    = nullif(btrim(p_data->>'tooth_region'), ''),
       expected_at     = nullif(p_data->>'expected_at', '')::date,
@@ -371,7 +376,7 @@ $fn$;
 
 -- ── Permissões ──────────────────────────────────────────────
 
-REVOKE ALL ON FUNCTION public.prosthetic_create_expense(prosthetics) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prosthetic_create_expense(prosthetics) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.create_prosthetic(UUID, UUID, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_prosthetic(UUID, UUID, JSONB) TO service_role;
 REVOKE ALL ON FUNCTION public.move_prosthetic(UUID, UUID, UUID, TEXT, TEXT, TEXT, DATE) FROM PUBLIC, anon, authenticated;
