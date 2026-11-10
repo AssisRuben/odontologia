@@ -64,6 +64,10 @@ export function ModalBaixaMaterial({ treatmentId, onClose }: {
 
   const saldos = useMemo(() => new Map(produtos.map((p) => [p.id, p.quantity])), [produtos])
   const porId = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos])
+  const nomeInativo = useMemo(
+    () => new Map((dados?.kits ?? []).flatMap((k) => (k.items ?? []).map((i) => [i.item_id, i.item?.name] as const))),
+    [dados],
+  )
   const emFalta = useMemo(() => faltas(linhas, saldos), [linhas, saldos])
   const disponiveis = produtos.filter((p) => !linhas.some((l) => l.itemId === p.id))
 
@@ -117,7 +121,7 @@ export function ModalBaixaMaterial({ treatmentId, onClose }: {
     return (
       <ModalBase titulo="Baixa de material" onClose={() => onClose(false)}
         rodape={<button className={btnSecCls} onClick={() => onClose(false)}>Fechar</button>}>
-        <p className="text-sm text-tinta-2">A baixa deste tratamento já foi resolvida</p>
+        <p className="text-sm text-tinta-2">A baixa deste tratamento já foi resolvida.</p>
       </ModalBase>
     )
   }
@@ -170,7 +174,7 @@ export function ModalBaixaMaterial({ treatmentId, onClose }: {
               return (
                 <tr key={l.itemId} className={vermelho ? 'bg-red-50 text-red-700' : ''}>
                   <td className="py-1.5 pr-2 align-top">
-                    {p?.name ?? 'Produto indisponível'}
+                    {p?.name ?? (nomeInativo.get(l.itemId) ? `${nomeInativo.get(l.itemId)} (inativo)` : 'Produto indisponível')}
                     {p?.tracks_expiry && (
                       <p className="text-xs text-tinta-4">Sai do lote que vence primeiro (vencidos não entram)</p>
                     )}

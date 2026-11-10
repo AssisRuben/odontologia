@@ -147,13 +147,13 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
   const allItems = guides.flatMap((g) => g.items || [])
 
   // Concluir um tratamento deixa o material "pendente" (gatilho do banco): abre a baixa em seguida.
-  async function aposSalvar(id: string, status: TreatmentStatus) {
+  async function aposSalvar(id: string, status: TreatmentStatus, anterior: TreatmentStatus | null) {
     setModalOpen(false)
     setEditingTreatment(null)
     loadData()
     onTreatmentSaved?.()
     window.dispatchEvent(new Event('odontoRefresh'))
-    if (status !== 'completed') return
+    if (status !== 'completed' || anterior === 'completed') return
     const { data } = await createClient().from('treatments').select('material_status').eq('id', id).single()
     if (data?.material_status === 'pendente') setBaixaId(id)
   }
@@ -208,7 +208,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                             Material pendente
                           </span>
                         )}
-                        {t.status === 'completed' && t.material_status === 'baixado' && (
+                        {t.material_status === 'baixado' && (
                           <span className="text-xs px-2 py-0.5 rounded-full text-tinta-3 bg-porcelana">
                             Material baixado
                           </span>
@@ -316,7 +316,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
           professionals={professionals}
           insurancePlans={insurancePlans}
           onClose={() => setModalOpen(false)}
-          onSaved={(id, status) => { void aposSalvar(id, status) }}
+          onSaved={(id, status) => { void aposSalvar(id, status, null) }}
         />
       )}
 
@@ -326,7 +326,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
           professionals={professionals}
           insurancePlans={insurancePlans}
           onClose={() => setEditingTreatment(null)}
-          onSaved={(id, status) => { void aposSalvar(id, status) }}
+          onSaved={(id, status) => { void aposSalvar(id, status, editingTreatment.status) }}
         />
       )}
 
@@ -822,7 +822,7 @@ function ModalEditarTratamento({
   const [perguntaDevolver, setPerguntaDevolver] = useState(false)
 
   function pedirSalvar() {
-    if (treatment.material_status === 'baixado' && status !== 'completed') {
+    if (treatment.material_status === 'baixado' && treatment.status === 'completed' && status !== 'completed') {
       if (!procedure.trim()) { setError('Informe o procedimento.'); return }
       setPerguntaDevolver(true)
       return
@@ -848,8 +848,8 @@ function ModalEditarTratamento({
       setLoading(false)
       return
     }
-    setPerguntaDevolver(false)
     await handleSave()
+    setPerguntaDevolver(false)
   }
 
   async function handleSave() {
@@ -901,7 +901,7 @@ function ModalEditarTratamento({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={loading ? undefined : onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 flex flex-col max-h-[92vh]">
 
         {/* Header */}
@@ -1075,17 +1075,17 @@ function ModalEditarTratamento({
                 Este tratamento teve baixa de material. Devolver o material ao estoque?
               </p>
               <div className="flex flex-wrap justify-end gap-2">
-                <button type="button" onClick={() => setPerguntaDevolver(false)}
-                  className="px-4 py-2 rounded-lg border border-linha text-sm text-tinta hover:bg-porcelana-2">
+                <button type="button" disabled={loading} onClick={() => setPerguntaDevolver(false)}
+                  className="px-4 py-2 rounded-lg border border-linha text-sm text-tinta hover:bg-porcelana-2 disabled:opacity-50">
                   Cancelar
                 </button>
-                <button type="button" onClick={() => { setPerguntaDevolver(false); void handleSave() }}
-                  className="px-4 py-2 rounded-lg border border-linha text-sm text-tinta hover:bg-porcelana-2">
+                <button type="button" disabled={loading} onClick={() => { setPerguntaDevolver(false); void handleSave() }}
+                  className="px-4 py-2 rounded-lg border border-linha text-sm text-tinta hover:bg-porcelana-2 disabled:opacity-50">
                   Manter baixa
                 </button>
-                <button type="button" onClick={() => void devolverESalvar()}
-                  className="px-4 py-2 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro">
-                  Devolver
+                <button type="button" disabled={loading} onClick={() => void devolverESalvar()}
+                  className="px-4 py-2 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
+                  {loading ? 'Devolvendo...' : 'Devolver'}
                 </button>
               </div>
             </div>
