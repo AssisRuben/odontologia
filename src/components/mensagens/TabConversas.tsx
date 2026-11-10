@@ -78,35 +78,35 @@ export default function TabConversas() {
   }
 
   return (
-    <div className="h-full bg-white rounded-xl border border-[#E5E7EB] flex overflow-hidden">
-      <div className={`${selected ? 'hidden sm:flex' : 'flex'} flex-col w-full sm:w-80 sm:border-r border-[#E5E7EB] shrink-0 min-h-0`}>
-        <div className="p-2 border-b border-[#E5E7EB] flex gap-1 flex-wrap">
+    <div className="h-full bg-white rounded-xl border border-linha flex overflow-hidden">
+      <div className={`${selected ? 'hidden sm:flex' : 'flex'} flex-col w-full sm:w-80 sm:border-r border-linha shrink-0 min-h-0`}>
+        <div className="p-2 border-b border-linha flex gap-1 flex-wrap">
           {FILTROS.map((f) => (
             <button key={f.id} onClick={() => setFiltro(f.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg ${filtro === f.id ? 'bg-[#EFF6FF] text-[#3B82F6]' : 'text-[#6B7280] hover:bg-[#F3F4F6]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg ${filtro === f.id ? 'bg-petroleo-50 text-petroleo' : 'text-tinta-3 hover:bg-porcelana'}`}>
               {f.label}
             </button>
           ))}
         </div>
         <div className="flex-1 overflow-y-auto">
           {error && <p className="p-4 text-sm text-[#EF4444]">{error}</p>}
-          {loading && !error && <p className="p-4 text-sm text-[#6B7280]">Carregando…</p>}
-          {!loading && !error && items.length === 0 && <p className="p-4 text-sm text-[#6B7280]">Nenhuma conversa.</p>}
+          {loading && !error && <p className="p-4 text-sm text-tinta-3">Carregando…</p>}
+          {!loading && !error && items.length === 0 && <p className="p-4 text-sm text-tinta-3">Nenhuma conversa.</p>}
           {items.map((c) => (
             <button key={c.id} onClick={() => select(c.id)}
-              className={`w-full text-left px-4 py-3 border-b border-[#E5E7EB] hover:bg-[#F9FAFB] ${selected === c.id ? 'bg-[#EFF6FF]' : ''}`}>
+              className={`w-full text-left px-4 py-3 border-b border-linha hover:bg-porcelana-2 ${selected === c.id ? 'bg-petroleo-50' : ''}`}>
               <div className="flex items-center gap-2">
-                {c.unread && <span className="w-2 h-2 rounded-full bg-[#3B82F6] shrink-0" aria-label="Não lida" />}
-                <span className="text-sm font-medium text-[#111827] truncate flex-1">{c.label}</span>
-                <span className="text-[10px] text-[#6B7280] shrink-0">
+                {c.unread && <span className="w-2 h-2 rounded-full bg-petroleo shrink-0" aria-label="Não lida" />}
+                <span className="text-sm font-medium text-tinta truncate flex-1">{c.label}</span>
+                <span className="text-[10px] text-tinta-3 shrink-0">
                   {formatDistanceToNow(new Date(c.last_message_at), { locale: ptBR, addSuffix: true })}
                 </span>
               </div>
-              {c.ultima && <p className="text-xs text-[#6B7280] truncate mt-0.5">{c.ultima}</p>}
+              {c.ultima && <p className="text-xs text-tinta-3 truncate mt-0.5">{c.ultima}</p>}
             </button>
           ))}
           {hasMore && (
-            <button onClick={loadMore} className="w-full py-3 text-sm text-[#3B82F6] hover:bg-[#F9FAFB]">Carregar mais</button>
+            <button onClick={loadMore} className="w-full py-3 text-sm text-petroleo hover:bg-porcelana-2">Carregar mais</button>
           )}
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function TabConversas() {
           <ConversaPainel key={selected} id={selected} onBack={() => setSelected(null)} onChanged={refresh} />
         </div>
       ) : (
-        <div className="hidden sm:flex flex-1 items-center justify-center text-sm text-[#6B7280]">Selecione uma conversa</div>
+        <div className="hidden sm:flex flex-1 items-center justify-center text-sm text-tinta-3">Selecione uma conversa</div>
       )}
     </div>
   )

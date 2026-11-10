@@ -51,12 +51,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       window.location.href = '/login'
     }
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F3F4F6] p-6">
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-6 max-w-md text-center space-y-4">
-          <p className="text-[#111827] font-semibold">
+      <div className="min-h-screen flex items-center justify-center bg-porcelana p-6">
+        <div className="bg-white rounded-xl border border-linha p-6 max-w-md text-center space-y-4">
+          <p className="text-tinta font-semibold">
             {problem === 'no-clinic' ? 'Sua conta não está vinculada a nenhuma clínica' : 'Não foi possível carregar sua clínica'}
           </p>
-          <p className="text-sm text-[#6B7280]">
+          <p className="text-sm text-tinta-3">
             {problem === 'no-clinic'
               ? 'Peça ao responsável pela clínica para vincular seu login a um profissional.'
               : 'Verifique sua conexão e tente novamente.'}
@@ -64,12 +64,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           <div className="flex gap-2 justify-center">
             {problem === 'error' && (
               <button onClick={() => window.location.reload()}
-                className="px-4 py-2 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB]">
+                className="px-4 py-2 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro">
                 Tentar de novo
               </button>
             )}
             <button onClick={logout}
-              className="px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]">
+              className="px-4 py-2 rounded-lg border border-linha text-sm font-medium text-tinta-2 hover:bg-porcelana-2">
               Sair
             </button>
           </div>

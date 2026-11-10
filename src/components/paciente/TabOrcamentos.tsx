@@ -24,17 +24,17 @@ interface Prof { id: string; name: string; user_id: string | null }
 type Msg = { kind: 'ok' | 'err'; text: string; link?: string }
 
 const BUDGET_STATUS: Record<BudgetStatus, { color: string; bg: string; icon: typeof Clock }> = {
-  draft:     { color: '#6B7280', bg: '#F3F4F6', icon: Clock },
+  draft:     { color: '#5E6E75', bg: '#EEF2F2', icon: Clock },
   sent:      { color: '#B45309', bg: '#FFFBEB', icon: Send },
   approved:  { color: '#10B981', bg: '#ECFDF5', icon: CheckCircle2 },
   rejected:  { color: '#EF4444', bg: '#FEF2F2', icon: XCircle },
   expired:   { color: '#EF4444', bg: '#FEF2F2', icon: XCircle },
-  completed: { color: '#3B82F6', bg: '#EFF6FF', icon: CheckCircle2 },
+  completed: { color: '#173B47', bg: '#E4EFF2', icon: CheckCircle2 },
 }
 
 const ITEM_STATUS = {
   pending:     { label: 'Pendente',    color: '#F59E0B' },
-  in_progress: { label: 'Em andamento', color: '#3B82F6' },
+  in_progress: { label: 'Em andamento', color: '#173B47' },
   completed:   { label: 'Concluído',   color: '#10B981' },
 }
 
@@ -188,24 +188,24 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
 
   if (loading) return (
     <div className="flex justify-center py-16">
-      <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+      <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-[#6B7280]">{budgets.length} orçamento(s)</p>
+        <p className="text-sm text-tinta-3">{budgets.length} orçamento(s)</p>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB] transition-colors">
+          className="flex items-center gap-1.5 px-4 h-9 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro transition-colors">
           <Plus className="w-4 h-4" /> Novo orçamento
         </button>
       </div>
 
       {budgets.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] flex flex-col items-center justify-center h-48 gap-3">
-          <FileText className="w-10 h-10 text-[#D1D5DB]" />
-          <p className="text-sm text-[#6B7280]">Nenhum orçamento cadastrado.</p>
+        <div className="bg-white rounded-xl border border-linha flex flex-col items-center justify-center h-48 gap-3">
+          <FileText className="w-10 h-10 text-linha-forte" />
+          <p className="text-sm text-tinta-3">Nenhum orçamento cadastrado.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -223,10 +223,10 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
             const disabled = busy === b.id
 
             return (
-              <div key={b.id} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+              <div key={b.id} className="bg-white rounded-xl border border-linha overflow-hidden">
                 <button
                   onClick={() => setExpandedId(expanded ? null : b.id)}
-                  className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-[#F9FAFB] transition-colors"
+                  className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-porcelana-2 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -235,36 +235,36 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                         <Icon className="w-3 h-3" />
                         {STAGE_LABEL[b.status]}
                       </span>
-                      <span className="text-xs text-[#9CA3AF]">
+                      <span className="text-xs text-tinta-4">
                         {format(parseISO(b.created_at), "d MMM yyyy", { locale: ptBR })}
                       </span>
                     </div>
-                    <p className="text-xs text-[#6B7280]">{items.length} procedimento(s)</p>
+                    <p className="text-xs text-tinta-3">{items.length} procedimento(s)</p>
                     {won && (
-                      <p className="text-xs text-[#6B7280] mt-0.5">
+                      <p className="text-xs text-tinta-3 mt-0.5">
                         Cobrado {formatCurrency(charged[b.id] ?? 0)} de {formatCurrency(total)}
                       </p>
                     )}
                   </div>
-                  <p className="text-base font-bold text-[#111827] shrink-0">{formatCurrency(total)}</p>
+                  <p className="text-base font-bold text-tinta shrink-0">{formatCurrency(total)}</p>
                 </button>
 
                 {expanded && (
-                  <div className="border-t border-[#F3F4F6]">
-                    <div className="flex flex-wrap items-center gap-4 px-5 py-3 bg-[#FAFAFA] border-b border-[#F3F4F6]">
-                      <label className="flex items-center gap-2 text-xs text-[#6B7280]">
+                  <div className="border-t border-porcelana">
+                    <div className="flex flex-wrap items-center gap-4 px-5 py-3 bg-porcelana-2 border-b border-porcelana">
+                      <label className="flex items-center gap-2 text-xs text-tinta-3">
                         Dentista
                         <select
                           value={b.professional_id ?? ''}
                           disabled={!act.editProfessional || disabled}
                           onChange={e => updateBudget(b, { professional_id: e.target.value || null })}
-                          className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white disabled:bg-[#F3F4F6]"
+                          className="h-7 px-2 rounded-lg border border-linha text-xs bg-white disabled:bg-porcelana"
                         >
                           <option value="">Sem dentista</option>
                           {profs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                       </label>
-                      <label className="flex items-center gap-2 text-xs text-[#6B7280]">
+                      <label className="flex items-center gap-2 text-xs text-tinta-3">
                         Validade
                         <input
                           type="date"
@@ -272,27 +272,27 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                           key={`${b.id}-${b.valid_until ?? ''}-${resetN}`}
                           disabled={!act.editValidity || disabled}
                           onBlur={e => changeValidity(b, e.target.value)}
-                          className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white disabled:bg-[#F3F4F6]"
+                          className="h-7 px-2 rounded-lg border border-linha text-xs bg-white disabled:bg-porcelana"
                         />
                       </label>
                       {b.status === 'sent' && <span className="text-[11px] text-[#B45309]">{SENT_EDIT_NOTICE}</span>}
                     </div>
 
-                    <div className="divide-y divide-[#F9FAFB]">
+                    <div className="divide-y divide-porcelana-2">
                       {items.map((item) => {
                         const ist = ITEM_STATUS[item.status]
                         return (
                           <div key={item.id} className="flex items-center gap-3 px-5 py-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-[#111827]">
+                              <p className="text-sm font-medium text-tinta">
                                 {item.procedure}
                                 {won && (
-                                  <span className={`ml-2 text-[11px] font-semibold ${item.approved ? 'text-[#10B981]' : 'text-[#9CA3AF]'}`}>
+                                  <span className={`ml-2 text-[11px] font-semibold ${item.approved ? 'text-[#10B981]' : 'text-tinta-4'}`}>
                                     {item.approved ? 'Aprovado' : 'Não aprovado'}
                                   </span>
                                 )}
                               </p>
-                              <p className="text-xs text-[#6B7280]">
+                              <p className="text-xs text-tinta-3">
                                 {item.tooth ? `Dente ${item.tooth} · ` : ''}
                                 Qtd {item.quantity} · {formatCurrency(item.unit_price)} un.
                               </p>
@@ -300,14 +300,14 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                             <select
                               value={item.status}
                               onChange={e => updateItemStatus(b.id, item.id, e.target.value as BudgetItem['status'])}
-                              className="h-7 px-2 rounded-lg border border-[#E5E7EB] text-xs bg-white focus:outline-none"
+                              className="h-7 px-2 rounded-lg border border-linha text-xs bg-white focus:outline-none"
                               style={{ color: ist.color }}
                             >
                               {Object.entries(ITEM_STATUS).map(([v, c]) => (
                                 <option key={v} value={v}>{c.label}</option>
                               ))}
                             </select>
-                            <p className="text-sm font-semibold text-[#111827] shrink-0 w-20 text-right">
+                            <p className="text-sm font-semibold text-tinta shrink-0 w-20 text-right">
                               {formatCurrency(item.unit_price * item.quantity)}
                             </p>
                           </div>
@@ -316,11 +316,11 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                     </div>
 
                     {b.notes && (
-                      <p className="px-5 py-3 text-xs text-[#6B7280] italic border-t border-[#F9FAFB]">{b.notes}</p>
+                      <p className="px-5 py-3 text-xs text-tinta-3 italic border-t border-porcelana-2">{b.notes}</p>
                     )}
 
                     {msg && (
-                      <div className={`px-5 py-2 text-xs border-t border-[#F3F4F6] flex items-center gap-3 ${msg.kind === 'err' ? 'text-red-600 bg-red-50' : 'text-[#047857] bg-[#ECFDF5]'}`}>
+                      <div className={`px-5 py-2 text-xs border-t border-porcelana flex items-center gap-3 ${msg.kind === 'err' ? 'text-red-600 bg-red-50' : 'text-[#047857] bg-[#ECFDF5]'}`}>
                         <span>{msg.text}</span>
                         {msg.link && (
                           <button onClick={() => copyLink(b, msg.link)} className="underline font-medium">Copiar link</button>
@@ -328,15 +328,15 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-[#F3F4F6] bg-[#FAFAFA]">
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-porcelana bg-porcelana-2">
                       {act.send && (
-                        <button disabled={disabled} onClick={() => send(b, false)} className={`${btn} bg-[#3B82F6] text-white hover:bg-[#2563EB]`}>Enviar</button>
+                        <button disabled={disabled} onClick={() => send(b, false)} className={`${btn} bg-petroleo text-white hover:bg-petroleo-escuro`}>Enviar</button>
                       )}
                       {act.resend && (
-                        <button disabled={disabled} onClick={() => send(b, true)} className={`${btn} bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]`}>Reenviar</button>
+                        <button disabled={disabled} onClick={() => send(b, true)} className={`${btn} bg-petroleo-50 text-petroleo hover:bg-petroleo-100`}>Reenviar</button>
                       )}
                       {act.copyLink && (
-                        <button disabled={disabled} onClick={() => copyLink(b)} className={`${btn} bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB]`}>Copiar link</button>
+                        <button disabled={disabled} onClick={() => copyLink(b)} className={`${btn} bg-porcelana text-tinta-2 hover:bg-linha`}>Copiar link</button>
                       )}
                       {act.decide && (
                         <>
@@ -345,31 +345,31 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                         </>
                       )}
                       {act.reopen && (
-                        <button disabled={disabled} onClick={() => reopen(b)} className={`${btn} bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]`}>Reabrir</button>
+                        <button disabled={disabled} onClick={() => reopen(b)} className={`${btn} bg-petroleo-50 text-petroleo hover:bg-petroleo-100`}>Reabrir</button>
                       )}
                       {act.receipt && (
-                        <button onClick={() => openReceipt(b)} className={`${btn} bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB]`}>Comprovante</button>
+                        <button onClick={() => openReceipt(b)} className={`${btn} bg-porcelana text-tinta-2 hover:bg-linha`}>Comprovante</button>
                       )}
                       {patient && act.charge && (
                         <button onClick={() => openCharge(b, remaining)} className={`${btn} bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7]`}>Gerar cobrança</button>
                       )}
                       {patient && won && !act.charge && (
-                        <span className="px-3 h-7 inline-flex items-center text-xs text-[#6B7280]">Cobrado integralmente</span>
+                        <span className="px-3 h-7 inline-flex items-center text-xs text-tinta-3">Cobrado integralmente</span>
                       )}
                       {act.complete && (
-                        <button disabled={disabled} onClick={() => updateBudget(b, { status: 'completed' })} className={`${btn} bg-[#EFF6FF] text-[#3B82F6] hover:bg-[#DBEAFE]`}>Concluído</button>
+                        <button disabled={disabled} onClick={() => updateBudget(b, { status: 'completed' })} className={`${btn} bg-petroleo-50 text-petroleo hover:bg-petroleo-100`}>Concluído</button>
                       )}
                     </div>
 
-                    <div className="px-5 py-3 border-t border-[#F3F4F6]">
-                      <p className="text-xs font-semibold text-[#6B7280] mb-2">Histórico</p>
+                    <div className="px-5 py-3 border-t border-porcelana">
+                      <p className="text-xs font-semibold text-tinta-3 mb-2">Histórico</p>
                       {(events[b.id] ?? []).length === 0 ? (
-                        <p className="text-xs text-[#9CA3AF]">Sem eventos.</p>
+                        <p className="text-xs text-tinta-4">Sem eventos.</p>
                       ) : (
                         <ul className="space-y-1">
                           {(events[b.id] ?? []).map(e => (
-                            <li key={e.id} className="text-xs text-[#374151]">
-                              <span className="text-[#9CA3AF]">{format(parseISO(e.created_at), "d MMM yyyy HH:mm", { locale: ptBR })}</span>
+                            <li key={e.id} className="text-xs text-tinta-2">
+                              <span className="text-tinta-4">{format(parseISO(e.created_at), "d MMM yyyy HH:mm", { locale: ptBR })}</span>
                               {' · '}{eventLabel(e)}{e.note ? ` — ${e.note}` : ''}
                             </li>
                           ))}
@@ -474,9 +474,9 @@ function ModalNovoOrcamento({ patientId, clinicId, professionalId, onClose, onSa
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[92vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB] shrink-0">
-          <h2 className="text-base font-semibold text-[#111827]">Novo orçamento</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]">
+        <div className="flex items-center justify-between p-5 border-b border-linha shrink-0">
+          <h2 className="text-base font-semibold text-tinta">Novo orçamento</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-4 hover:text-tinta-2">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -484,12 +484,12 @@ function ModalNovoOrcamento({ patientId, clinicId, professionalId, onClose, onSa
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="space-y-3">
             {items.map((item, idx) => (
-              <div key={item.id} className="bg-[#F9FAFB] rounded-xl p-4 space-y-3">
+              <div key={item.id} className="bg-porcelana-2 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-[#6B7280]">Procedimento {idx + 1}</p>
+                  <p className="text-xs font-semibold text-tinta-3">Procedimento {idx + 1}</p>
                   {items.length > 1 && (
                     <button onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))}
-                      className="p-1 rounded text-[#9CA3AF] hover:text-red-500">
+                      className="p-1 rounded text-tinta-4 hover:text-red-500">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -498,25 +498,25 @@ function ModalNovoOrcamento({ patientId, clinicId, professionalId, onClose, onSa
                   value={item.procedure}
                   onChange={e => updateItem(item.id, { procedure: e.target.value })}
                   placeholder="Nome do procedimento"
-                  className="w-full h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  className="w-full h-9 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo"
                 />
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs text-[#6B7280] mb-1">Dente</label>
+                    <label className="block text-xs text-tinta-3 mb-1">Dente</label>
                     <input value={item.tooth} onChange={e => updateItem(item.id, { tooth: e.target.value })}
                       placeholder="Ex: 36"
-                      className="w-full h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                      className="w-full h-9 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo" />
                   </div>
                   <div>
-                    <label className="block text-xs text-[#6B7280] mb-1">Qtd</label>
+                    <label className="block text-xs text-tinta-3 mb-1">Qtd</label>
                     <input type="number" min="1" value={item.quantity} onChange={e => updateItem(item.id, { quantity: e.target.value })}
-                      className="w-full h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                      className="w-full h-9 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo" />
                   </div>
                   <div>
-                    <label className="block text-xs text-[#6B7280] mb-1">Valor un. (R$)</label>
+                    <label className="block text-xs text-tinta-3 mb-1">Valor un. (R$)</label>
                     <input type="number" step="0.01" min="0" value={item.unit_price} onChange={e => updateItem(item.id, { unit_price: e.target.value })}
                       placeholder="0,00"
-                      className="w-full h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                      className="w-full h-9 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo" />
                   </div>
                 </div>
               </div>
@@ -524,30 +524,30 @@ function ModalNovoOrcamento({ patientId, clinicId, professionalId, onClose, onSa
           </div>
 
           <button onClick={() => setItems(prev => [...prev, newItem()])}
-            className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-[#D1D5DB] text-sm text-[#6B7280] hover:border-[#3B82F6] hover:text-[#3B82F6] transition-colors">
+            className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-linha-forte text-sm text-tinta-3 hover:border-petroleo hover:text-petroleo transition-colors">
             <Plus className="w-4 h-4" /> Adicionar procedimento
           </button>
 
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Observações</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Observações</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none" />
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none" />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
-        <div className="p-5 border-t border-[#E5E7EB] flex items-center gap-3 shrink-0">
+        <div className="p-5 border-t border-linha flex items-center gap-3 shrink-0">
           <div className="flex-1">
-            <p className="text-xs text-[#6B7280]">Total</p>
-            <p className="text-lg font-bold text-[#111827]">{formatCurrency(total)}</p>
+            <p className="text-xs text-tinta-3">Total</p>
+            <p className="text-lg font-bold text-tinta">{formatCurrency(total)}</p>
           </div>
           <button onClick={onClose}
-            className="h-10 px-4 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
+            className="h-10 px-4 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana">
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="h-10 px-6 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+            className="h-10 px-6 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
             {saving ? 'Salvando...' : 'Criar orçamento'}
           </button>
         </div>

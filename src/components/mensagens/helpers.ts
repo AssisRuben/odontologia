@@ -61,7 +61,7 @@ export const STATUS_LABELS: Record<MessageStatus, string> = {
 
 export const STATUS_STYLES: Record<MessageStatus, string> = {
   queued: 'bg-gray-100 text-gray-700',
-  sending: 'bg-blue-50 text-blue-700',
+  sending: 'bg-petroleo-50 text-petroleo',
   sent: 'bg-green-50 text-green-700',
   failed: 'bg-red-50 text-red-700',
   cancelled: 'bg-yellow-50 text-yellow-800',

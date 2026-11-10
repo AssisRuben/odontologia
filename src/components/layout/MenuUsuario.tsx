@@ -63,7 +63,7 @@ export function MenuUsuario() {
         aria-haspopup="menu"
         aria-label="Menu do usuário"
         title={professionalName ?? 'Usuário'}
-        className="w-8 h-8 rounded-full bg-[#3B82F6] hover:bg-[#2563EB] flex items-center justify-center text-white text-xs font-semibold ml-1 transition-colors"
+        className="w-8 h-8 rounded-full bg-petroleo hover:bg-petroleo-escuro flex items-center justify-center text-white text-xs font-semibold ml-1 transition-colors"
       >
         {sigla || <User className="w-4 h-4" />}
       </button>
@@ -71,20 +71,20 @@ export function MenuUsuario() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-[#E5E7EB] z-50 overflow-hidden"
+          className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-linha z-50 overflow-hidden"
         >
-          <div className="px-4 py-3 border-b border-[#E5E7EB]">
-            <p className="text-sm font-semibold text-[#111827] truncate">{professionalName ?? 'Usuário'}</p>
-            <p className="text-xs text-[#6B7280] truncate">{email === null ? 'Carregando…' : email}</p>
+          <div className="px-4 py-3 border-b border-linha">
+            <p className="text-sm font-semibold text-tinta truncate">{professionalName ?? 'Usuário'}</p>
+            <p className="text-xs text-tinta-3 truncate">{email === null ? 'Carregando…' : email}</p>
           </div>
 
           <Link
             href="/configuracoes"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#374151] hover:bg-[#F9FAFB]"
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-tinta-2 hover:bg-porcelana-2"
           >
-            <Settings className="w-4 h-4 text-[#6B7280]" />
+            <Settings className="w-4 h-4 text-tinta-3" />
             Configurações
           </Link>
 
@@ -92,7 +92,7 @@ export function MenuUsuario() {
             role="menuitem"
             onClick={sair}
             disabled={saindo}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#DC2626] hover:bg-[#FEF2F2] border-t border-[#F3F4F6] disabled:opacity-60"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#DC2626] hover:bg-[#FEF2F2] border-t border-porcelana disabled:opacity-60"
           >
             <LogOut className="w-4 h-4" />
             {saindo ? 'Saindo…' : 'Sair'}

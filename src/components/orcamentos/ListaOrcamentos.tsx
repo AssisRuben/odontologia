@@ -20,8 +20,8 @@ const OUTCOME_LABEL: Record<string, string> = {
 }
 
 const fmtDate = (iso: string | null) => (iso ? format(parseISO(iso), 'dd/MM/yyyy') : '—')
-const btn = 'px-3 h-8 rounded-lg border border-[#E5E7EB] text-xs font-medium text-[#374151] hover:bg-[#F9FAFB] disabled:opacity-50'
-const btnPrimary = 'px-3 h-8 rounded-lg bg-[#3B82F6] text-white text-xs font-medium hover:bg-[#2563EB] disabled:opacity-50'
+const btn = 'px-3 h-8 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana-2 disabled:opacity-50'
+const btnPrimary = 'px-3 h-8 rounded-lg bg-petroleo text-white text-xs font-medium hover:bg-petroleo-escuro disabled:opacity-50'
 
 interface Props {
   tab: TabKey
@@ -80,30 +80,30 @@ export function ListaOrcamentos({ tab, rows, onChanged }: Props) {
   }
 
   if (rows.length === 0) {
-    return <div className="bg-white rounded-xl border border-[#E5E7EB] p-8 text-center text-sm text-[#6B7280]">Nenhum orçamento nesta etapa.</div>
+    return <div className="bg-white rounded-xl border border-linha p-8 text-center text-sm text-tinta-3">Nenhum orçamento nesta etapa.</div>
   }
 
   return (
     <div className="space-y-2">
-      {notice && <p className="text-sm text-[#374151] bg-[#F3F4F6] rounded-lg px-3 py-2">{notice}</p>}
+      {notice && <p className="text-sm text-tinta-2 bg-porcelana rounded-lg px-3 py-2">{notice}</p>}
       {rows.map(r => {
         const toCharge = Math.round((r.approved_total - r.charged) * 100) / 100
         return (
-          <div key={r.id} className="bg-white rounded-xl border border-[#E5E7EB] p-4 space-y-2">
+          <div key={r.id} className="bg-white rounded-xl border border-linha p-4 space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-semibold text-[#111827]">{r.patient.name}</p>
-                <p className="text-xs text-[#6B7280]">
+                <p className="font-semibold text-tinta">{r.patient.name}</p>
+                <p className="text-xs text-tinta-3">
                   {r.professional_name ?? 'Sem dentista'}
                   {r.patient.phone ? ` · ${r.patient.phone}` : ''}
                 </p>
               </div>
-              <p className="font-bold text-[#111827]">
+              <p className="font-bold text-tinta">
                 {formatCurrency(tab === 'aprovados' ? r.approved_total : r.total)}
               </p>
             </div>
 
-            <p className="text-xs text-[#6B7280]">
+            <p className="text-xs text-tinta-3">
               Enviado em {fmtDate(r.sent_at)}
               {r.viewed_at && ` · visto em ${fmtDate(r.viewed_at)}`}
               {r.valid_until && (tab === 'enviados' || tab === 'paraLigar') && ` · vale até ${fmtDate(r.valid_until)}`}
@@ -114,7 +114,7 @@ export function ListaOrcamentos({ tab, rows, onChanged }: Props) {
             </p>
 
             {r.last_events.length > 0 && (
-              <ul className="text-xs text-[#6B7280] space-y-0.5">
+              <ul className="text-xs text-tinta-3 space-y-0.5">
                 {r.last_events.map(e => (
                   <li key={e.id}>
                     {fmtDate(e.created_at)} · {EVENT_LABEL[e.type] ?? e.type}

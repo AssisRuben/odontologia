@@ -1,28 +1,33 @@
 @import "tailwindcss";
 
+/*
+ * Paleta do Dental.
+ * Petróleo = ação principal e menu; Gengiva = "hoje" e alertas; Porcelana = fundo.
+ * Use as classes geradas (bg-petroleo, text-tinta, border-linha…) em vez de hex soltos.
+ */
 :root {
-  --background: #F3F4F6;
-  --foreground: #111827;
+  --background: #EEF2F2;
+  --foreground: #1B2A33;
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #1B2A33;
   --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #3B82F6;
+  --popover-foreground: #1B2A33;
+  --primary: #173B47;
   --primary-foreground: #ffffff;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #111827;
-  --muted: #F3F4F6;
-  --muted-foreground: #6B7280;
-  --accent: #F3F4F6;
-  --accent-foreground: #111827;
+  --secondary: #EEF2F2;
+  --secondary-foreground: #1B2A33;
+  --muted: #EEF2F2;
+  --muted-foreground: #5E6E75;
+  --accent: #EEF2F2;
+  --accent-foreground: #1B2A33;
   --destructive: #EF4444;
   --destructive-foreground: #ffffff;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #3B82F6;
+  --border: #E1E7E8;
+  --input: #E1E7E8;
+  --ring: #173B47;
   --success: #10B981;
   --warning: #F59E0B;
-  --radius: 8px;
+  --radius: 10px;
 }
 
 @theme inline {
@@ -39,7 +44,34 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --font-sans: 'Inter', Arial, Helvetica, sans-serif;
+
+  /* texto, do mais forte ao mais fraco */
+  --color-tinta: #1B2A33;
+  --color-tinta-2: #33444C;
+  --color-tinta-3: #5E6E75;
+  --color-tinta-4: #8A989E;
+  /* linhas e fundos */
+  --color-linha: #E1E7E8;
+  --color-linha-forte: #CBD5D8;
+  --color-porcelana: #EEF2F2;
+  --color-porcelana-2: #F6F8F8;
+  /* marca */
+  --color-petroleo: #173B47;
+  --color-petroleo-escuro: #0F2C36;
+  --color-petroleo-medio: #24525F;
+  --color-petroleo-200: #B7D0D7;
+  --color-petroleo-100: #D3E4E9;
+  --color-petroleo-50: #E4EFF2;
+  --color-gengiva: #E0607E;
+  --color-gengiva-escuro: #C24767;
+  --color-gengiva-50: #FCEEF1;
+
+  /* cantos: botões e campos 10px, cartões 14px */
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+
+  --font-sans: var(--font-texto), "Instrument Sans", Arial, Helvetica, sans-serif;
+  --font-display: var(--font-titulo), "Bricolage Grotesque", var(--font-texto), sans-serif;
 }
 
 * {
@@ -49,56 +81,133 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
 
-/* ── FullCalendar Dental Theme ─────────────────────── */
+/* Títulos usam a fonte de destaque (na camada base, para as classes poderem trocar). */
+@layer base {
+  h1, h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+}
+
+/* ── Agenda (FullCalendar) ───────────────────────── */
+.fc-dental {
+  --fc-border-color: #E1E7E8;
+  --fc-today-bg-color: #FBFCFC;
+  --fc-now-indicator-color: #E0607E;
+  font-family: var(--font-sans);
+}
 .fc-dental .fc-timegrid-slot {
   height: 48px !important;
 }
+/* meia hora em linha mais clara que a hora cheia */
+.fc-dental .fc-timegrid-slot-minor {
+  border-top-color: #F1F4F4 !important;
+}
 .fc-dental .fc-timegrid-slot-label {
-  font-size: 11px;
-  color: #9CA3AF;
+  font-size: 11.5px;
+  color: #8A989E;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   vertical-align: top;
   padding-top: 4px;
 }
-.fc-dental .fc-col-header-cell-cushion {
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-  padding: 8px 0;
-  text-decoration: none;
+.fc-dental .fc-scrollgrid {
+  border: 0;
 }
 .fc-dental .fc-col-header-cell {
-  background: #F9FAFB;
-  border-bottom: 2px solid #E5E7EB !important;
+  background: #fff;
+  border-bottom: 1px solid #E1E7E8 !important;
 }
+.fc-dental .fc-col-header-cell-cushion {
+  padding: 10px 0 9px;
+  text-decoration: none;
+}
+.fc-dental .fc-dia {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.fc-dental .fc-dia small {
+  font-size: 12.5px;
+  color: #8A989E;
+}
+.fc-dental .fc-dia strong {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: #1B2A33;
+  font-variant-numeric: tabular-nums;
+}
+.fc-dental .fc-day-today .fc-dia small {
+  color: #E0607E;
+  font-weight: 600;
+}
+.fc-dental .fc-day-today .fc-dia strong {
+  color: #fff;
+  background: #E0607E;
+  border-radius: 8px;
+  padding: 0 7px;
+}
+/* blocos de consulta: tom suave + borda com a cor do dentista */
 .fc-dental .fc-timegrid-event {
-  border-radius: 6px !important;
-  border: none !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  border-radius: 8px !important;
+  border-width: 0 0 0 3px !important;
+  border-style: solid !important;
+  border-color: var(--prof, #8A989E) !important;
+  box-shadow: 0 0 0 1px #fff;
   cursor: pointer;
 }
 .fc-dental .fc-timegrid-event:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 0 0 1px #fff, 0 6px 16px -6px rgba(23, 59, 71, 0.35);
+}
+.fc-dental .fc-timegrid-event .fc-event-main {
+  color: inherit;
+}
+.fc-dental .fc-timegrid-event.ev-in_progress {
+  box-shadow: 0 0 0 1px #fff, inset 0 0 0 1.5px #3FA36C;
+}
+/* falta e cancelamento: hachurado e riscado, para não depender só da cor */
+.fc-dental .fc-timegrid-event.ev-no_show,
+.fc-dental .fc-timegrid-event.ev-cancelled {
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(150, 42, 71, 0.07) 6px 12px);
+}
+.fc-dental .ev-no_show .ev-nome,
+.fc-dental .ev-cancelled .ev-nome {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.fc-dental .ev-completed {
+  opacity: 0.85;
+}
+.fc-dental .ev-pulso {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0 5px 1px 1px;
+  border-radius: 50%;
+  background: #2F9A5E;
+  vertical-align: middle;
+  animation: ev-pulso 1.8s ease-out infinite;
+}
+@keyframes ev-pulso {
+  0% { box-shadow: 0 0 0 0 rgba(47, 154, 94, 0.55); }
+  100% { box-shadow: 0 0 0 7px rgba(47, 154, 94, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-dental .ev-pulso { animation: none; }
 }
 .fc-dental .fc-timegrid-event-harness {
   padding-inline-end: 2px;
   box-sizing: border-box;
 }
-.fc-dental .fc-scrollgrid {
-  border-color: #E5E7EB;
-}
 .fc-dental .fc-timegrid-divider {
   display: none;
 }
 .fc-dental .fc-now-indicator-line {
-  border-color: #EF4444;
-  border-width: 2px;
-}
-.fc-dental .fc-now-indicator-arrow {
-  border-top-color: #EF4444;
+  border-width: 2px 0 0;
 }
 .fc-dental .fc-event-past {
   opacity: 1 !important;

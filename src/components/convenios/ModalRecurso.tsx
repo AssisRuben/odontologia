@@ -19,7 +19,7 @@ export type GlosaRecurso = {
 
 export type AcaoRecurso = 'recorrer' | 'resultado' | 'recebimento'
 
-const INPUT = 'h-9 px-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white'
+const INPUT = 'h-9 px-2.5 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white'
 const TITULOS: Record<AcaoRecurso, string> = {
   recorrer: 'Recorrer da glosa',
   resultado: 'Resultado do recurso',
@@ -112,12 +112,12 @@ export function ModalRecurso({
     <div className="no-print fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-[#111827]">{TITULOS[acao]}</h2>
+          <h2 className="font-semibold text-tinta">{TITULOS[acao]}</h2>
           <button type="button" onClick={onClose} aria-label="Fechar">
-            <X className="w-5 h-5 text-[#6B7280]" />
+            <X className="w-5 h-5 text-tinta-3" />
           </button>
         </div>
-        <p className="text-xs text-[#6B7280]">
+        <p className="text-xs text-tinta-3">
           {glosa.patient_name} · {glosa.code} · {glosa.name}
           <br />
           Glosa de {formatCurrency(glosa.glosa_value)}
@@ -125,7 +125,7 @@ export function ModalRecurso({
         </p>
 
         {acao === 'resultado' && (
-          <div className="flex gap-4 text-sm text-[#374151]">
+          <div className="flex gap-4 text-sm text-tinta-2">
             {(['aceito', 'negado'] as const).map((r) => (
               <label key={r} className="flex items-center gap-1.5 cursor-pointer">
                 <input type="radio" name="resultado" checked={resultado === r} onChange={() => setResultado(r)} />
@@ -135,14 +135,14 @@ export function ModalRecurso({
           </div>
         )}
 
-        <label className="block text-sm text-[#374151]">
+        <label className="block text-sm text-tinta-2">
           {rotuloData}
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} className={`${INPUT} block mt-1 w-full`} />
         </label>
 
         {acao === 'recorrer' && (
           <div className="space-y-1">
-            <label className="block text-sm text-[#374151]">
+            <label className="block text-sm text-tinta-2">
               Justificativa
               <textarea
                 value={texto}
@@ -152,14 +152,14 @@ export function ModalRecurso({
                 }}
                 maxLength={2000}
                 rows={5}
-                className="mt-1 w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm"
+                className="mt-1 w-full border border-linha rounded-lg px-3 py-2 text-sm"
               />
             </label>
             <button
               type="button"
               onClick={copiar}
               disabled={texto.trim() === ''}
-              className="text-sm text-[#3B82F6] hover:underline disabled:opacity-50"
+              className="text-sm text-petroleo hover:underline disabled:opacity-50"
             >
               {copiado ? 'Copiado' : 'Copiar justificativa'}
             </button>
@@ -167,14 +167,14 @@ export function ModalRecurso({
         )}
 
         {((acao === 'resultado' && resultado === 'aceito') || acao === 'recebimento') && (
-          <label className="block text-sm text-[#374151]">
+          <label className="block text-sm text-tinta-2">
             {acao === 'recebimento' ? 'Valor recebido (R$)' : 'Valor recuperado (R$)'}
             <input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" className={`${INPUT} block mt-1 w-full`} />
           </label>
         )}
 
         {acao === 'resultado' && resultado === 'aceito' && (
-          <label className="block text-sm text-[#374151]">
+          <label className="block text-sm text-tinta-2">
             Data do recebimento (opcional)
             <input
               type="date"
@@ -187,14 +187,14 @@ export function ModalRecurso({
 
         {erro && <p className="text-sm text-[#DC2626]">{erro}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-2 text-sm rounded-lg border border-[#E5E7EB]">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm rounded-lg border border-linha">
             Cancelar
           </button>
           <button
             type="button"
             onClick={salvar}
             disabled={loading}
-            className="px-3 py-2 text-sm rounded-lg bg-[#3B82F6] text-white disabled:opacity-50"
+            className="px-3 py-2 text-sm rounded-lg bg-petroleo text-white disabled:opacity-50"
           >
             {loading ? 'Salvando...' : 'Salvar'}
           </button>

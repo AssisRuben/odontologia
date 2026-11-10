@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Bricolage_Grotesque, Instrument_Sans } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const texto = Instrument_Sans({ subsets: ['latin'], variable: '--font-texto' })
+const titulo = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-titulo' })
 
 export const metadata: Metadata = {
   title: 'Dental - Gestão de Clínica Odontológica',
@@ -11,8 +12,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="h-full">
-      <body className={`${inter.className} h-full antialiased`}>{children}</body>
+    <html lang="pt-BR" className={`h-full ${texto.variable} ${titulo.variable}`}>
+      <body className="h-full font-sans antialiased">{children}</body>
     </html>
   )
 }

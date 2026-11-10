@@ -65,10 +65,10 @@ export default function ConveniosPage() {
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-xl font-semibold text-[#111827]">Gestão de convênios</h1>
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Gestão de convênios</h1>
       </div>
 
       {/* Formulário de adição */}
@@ -77,10 +77,10 @@ export default function ConveniosPage() {
           value={newName}
           onChange={e => { setNewName(e.target.value); setError('') }}
           placeholder="Nome do convênio (ex: Bradesco Saúde)"
-          className="flex-1 h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+          className="flex-1 h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
         />
         <button type="submit" disabled={adding || !newName.trim()}
-          className="flex items-center gap-1.5 px-4 h-10 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB] transition-colors disabled:opacity-50">
+          className="flex items-center gap-1.5 px-4 h-10 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro transition-colors disabled:opacity-50">
           <Plus className="w-4 h-4" /> Adicionar
         </button>
       </form>
@@ -88,32 +88,32 @@ export default function ConveniosPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] divide-y divide-[#F3F4F6]">
+        <div className="bg-white rounded-xl border border-linha divide-y divide-porcelana">
           {plans.length === 0 ? (
-            <div className="py-12 text-center text-sm text-[#6B7280]">
+            <div className="py-12 text-center text-sm text-tinta-3">
               Nenhum convênio cadastrado. Adicione o primeiro acima.
             </div>
           ) : (
             plans.map(plan => (
               <div key={plan.id}>
-                <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#F9FAFB]">
+                <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-porcelana-2">
                   <button type="button" onClick={() => setOpenId(openId === plan.id ? null : plan.id)}
                     aria-expanded={openId === plan.id}
                     className="flex flex-1 items-center gap-3 text-left">
-                    <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center shrink-0">
-                      <Shield className="w-4 h-4 text-[#3B82F6]" />
+                    <div className="w-8 h-8 rounded-lg bg-petroleo-50 flex items-center justify-center shrink-0">
+                      <Shield className="w-4 h-4 text-petroleo" />
                     </div>
-                    <span className="flex-1 text-sm font-medium text-[#111827]">{plan.name}</span>
+                    <span className="flex-1 text-sm font-medium text-tinta">{plan.name}</span>
                     {!plan.active && (
-                      <span className="text-xs font-medium text-[#6B7280] bg-[#F3F4F6] rounded-full px-2 py-0.5">Inativo</span>
+                      <span className="text-xs font-medium text-tinta-3 bg-porcelana rounded-full px-2 py-0.5">Inativo</span>
                     )}
-                    <ChevronDown className={`w-4 h-4 text-[#9CA3AF] transition-transform ${openId === plan.id ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-tinta-4 transition-transform ${openId === plan.id ? 'rotate-180' : ''}`} />
                   </button>
                   <button onClick={() => handleDelete(plan.id, plan.name)} disabled={deletingId === plan.id}
-                    className="p-1.5 rounded-lg text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
+                    className="p-1.5 rounded-lg text-tinta-4 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

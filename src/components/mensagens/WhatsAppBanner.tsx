@@ -43,7 +43,7 @@ export function WhatsAppBanner() {
   return (
     <div
       role="alert"
-      className="fixed inset-x-4 bottom-20 md:bottom-4 z-40 mx-auto max-w-2xl rounded-xl shadow-lg bg-[#DC2626] text-white text-sm px-4 py-2.5 flex items-center justify-center gap-2 flex-wrap"
+      className="fixed inset-x-4 md:left-[236px] bottom-20 md:bottom-4 z-40 mx-auto max-w-2xl rounded-xl shadow-lg bg-[#DC2626] text-white text-sm px-4 py-2.5 flex items-center justify-center gap-2 flex-wrap"
     >
       <AlertTriangle className="w-4 h-4 shrink-0" />
       <span>WhatsApp desconectado — as mensagens automáticas estão pausadas.</span>

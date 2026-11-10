@@ -80,17 +80,17 @@ export default function RelatoriosPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-6xl">
-      <h1 className="text-xl font-semibold text-[#111827]">Visão geral</h1>
+      <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Visão geral</h1>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => setMes(mesAnterior(mes))} aria-label="Mês anterior"
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-base font-semibold text-[#111827] w-28 text-center">{rotuloMes(mes)}</span>
+          <span className="text-base font-semibold text-tinta w-28 text-center">{rotuloMes(mes)}</span>
           <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês" disabled={mes >= mesAtual}
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed">
+            className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -98,7 +98,7 @@ export default function RelatoriosPage() {
           value={dentista}
           onChange={(e) => setDentista(e.target.value)}
           aria-label="Dentista"
-          className="h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+          className="h-9 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo"
         >
           <option value="">Todos os dentistas</option>
           {profissionais.map((p) => (
@@ -116,7 +116,7 @@ export default function RelatoriosPage() {
 
       {!dados && !erro && (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -130,7 +130,7 @@ export default function RelatoriosPage() {
             <CartaoIndicador titulo="Aprovação de orçamentos" valor={pctInteiro(c.aprovacao.valor)} variacao={c.aprovacao.variacao} />
             <CartaoIndicador titulo="Pacientes novos" valor={num(c.novos.valor ?? 0)} variacao={c.novos.variacao} nota={filtrado ? GERAL : undefined} />
           </div>
-          <p className="text-xs text-[#6B7280] -mt-3">
+          <p className="text-xs text-tinta-3 -mt-3">
             {dados.novos.whatsapp} {dados.novos.whatsapp === 1 ? 'paciente novo veio' : 'pacientes novos vieram'} pelo WhatsApp.
           </p>
 
@@ -139,7 +139,7 @@ export default function RelatoriosPage() {
           <BlocoOrcamentos orcamentos={dados.orcamentos} />
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-[#111827]">Tendência (6 meses)</h2>
+            <h2 className="text-base font-semibold text-tinta">Tendência (6 meses)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <MiniGrafico titulo="Comparecimento" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.comparecimento }))} formato={pctInteiro} />
               <MiniGrafico titulo="Recebido" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.recebidoCentavos }))} formato={brl} nota={filtrado ? GERAL : undefined} />

@@ -23,17 +23,17 @@ function ConveniosConteudo() {
 
   return (
     <div>
-      <div className="no-print bg-white border-b border-[#E5E7EB] px-6 py-4">
-        <h1 className="text-xl font-semibold text-[#111827]">Convênios</h1>
+      <div className="no-print px-4 sm:px-6 pt-4 sm:pt-6 pb-3">
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Convênios</h1>
       </div>
-      <div className="no-print bg-white border-b border-[#E5E7EB] px-6">
+      <div className="no-print border-b border-linha px-6">
         <div className="flex gap-1">
           {abas.map((a) => (
             <button
               key={a.id}
               onClick={() => router.replace(a.id === 'pendencias' ? '/convenios' : `/convenios?aba=${a.id}`)}
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                aba === a.id ? 'border-[#3B82F6] text-[#3B82F6]' : 'border-transparent text-[#6B7280] hover:text-[#111827]'
+                aba === a.id ? 'border-petroleo text-petroleo' : 'border-transparent text-tinta-3 hover:text-tinta'
               }`}
             >
               {a.label}
@@ -50,7 +50,7 @@ function ConveniosConteudo() {
 
 export default function ConveniosPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-[#6B7280]">Carregando...</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-tinta-3">Carregando...</div>}>
       <ConveniosConteudo />
     </Suspense>
   )

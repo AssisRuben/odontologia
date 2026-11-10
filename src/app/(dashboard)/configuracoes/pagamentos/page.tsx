@@ -31,9 +31,9 @@ const ASAAS_URL: Record<Environment, string> = {
   sandbox: 'https://sandbox.asaas.com/',
 }
 
-const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
+const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo'
 const errCls = 'text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2'
-const primaryBtn = 'h-10 px-5 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50'
+const primaryBtn = 'h-10 px-5 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50'
 
 function toNumber(v: string): number {
   return Number(v.trim().replace(',', '.'))
@@ -225,10 +225,10 @@ export default function PagamentosConfigPage() {
       <AsaasBanner />
       <div className="p-6 max-w-2xl">
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+          <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold text-[#111827]">Pagamentos</h1>
+          <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Pagamentos</h1>
         </div>
 
         {loadError && <div role="alert" className={`${errCls} mb-4 flex items-center justify-between gap-3`}>
@@ -243,13 +243,13 @@ export default function PagamentosConfigPage() {
 
         {conn === null && !loadError ? (
           <div className="flex justify-center py-8">
-            <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+            <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
           </div>
         ) : conn !== null && (
           <div className="space-y-4">
             {/* Conexão */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4">
-              <p className="text-sm font-semibold text-[#111827]">Conexão com o Asaas</p>
+            <div className="bg-white rounded-xl border border-linha p-5 space-y-4">
+              <p className="text-sm font-semibold text-tinta">Conexão com o Asaas</p>
 
               {connected && (
                 <div className="space-y-3">
@@ -271,7 +271,7 @@ export default function PagamentosConfigPage() {
               {showKeyForm && (
                 <form onSubmit={handleConnect} className="space-y-3">
                   <div>
-                    <label htmlFor="pg-ambiente" className="block text-sm font-medium text-[#111827] mb-1">Ambiente</label>
+                    <label htmlFor="pg-ambiente" className="block text-sm font-medium text-tinta mb-1">Ambiente</label>
                     <select id="pg-ambiente" value={environment} onChange={e => setEnvironment(e.target.value as Environment)}
                       disabled={connBusy} className={inputCls}>
                       <option value="sandbox">Teste (sandbox)</option>
@@ -279,7 +279,7 @@ export default function PagamentosConfigPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="pg-chave" className="block text-sm font-medium text-[#111827] mb-1">Chave de API</label>
+                    <label htmlFor="pg-chave" className="block text-sm font-medium text-tinta mb-1">Chave de API</label>
                     <input id="pg-chave" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
                       autoComplete="off" placeholder="Cole aqui a chave de API do Asaas"
                       disabled={connBusy} className={inputCls} />
@@ -291,7 +291,7 @@ export default function PagamentosConfigPage() {
                     {connected && (
                       <button type="button" disabled={connBusy}
                         onClick={() => { setReplacing(false); setApiKey(''); setConnError(''); setEnvironment(connected.environment) }}
-                        className="h-10 px-4 rounded-lg border border-[#E5E7EB] text-sm text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50">
+                        className="h-10 px-4 rounded-lg border border-linha text-sm text-tinta-2 hover:bg-porcelana disabled:opacity-50">
                         Cancelar
                       </button>
                     )}
@@ -311,7 +311,7 @@ export default function PagamentosConfigPage() {
                         {connBusy ? 'Desconectando...' : 'Sim, desconectar'}
                       </button>
                       <button type="button" onClick={() => setConfirmDisconnect(false)} disabled={connBusy}
-                        className="h-9 px-4 rounded-lg border border-[#E5E7EB] text-sm text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50">
+                        className="h-9 px-4 rounded-lg border border-linha text-sm text-tinta-2 hover:bg-porcelana disabled:opacity-50">
                         Cancelar
                       </button>
                     </div>
@@ -320,7 +320,7 @@ export default function PagamentosConfigPage() {
                   <div className="flex gap-2">
                     <button type="button" disabled={connBusy}
                       onClick={() => { setReplacing(true); setConnError('') }}
-                      className="h-9 px-4 rounded-lg border border-[#E5E7EB] text-sm text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50">
+                      className="h-9 px-4 rounded-lg border border-linha text-sm text-tinta-2 hover:bg-porcelana disabled:opacity-50">
                       Trocar chave
                     </button>
                     <button type="button" disabled={connBusy} onClick={() => setConfirmDisconnect(true)}
@@ -337,30 +337,30 @@ export default function PagamentosConfigPage() {
             {connected && (
               <form onSubmit={handleSave} className="space-y-4">
                 {/* Multa e juros */}
-                <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4">
-                  <p className="text-sm font-semibold text-[#111827]">Multa e juros por atraso</p>
+                <div className="bg-white rounded-xl border border-linha p-5 space-y-4">
+                  <p className="text-sm font-semibold text-tinta">Multa e juros por atraso</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label htmlFor="pg-multa" className="block text-sm font-medium text-[#111827] mb-1">Multa (%)</label>
+                      <label htmlFor="pg-multa" className="block text-sm font-medium text-tinta mb-1">Multa (%)</label>
                       <input id="pg-multa" type="text" inputMode="decimal" value={fine} onChange={e => setFine(e.target.value)} className={inputCls} />
-                      <p className="text-xs text-[#6B7280] mt-1">De 0 a 2%.</p>
+                      <p className="text-xs text-tinta-3 mt-1">De 0 a 2%.</p>
                     </div>
                     <div>
-                      <label htmlFor="pg-juros" className="block text-sm font-medium text-[#111827] mb-1">Juros ao mês (%)</label>
+                      <label htmlFor="pg-juros" className="block text-sm font-medium text-tinta mb-1">Juros ao mês (%)</label>
                       <input id="pg-juros" type="text" inputMode="decimal" value={interest} onChange={e => setInterest(e.target.value)} className={inputCls} />
-                      <p className="text-xs text-[#6B7280] mt-1">De 0 a 1%.</p>
+                      <p className="text-xs text-tinta-3 mt-1">De 0 a 1%.</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Nota fiscal */}
-                <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4">
-                  <p className="text-sm font-semibold text-[#111827]">Nota fiscal (NFS-e)</p>
+                <div className="bg-white rounded-xl border border-linha p-5 space-y-4">
+                  <p className="text-sm font-semibold text-tinta">Nota fiscal (NFS-e)</p>
 
                   {hasCnpj === false ? (
-                    <p className="text-sm text-[#6B7280]">Nota fiscal de serviço é para clínicas com CNPJ</p>
+                    <p className="text-sm text-tinta-3">Nota fiscal de serviço é para clínicas com CNPJ</p>
                   ) : hasCnpj === null ? (
-                    <p className="text-sm text-[#6B7280]">Carregando...</p>
+                    <p className="text-sm text-tinta-3">Carregando...</p>
                   ) : (
                     <>
                       {hasCnpj === 'error' && (
@@ -369,7 +369,7 @@ export default function PagamentosConfigPage() {
                         </p>
                       )}
                       {connected.fiscal === null ? (
-                        <p className="text-sm text-[#6B7280]">Não foi possível consultar a configuração fiscal agora</p>
+                        <p className="text-sm text-tinta-3">Não foi possível consultar a configuração fiscal agora</p>
                       ) : connected.fiscal.configured ? (
                         <p className="flex items-center gap-1.5 text-sm text-[#10B981] font-medium">
                           Nota fiscal: configurada <CheckCircle2 className="w-4 h-4" />
@@ -390,23 +390,23 @@ export default function PagamentosConfigPage() {
                       )}
 
                       <div>
-                        <label htmlFor="pg-descricao" className="block text-sm font-medium text-[#111827] mb-1">Descrição padrão do serviço</label>
+                        <label htmlFor="pg-descricao" className="block text-sm font-medium text-tinta mb-1">Descrição padrão do serviço</label>
                         <input id="pg-descricao" type="text" value={nfseDescription} onChange={e => setNfseDescription(e.target.value)} className={inputCls} />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label htmlFor="pg-codigo" className="block text-sm font-medium text-[#111827] mb-1">Código do serviço</label>
+                          <label htmlFor="pg-codigo" className="block text-sm font-medium text-tinta mb-1">Código do serviço</label>
                           <input id="pg-codigo" type="text" value={nfseCode} onChange={e => setNfseCode(e.target.value)} className={inputCls} />
                         </div>
                         <div>
-                          <label htmlFor="pg-iss" className="block text-sm font-medium text-[#111827] mb-1">ISS (%)</label>
+                          <label htmlFor="pg-iss" className="block text-sm font-medium text-tinta mb-1">ISS (%)</label>
                           <input id="pg-iss" type="text" inputMode="decimal" value={nfseIss} onChange={e => setNfseIss(e.target.value)} className={inputCls} />
-                          <p className="text-xs text-[#6B7280] mt-1">De 0 a 5%.</p>
+                          <p className="text-xs text-tinta-3 mt-1">De 0 a 5%.</p>
                         </div>
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-[#111827]">
+                      <label className="flex items-center gap-2 text-sm text-tinta">
                         <input type="checkbox" checked={nfseAuto} onChange={e => setNfseAuto(e.target.checked)}
-                          className="w-4 h-4 rounded border-[#E5E7EB]" />
+                          className="w-4 h-4 rounded border-linha" />
                         Emitir automaticamente ao receber
                       </label>
                     </>

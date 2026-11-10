@@ -31,22 +31,22 @@ export function AbaPendencias() {
   }, [carregar])
 
   if (erro) return <p className="text-sm text-[#DC2626]">{erro}</p>
-  if (!itens) return <p className="text-sm text-[#6B7280]">Carregando...</p>
+  if (!itens) return <p className="text-sm text-tinta-3">Carregando...</p>
   if (itens.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-[#E5E7EB] p-8 text-center text-sm text-[#6B7280]">
+      <div className="bg-white rounded-xl border border-linha p-8 text-center text-sm text-tinta-3">
         Nenhuma pendência de convênio.
       </div>
     )
   }
 
   return (
-    <ul className="bg-white rounded-xl border border-[#E5E7EB] divide-y divide-[#E5E7EB]">
+    <ul className="bg-white rounded-xl border border-linha divide-y divide-linha">
       {itens.map((p, i) => (
         <li key={`${p.tipo}-${i}`}>
-          <Link href={p.href} className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-[#111827] hover:bg-[#F9FAFB]">
+          <Link href={p.href} className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-tinta hover:bg-porcelana-2">
             <span>{p.texto}</span>
-            <span className="text-[#3B82F6] shrink-0">Abrir</span>
+            <span className="text-petroleo shrink-0">Abrir</span>
           </Link>
         </li>
       ))}

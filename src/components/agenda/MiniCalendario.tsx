@@ -46,16 +46,16 @@ export function MiniCalendario({ selectedDate, onSelectDate }: MiniCalendarioPro
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          className="p-1 rounded hover:bg-[#F3F4F6] text-[#6B7280]"
+          className="p-1 rounded hover:bg-porcelana text-tinta-3"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-sm font-semibold text-[#111827] capitalize">
+        <span className="text-sm font-semibold text-tinta capitalize">
           {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
         </span>
         <button
           onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          className="p-1 rounded hover:bg-[#F3F4F6] text-[#6B7280]"
+          className="p-1 rounded hover:bg-porcelana text-tinta-3"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -64,7 +64,7 @@ export function MiniCalendario({ selectedDate, onSelectDate }: MiniCalendarioPro
       {/* Week days */}
       <div className="grid grid-cols-7 mb-1">
         {weekDays.map((day, i) => (
-          <div key={i} className="text-center text-xs font-medium text-[#9CA3AF] py-1">
+          <div key={i} className="text-center text-xs font-medium text-tinta-4 py-1">
             {day}
           </div>
         ))}
@@ -83,10 +83,10 @@ export function MiniCalendario({ selectedDate, onSelectDate }: MiniCalendarioPro
               onClick={() => onSelectDate(day)}
               className={cn(
                 'aspect-square flex items-center justify-center text-xs rounded-full transition-colors',
-                isSelected && 'bg-[#3B82F6] text-white font-semibold',
-                !isSelected && isToday && 'text-[#3B82F6] font-semibold',
-                !isSelected && !isToday && isCurrentMonth && 'text-[#111827] hover:bg-[#F3F4F6]',
-                !isSelected && !isCurrentMonth && 'text-[#D1D5DB]'
+                isSelected && 'bg-petroleo text-white font-semibold',
+                !isSelected && isToday && 'text-petroleo font-semibold',
+                !isSelected && !isToday && isCurrentMonth && 'text-tinta hover:bg-porcelana',
+                !isSelected && !isCurrentMonth && 'text-linha-forte'
               )}
             >
               {format(day, 'd')}

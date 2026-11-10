@@ -133,17 +133,17 @@ export default function ListaDespesas() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Mês anterior"
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-base font-semibold text-[#111827] capitalize w-44 text-center">{monthLabel(month)}</span>
+          <span className="text-base font-semibold text-tinta capitalize w-44 text-center">{monthLabel(month)}</span>
           <button onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Próximo mês"
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
         <button onClick={() => setModal({})}
-          className="flex items-center gap-1.5 h-10 px-4 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB]">
+          className="flex items-center gap-1.5 h-10 px-4 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro">
           <Plus className="w-4 h-4" /> Nova despesa
         </button>
       </div>
@@ -155,12 +155,12 @@ export default function ListaDespesas() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : items.length === 0 ? (
-        <div className="flex items-center justify-center py-16 text-[#9CA3AF] text-sm">Nenhuma despesa neste mês.</div>
+        <div className="flex items-center justify-center py-16 text-tinta-4 text-sm">Nenhuma despesa neste mês.</div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden divide-y divide-[#F3F4F6]">
+        <div className="bg-white rounded-xl border border-linha overflow-hidden divide-y divide-porcelana">
           {items.map((e) => {
             const paid = e.status === 'paid'
             const busy = busyId === e.id
@@ -169,16 +169,16 @@ export default function ListaDespesas() {
               <div key={e.id} className="px-4 py-3 space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-[#111827] flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-tinta flex items-center gap-1.5">
                       <span className="truncate">{e.description}</span>
-                      {e.receipt_path && <Paperclip className="w-3.5 h-3.5 text-[#6B7280] shrink-0" aria-label="Tem comprovante" />}
+                      {e.receipt_path && <Paperclip className="w-3.5 h-3.5 text-tinta-3 shrink-0" aria-label="Tem comprovante" />}
                     </p>
-                    <p className="text-xs text-[#9CA3AF]">
+                    <p className="text-xs text-tinta-4">
                       {categoryLabel(e.category)} · {paid ? `Paga em ${ddmmyyyy(fromDbPaidAt(e.paid_at ?? null))}` : `Vence ${ddmmyyyy(e.due_date)}`}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold text-[#111827]">{formatCurrency(e.amount)}</p>
+                    <p className="text-sm font-semibold text-tinta">{formatCurrency(e.amount)}</p>
                     <span className={`text-xs font-medium ${paid ? 'text-[#10B981]' : 'text-[#F59E0B]'}`}>
                       {paid ? 'Paga' : 'A pagar'}
                     </span>
@@ -187,19 +187,19 @@ export default function ListaDespesas() {
 
                 {payingId === e.id ? (
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <label htmlFor={`pay-${e.id}`} className="text-[#6B7280]">Data do pagamento</label>
+                    <label htmlFor={`pay-${e.id}`} className="text-tinta-3">Data do pagamento</label>
                     <input id={`pay-${e.id}`} type="date" value={payDate} onChange={(ev) => setPayDate(ev.target.value)}
-                      className="h-9 px-2 rounded-lg border border-[#E5E7EB] text-sm" />
+                      className="h-9 px-2 rounded-lg border border-linha text-sm" />
                     <button onClick={() => markPaid(e)} disabled={busy || !payDate}
-                      className="h-9 px-3 rounded-lg bg-[#3B82F6] text-white font-medium hover:bg-[#2563EB] disabled:opacity-50">
+                      className="h-9 px-3 rounded-lg bg-petroleo text-white font-medium hover:bg-petroleo-escuro disabled:opacity-50">
                       Confirmar
                     </button>
-                    <button onClick={() => setPayingId(null)} className="h-9 px-3 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6]">
+                    <button onClick={() => setPayingId(null)} className="h-9 px-3 rounded-lg border border-linha text-tinta-3 hover:bg-porcelana">
                       Cancelar
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-[#3B82F6]">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-petroleo">
                     {!paid && (
                       <button disabled={busy} onClick={() => { setPayDate(todayLocal()); setPayingId(e.id) }}
                         className="hover:underline disabled:opacity-50">Marcar como paga</button>
@@ -219,8 +219,8 @@ export default function ListaDespesas() {
             )
           })}
           <div className="px-4 py-3 flex justify-between text-sm">
-            <span className="text-[#6B7280]">Total do mês</span>
-            <span className="font-bold text-[#111827]">{formatCurrency(total)}</span>
+            <span className="text-tinta-3">Total do mês</span>
+            <span className="font-bold text-tinta">{formatCurrency(total)}</span>
           </div>
         </div>
       )}

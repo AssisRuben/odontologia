@@ -75,30 +75,30 @@ export default function TaxasPage() {
   return (
     <div className="p-6 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-[#111827]">Taxas de maquininhas</h1>
-          <p className="text-sm text-[#6B7280]">Configure a taxa cobrada por cada bandeira. Ex: 2.5 para 2,5%</p>
+          <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Taxas de maquininhas</h1>
+          <p className="text-sm text-tinta-3">Configure a taxa cobrada por cada bandeira. Ex: 2.5 para 2,5%</p>
         </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <form onSubmit={handleSave} className="space-y-4">
           {groups.map(group => {
             const groupFields = fields.filter(f => f.group === group)
             return (
-              <div key={group} className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-                <p className="text-sm font-semibold text-[#374151] mb-4">{group}</p>
+              <div key={group} className="bg-white rounded-xl border border-linha p-5">
+                <p className="text-sm font-semibold text-tinta-2 mb-4">{group}</p>
                 <div className="grid grid-cols-2 gap-4">
                   {groupFields.map(f => (
                     <div key={f.key}>
-                      <label className="block text-xs font-medium text-[#6B7280] mb-1">{f.label}</label>
+                      <label className="block text-xs font-medium text-tinta-3 mb-1">{f.label}</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -108,9 +108,9 @@ export default function TaxasPage() {
                           value={rates[f.key]}
                           onChange={e => setRates(r => ({ ...r, [f.key]: e.target.value }))}
                           placeholder="0.00"
-                          className="w-full h-10 pl-3 pr-8 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                          className="w-full h-10 pl-3 pr-8 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#9CA3AF] font-medium">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tinta-4 font-medium">%</span>
                       </div>
                     </div>
                   ))}
@@ -128,7 +128,7 @@ export default function TaxasPage() {
               </span>
             )}
             <button type="submit" disabled={saving}
-              className="ml-auto h-10 px-6 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50">
+              className="ml-auto h-10 px-6 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50">
               {saving ? 'Salvando...' : 'Salvar taxas'}
             </button>
           </div>

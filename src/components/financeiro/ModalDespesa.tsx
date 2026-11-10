@@ -20,7 +20,7 @@ export const RECEIPT_FAILED_MSG = 'Comprovante não enviado. Tente anexar de nov
 const EXPENSE_METHODS: PaymentMethod[] = ['dinheiro', 'cartao_credito', 'cartao_debito', 'pix', 'boleto']
 const GROUPS: DeductionGroup[] = ['custeio', 'pessoal', 'emolumentos']
 
-const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
+const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo'
 
 export function todayLocal(): string {
   const d = new Date()
@@ -166,29 +166,29 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={submitting ? undefined : onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">{expense ? 'Editar despesa' : 'Nova despesa'}</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]" aria-label="Fechar">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">{expense ? 'Editar despesa' : 'Nova despesa'}</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-4 hover:text-tinta-2" aria-label="Fechar">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label htmlFor="dp-desc" className="block text-sm font-medium text-[#111827] mb-1">Descrição</label>
+            <label htmlFor="dp-desc" className="block text-sm font-medium text-tinta mb-1">Descrição</label>
             <input id="dp-desc" value={form.description} onChange={(e) => set('description', e.target.value)} className={inputCls} />
             {fieldErr('description')}
           </div>
 
           <div>
-            <label htmlFor="dp-valor" className="block text-sm font-medium text-[#111827] mb-1">Valor (R$)</label>
+            <label htmlFor="dp-valor" className="block text-sm font-medium text-tinta mb-1">Valor (R$)</label>
             <input id="dp-valor" inputMode="decimal" value={form.amount} onChange={(e) => set('amount', e.target.value)}
               placeholder="0,00" className={inputCls} />
             {fieldErr('amount')}
           </div>
 
           <div>
-            <label htmlFor="dp-cat" className="block text-sm font-medium text-[#111827] mb-1">Categoria</label>
+            <label htmlFor="dp-cat" className="block text-sm font-medium text-tinta mb-1">Categoria</label>
             <select id="dp-cat" value={form.category}
               onChange={(e) => {
                 const c = e.target.value as ExpenseCategory
@@ -200,7 +200,7 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
             {form.category === 'tarifas' && (
               <p className="text-xs text-[#92400E] mt-1.5">As tarifas do Asaas já entram sozinhas no livro-caixa. Lance aqui só tarifas de outros bancos.</p>
             )}
-            <div className="text-xs text-[#6B7280] mt-1.5">
+            <div className="text-xs text-tinta-3 mt-1.5">
               {editGroup ? (
                 <select aria-label="Grupo do Carnê-Leão" value={form.deductionGroup ?? ''}
                   onChange={(e) => set('deductionGroup', (e.target.value || null) as DeductionGroup | null)}
@@ -210,27 +210,27 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
                 </select>
               ) : (
                 <>
-                  Grupo no Carnê-Leão: <span className="font-medium text-[#374151]">{groupLabel(form.deductionGroup)}</span>{' '}
-                  <button type="button" onClick={() => setEditGroup(true)} className="font-medium text-[#3B82F6] underline">alterar</button>
+                  Grupo no Carnê-Leão: <span className="font-medium text-tinta-2">{groupLabel(form.deductionGroup)}</span>{' '}
+                  <button type="button" onClick={() => setEditGroup(true)} className="font-medium text-petroleo underline">alterar</button>
                 </>
               )}
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-[#374151]">
+          <label className="flex items-center gap-2 text-sm text-tinta-2">
             <input type="checkbox" checked={form.paid} onChange={(e) => set('paid', e.target.checked)} />
             Já foi paga
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="dp-venc" className="block text-sm font-medium text-[#111827] mb-1">Vencimento</label>
+              <label htmlFor="dp-venc" className="block text-sm font-medium text-tinta mb-1">Vencimento</label>
               <input id="dp-venc" type="date" value={form.dueDate} onChange={(e) => set('dueDate', e.target.value)} className={inputCls} />
               {fieldErr('dueDate')}
             </div>
             {form.paid && (
               <div>
-                <label htmlFor="dp-pago" className="block text-sm font-medium text-[#111827] mb-1">Data do pagamento</label>
+                <label htmlFor="dp-pago" className="block text-sm font-medium text-tinta mb-1">Data do pagamento</label>
                 <input id="dp-pago" type="date" value={form.paidDate} onChange={(e) => set('paidDate', e.target.value)} className={inputCls} />
                 {fieldErr('paidDate')}
               </div>
@@ -239,14 +239,14 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="dp-metodo" className="block text-sm font-medium text-[#111827] mb-1">Forma de pagamento</label>
+              <label htmlFor="dp-metodo" className="block text-sm font-medium text-tinta mb-1">Forma de pagamento</label>
               <select id="dp-metodo" value={form.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)} className={inputCls}>
                 <option value="">Não informada</option>
                 {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="dp-prof" className="block text-sm font-medium text-[#111827] mb-1">Dentista (opcional)</label>
+              <label htmlFor="dp-prof" className="block text-sm font-medium text-tinta mb-1">Dentista (opcional)</label>
               <select id="dp-prof" value={form.professionalId} onChange={(e) => set('professionalId', e.target.value)} className={inputCls}>
                 <option value="">Nenhum</option>
                 {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -255,30 +255,30 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
           </div>
 
           <div>
-            <label htmlFor="dp-file" className="block text-sm font-medium text-[#111827] mb-1">
+            <label htmlFor="dp-file" className="block text-sm font-medium text-tinta mb-1">
               {expense?.receipt_path ? 'Trocar comprovante' : 'Comprovante'}
             </label>
             <input id="dp-file" ref={fileRef} type="file" accept={RECEIPT_TYPES.join(',')}
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-[#374151]" />
+              className="block w-full text-sm text-tinta-2" />
             {fileError && <p className="text-xs text-red-600 mt-1">{fileError}</p>}
           </div>
 
           <div>
-            <label htmlFor="dp-obs" className="block text-sm font-medium text-[#111827] mb-1">Observação</label>
+            <label htmlFor="dp-obs" className="block text-sm font-medium text-tinta mb-1">Observação</label>
             <textarea id="dp-obs" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo" />
           </div>
 
           {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
           <div className="flex gap-3">
             <button type="button" onClick={onClose} disabled={submitting}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] disabled:opacity-50">
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana disabled:opacity-50">
               {error === RECEIPT_FAILED_MSG ? 'Fechar' : 'Cancelar'}
             </button>
             <button type="button" onClick={handleSubmit} disabled={submitting || !clinicId}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
               {submitting ? 'Salvando...' : 'Salvar'}
             </button>
           </div>

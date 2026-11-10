@@ -11,8 +11,8 @@ interface Props {
   onSaved: (updated: InsurancePlan) => void
 }
 
-const INPUT = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
-const LABEL = 'block text-sm font-medium text-[#111827] mb-1'
+const INPUT = 'w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo'
+const LABEL = 'block text-sm font-medium text-tinta mb-1'
 
 export function PainelOperadora({ plan, onSaved }: Props) {
   const [ans, setAns] = useState(plan.ans_registry ?? '')
@@ -56,9 +56,9 @@ export function PainelOperadora({ plan, onSaved }: Props) {
   }
 
   return (
-    <div className="px-5 py-4 bg-[#F9FAFB] space-y-5">
+    <div className="px-5 py-4 bg-porcelana-2 space-y-5">
       <form onSubmit={handleSave} className="space-y-3">
-        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Dados da operadora</p>
+        <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide">Dados da operadora</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={LABEL}>Registro ANS</label>
@@ -87,13 +87,13 @@ export function PainelOperadora({ plan, onSaved }: Props) {
         </div>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={active} onChange={e => { setActive(e.target.checked); setSaved(false) }}
-            className="w-4 h-4 rounded border-[#D1D5DB]" />
-          <span className="text-sm font-medium text-[#111827]">Operadora ativa</span>
+            className="w-4 h-4 rounded border-linha-forte" />
+          <span className="text-sm font-medium text-tinta">Operadora ativa</span>
         </label>
         {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
         <div className="flex items-center gap-3">
           <button type="submit" disabled={saving}
-            className="px-4 h-10 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB] transition-colors disabled:opacity-50">
+            className="px-4 h-10 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro transition-colors disabled:opacity-50">
             {saving ? 'Salvando...' : 'Salvar operadora'}
           </button>
           {saved && <span className="text-sm text-green-600">Salvo</span>}

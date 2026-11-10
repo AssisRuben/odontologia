@@ -73,15 +73,15 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
     }
   }
 
-  const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] disabled:bg-[#F9FAFB] disabled:text-[#6B7280]'
+  const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo disabled:bg-porcelana-2 disabled:text-tinta-3'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Registrar resposta</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Registrar resposta</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -89,28 +89,28 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Número da guia</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Número da guia</label>
               <input value={guideNumber} onChange={(e) => setGuideNumber(e.target.value)} maxLength={40} disabled={emLote} className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Senha</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Senha</label>
               <input value={password} onChange={(e) => setPassword(e.target.value)} maxLength={40} disabled={emLote} className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Validade da senha</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Validade da senha</label>
               <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={emLote} className={inputCls} />
             </div>
           </div>
           {emLote && (
-            <p className="text-xs text-[#6B7280] -mt-2">
+            <p className="text-xs text-tinta-3 -mt-2">
               A guia tem item em lote: número, senha e validade ficam como estão.
             </p>
           )}
 
           <div>
-            <p className="text-sm font-medium text-[#111827] mb-2">Itens</p>
+            <p className="text-sm font-medium text-tinta mb-2">Itens</p>
             {itens.length === 0 ? (
-              <p className="text-sm text-[#9CA3AF]">
+              <p className="text-sm text-tinta-4">
                 {emLote ? 'Nenhum item fora de lote exige autorização.' : 'Nenhum item exige autorização.'}
               </p>
             ) : (
@@ -118,9 +118,9 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
                 {itens.map((i) => {
                   const d = decisoes[i.id]
                   return (
-                    <div key={i.id} className="rounded-lg border border-[#E5E7EB] p-3 space-y-2">
+                    <div key={i.id} className="rounded-lg border border-linha p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm text-[#111827] min-w-0 truncate">{i.code} · {i.name}</span>
+                        <span className="text-sm text-tinta min-w-0 truncate">{i.code} · {i.name}</span>
                         <select
                           value={d?.authorization ?? ''}
                           onChange={(e) => {
@@ -134,7 +134,7 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
                               setDecisao(i.id, { authorization: e.target.value as Decisao['authorization'] })
                             }
                           }}
-                          className="h-9 px-2 rounded-lg border border-[#E5E7EB] text-sm bg-white shrink-0"
+                          className="h-9 px-2 rounded-lg border border-linha text-sm bg-white shrink-0"
                         >
                           <option value="">Sem resposta</option>
                           <option value="autorizado">Autorizado</option>
@@ -162,13 +162,13 @@ export function ModalRespostaGuia({ guide, onClose, onSaved }: Props) {
           <div className="flex gap-3 pt-2">
             <button
               type="button" onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit" disabled={loading}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
             >
               {loading ? 'Salvando...' : 'Salvar resposta'}
             </button>

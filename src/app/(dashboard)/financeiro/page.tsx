@@ -94,24 +94,24 @@ export default function FinanceiroPage() {
   if (clinicLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-56px)]">
-        <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
     <div className="h-[calc(100vh-56px)] flex flex-col">
-      <div className="bg-white border-b border-[#E5E7EB] px-4 sm:px-6 py-3 sm:py-4">
-        <h1 className="text-lg sm:text-xl font-semibold text-[#111827]">Financeiro</h1>
+      <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3">
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Financeiro</h1>
       </div>
       <AsaasBanner />
 
-      <div className="bg-white border-b border-[#E5E7EB] px-2 sm:px-6 overflow-x-auto">
+      <div className="border-b border-linha px-2 sm:px-6 overflow-x-auto">
         <div className="flex min-w-max">
           {tabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id ? 'border-[#3B82F6] text-[#3B82F6]' : 'border-transparent text-[#6B7280] hover:text-[#111827]'
+                activeTab === tab.id ? 'border-petroleo text-petroleo' : 'border-transparent text-tinta-3 hover:text-tinta'
               }`}>
               {tab.label}
             </button>
@@ -125,91 +125,91 @@ export default function FinanceiroPage() {
             {/* Seletor de mês */}
             <div className="flex items-center gap-3">
               <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+                className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-base font-semibold text-[#111827] capitalize w-44 text-center">
+              <span className="text-base font-semibold text-tinta capitalize w-44 text-center">
                 {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
               </span>
               <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+                className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
               <>
                 {/* Cards de visão geral */}
                 <div>
-                  <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Visão Geral</h2>
+                  <h2 className="text-sm font-semibold text-tinta-3 uppercase tracking-wide mb-3">Visão Geral</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+                    <div className="bg-white rounded-xl border border-linha p-5">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           <TrendingUp className="w-4 h-4 text-[#10B981]" />
                         </div>
-                        <span className="font-semibold text-[#111827]">Entradas</span>
+                        <span className="font-semibold text-tinta">Entradas</span>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#6B7280]">Recebido</span>
+                          <span className="text-tinta-3">Recebido</span>
                           <span className="font-semibold text-[#10B981]">{formatCurrency(recebido)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#6B7280]">A receber</span>
-                          <span className="font-medium text-[#374151]">{formatCurrency(aReceber)}</span>
+                          <span className="text-tinta-3">A receber</span>
+                          <span className="font-medium text-tinta-2">{formatCurrency(aReceber)}</span>
                         </div>
-                        <div className="border-t border-[#E5E7EB] pt-2 flex justify-between text-sm">
-                          <span className="text-[#6B7280]">Total previsto</span>
-                          <span className="font-bold text-[#111827]">{formatCurrency(totalEntradas)}</span>
+                        <div className="border-t border-linha pt-2 flex justify-between text-sm">
+                          <span className="text-tinta-3">Total previsto</span>
+                          <span className="font-bold text-tinta">{formatCurrency(totalEntradas)}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+                    <div className="bg-white rounded-xl border border-linha p-5">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                           <TrendingDown className="w-4 h-4 text-[#EF4444]" />
                         </div>
-                        <span className="font-semibold text-[#111827]">Saídas</span>
+                        <span className="font-semibold text-tinta">Saídas</span>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#6B7280]">Pago</span>
+                          <span className="text-tinta-3">Pago</span>
                           <span className="font-semibold text-[#EF4444]">{formatCurrency(pago)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#6B7280]">A pagar</span>
-                          <span className="font-medium text-[#374151]">{formatCurrency(aPagar)}</span>
+                          <span className="text-tinta-3">A pagar</span>
+                          <span className="font-medium text-tinta-2">{formatCurrency(aPagar)}</span>
                         </div>
-                        <div className="border-t border-[#E5E7EB] pt-2 flex justify-between text-sm">
-                          <span className="text-[#6B7280]">Total previsto</span>
-                          <span className="font-bold text-[#111827]">{formatCurrency(totalSaidas)}</span>
+                        <div className="border-t border-linha pt-2 flex justify-between text-sm">
+                          <span className="text-tinta-3">Total previsto</span>
+                          <span className="font-bold text-tinta">{formatCurrency(totalSaidas)}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+                    <div className="bg-white rounded-xl border border-linha p-5">
                       <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <DollarSign className="w-4 h-4 text-[#3B82F6]" />
+                        <div className="w-8 h-8 bg-petroleo-100 rounded-lg flex items-center justify-center">
+                          <DollarSign className="w-4 h-4 text-petroleo" />
                         </div>
-                        <span className="font-semibold text-[#111827]">Resultado</span>
+                        <span className="font-semibold text-tinta">Resultado</span>
                       </div>
                       <div className="space-y-3">
                         <div>
-                          <p className="text-xs text-[#6B7280] mb-1">Líquido realizado</p>
+                          <p className="text-xs text-tinta-3 mb-1">Líquido realizado</p>
                           <p className={`text-2xl font-bold ${resultado >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
                             {formatCurrency(resultado)}
                           </p>
                         </div>
-                        <div className="flex justify-between text-sm border-t border-[#E5E7EB] pt-2">
-                          <span className="text-[#6B7280]">Previsão</span>
-                          <span className="font-medium text-[#374151]">{formatCurrency(totalEntradas - totalSaidas)}</span>
+                        <div className="flex justify-between text-sm border-t border-linha pt-2">
+                          <span className="text-tinta-3">Previsão</span>
+                          <span className="font-medium text-tinta-2">{formatCurrency(totalEntradas - totalSaidas)}</span>
                         </div>
                       </div>
                     </div>
@@ -218,17 +218,17 @@ export default function FinanceiroPage() {
 
                 {/* Inadimplência */}
                 {inadimplentes.length > 0 && (
-                  <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+                  <div className="bg-white rounded-xl border border-linha p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <AlertCircle className="w-5 h-5 text-[#EF4444]" />
-                      <h3 className="font-semibold text-[#111827]">Total de inadimplência</h3>
+                      <h3 className="font-semibold text-tinta">Total de inadimplência</h3>
                     </div>
                     <div className="flex items-center gap-6">
                       <div>
                         <p className="text-2xl font-bold text-[#EF4444]">
                           {formatCurrency(inadimplentes.reduce((s, p) => s + p.amount, 0))}
                         </p>
-                        <p className="text-sm text-[#6B7280] mt-0.5">{inadimplentes.length} pagamento(s) em atraso</p>
+                        <p className="text-sm text-tinta-3 mt-0.5">{inadimplentes.length} pagamento(s) em atraso</p>
                       </div>
                     </div>
                   </div>
@@ -236,14 +236,14 @@ export default function FinanceiroPage() {
 
                 {/* Próximas despesas */}
                 {expenses.filter((e) => e.status === 'pending').length > 0 && (
-                  <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-                    <h3 className="font-semibold text-[#111827] mb-3">Próximas despesas</h3>
+                  <div className="bg-white rounded-xl border border-linha p-5">
+                    <h3 className="font-semibold text-tinta mb-3">Próximas despesas</h3>
                     <div className="space-y-2">
                       {expenses.filter((e) => e.status === 'pending').map((exp) => (
-                        <div key={exp.id} className="flex items-center justify-between py-2 border-b border-[#F3F4F6] last:border-0">
+                        <div key={exp.id} className="flex items-center justify-between py-2 border-b border-porcelana last:border-0">
                           <div>
-                            <p className="text-sm font-medium text-[#111827]">{exp.description}</p>
-                            <p className="text-xs text-[#9CA3AF]">{categoryLabel(exp.category)} · Vence {exp.due_date ? format(new Date(exp.due_date), 'dd/MM/yyyy') : '—'}</p>
+                            <p className="text-sm font-medium text-tinta">{exp.description}</p>
+                            <p className="text-xs text-tinta-4">{categoryLabel(exp.category)} · Vence {exp.due_date ? format(new Date(exp.due_date), 'dd/MM/yyyy') : '—'}</p>
                           </div>
                           <span className="text-sm font-semibold text-[#EF4444]">{formatCurrency(exp.amount)}</span>
                         </div>
@@ -253,8 +253,8 @@ export default function FinanceiroPage() {
                 )}
 
                 {payments.length > 0 && (
-                  <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-                    <h3 className="px-5 py-4 border-b border-[#E5E7EB] font-semibold text-[#111827]">Lançamentos do mês</h3>
+                  <div className="bg-white rounded-xl border border-linha overflow-hidden">
+                    <h3 className="px-5 py-4 border-b border-linha font-semibold text-tinta">Lançamentos do mês</h3>
                     {invoiceError && <p className="px-5 py-2 text-xs text-red-600">Não foi possível carregar as notas fiscais.</p>}
                     <ListaPagamentos
                       payments={sortedPayments}
@@ -266,7 +266,7 @@ export default function FinanceiroPage() {
                 )}
 
                 {payments.length === 0 && expenses.length === 0 && (
-                  <div className="flex items-center justify-center py-16 text-[#9CA3AF] text-sm">
+                  <div className="flex items-center justify-center py-16 text-tinta-4 text-sm">
                     Nenhum lançamento neste mês.
                   </div>
                 )}
@@ -282,7 +282,7 @@ export default function FinanceiroPage() {
         {activeTab === 'livro' && <LivroCaixa onOpenDespesas={() => setActiveTab('despesas')} />}
 
         {activeTab !== 'painel' && activeTab !== 'comissoes' && activeTab !== 'despesas' && activeTab !== 'livro' && (
-          <div className="flex items-center justify-center h-48 text-[#9CA3AF] text-sm">
+          <div className="flex items-center justify-center h-48 text-tinta-4 text-sm">
             Em desenvolvimento...
           </div>
         )}
