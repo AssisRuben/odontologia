@@ -1,6 +1,6 @@
 // Textos das respostas de erro das rotas de kits e da baixa por tratamento.
 
-import type { Mapa } from '@/lib/convenios/rotas'
+import { respostaDeErro, type Mapa } from '@/lib/convenios/rotas'
 
 export const ERROS_KITS: Mapa = {
   KIT_NAO_ENCONTRADO: { status: 404, error: 'Kit não encontrado' },
@@ -33,4 +33,21 @@ export function erroComItem(codigo: string, nome: string | null): { status: numb
     default:
       return null
   }
+}
+
+/**
+ * Resposta de erro das rotas de kits: erros no formato CODIGO:uuid-do-produto citam
+ * o produto pelo nome; os demais seguem o mapa. Relança o que não souber tratar.
+ */
+export async function respostaErroKits(
+  e: unknown,
+  nomeProduto: (itemId: string) => Promise<string | null>,
+): Promise<{ status: number; body: { error: string; itemId?: string } }> {
+  const s = separarItem((e as { message?: string })?.message)
+  if (s) {
+    const m = erroComItem(s.codigo, await nomeProduto(s.itemId))
+    if (m) return { status: m.status, body: { error: m.error, itemId: s.itemId } }
+    throw e
+  }
+  return respostaDeErro(e, ERROS_KITS)
 }

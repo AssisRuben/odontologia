@@ -151,7 +151,7 @@ export function createEstoqueRepo(admin: SupabaseClient) {
     ): Promise<InventoryMovement[]> {
       let q = admin
         .from('inventory_movements')
-        .select('*, item:inventory_items(id,name,unit), lot:inventory_lots(lot_code,expires_at)')
+        .select('*, item:inventory_items(id,name,unit), lot:inventory_lots(lot_code,expires_at), treatment:treatments(id,procedure,patient:patients(id,name))')
         .eq('clinic_id', clinicId)
         .gte('created_at', `${f.de}T00:00:00-03:00`)
         .lte('created_at', `${f.ate}T23:59:59.999-03:00`)
