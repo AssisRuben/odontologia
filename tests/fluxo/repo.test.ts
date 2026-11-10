@@ -86,7 +86,11 @@ describe('dados: paginação e filtros', () => {
     expect(abertas.map((q) => q.table).sort()).toEqual(['expenses', 'payments'])
     for (const q of abertas) {
       expect(q.calls.some((x) => x[0] === 'in' && x[1] === 'status' && JSON.stringify(x[2]) === '["pending","overdue"]')).toBe(true)
-      expect(q.calls.some((x) => x[0] === 'lte' && x[1] === 'due_date' && x[2] === '2027-04-30')).toBe(true)
+      if (q.table === 'expenses') {
+        expect(q.calls.some((x) => x[0] === 'or' && x[1] === 'due_date.is.null,due_date.lte.2027-04-30')).toBe(true)
+      } else {
+        expect(q.calls.some((x) => x[0] === 'lte' && x[1] === 'due_date' && x[2] === '2027-04-30')).toBe(true)
+      }
     }
   })
 })

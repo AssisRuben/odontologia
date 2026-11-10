@@ -7,9 +7,15 @@ import { todayLocal } from '@/components/financeiro/ModalDespesa'
 
 const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo'
 
+function ontemLocal(hoje: string): string {
+  const [y, m, d] = hoje.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d - 1))
+  return dt.toISOString().slice(0, 10)
+}
+
 export default function ModalSaldo({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const hoje = todayLocal()
-  const [data, setData] = useState(hoje)
+  const [data, setData] = useState(() => ontemLocal(hoje))
   const [valor, setValor] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -64,9 +70,10 @@ export default function ModalSaldo({ onClose, onSaved }: { onClose: () => void; 
             <input id="sd-data" type="date" value={data} max={hoje} onChange={(e) => setData(e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label htmlFor="sd-valor" className="block text-sm font-medium text-tinta mb-1">Saldo da conta (R$)</label>
+            <label htmlFor="sd-valor" className="block text-sm font-medium text-tinta mb-1">Saldo no fim do dia (R$)</label>
             <input id="sd-valor" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)}
               placeholder="0,00" className={inputCls} />
+            <p className="text-xs text-tinta-4 mt-1">Informe o saldo da conta no fim do dia escolhido. Movimentos desse dia já devem estar no valor.</p>
             <p className="text-xs text-tinta-4 mt-1">Use o sinal de menos se a conta estiver negativa.</p>
           </div>
           {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}

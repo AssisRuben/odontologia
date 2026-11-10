@@ -170,16 +170,26 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
         return
       }
       let saved = savedRef.current
-      if (scope === 'following' && expense?.recurrence_id && expense.recurrence_month) {
+      const seguintes = scope === 'following' && expense?.recurrence_id && expense.recurrence_month
+      if (seguintes) {
         if (!form.dueDate) { setErrors({ dueDate: 'Informe o vencimento' }); return }
+        let dayOfMonth = diaDe(form.dueDate)
+        if (form.dueDate === expense.due_date?.slice(0, 10)) {
+          // vencimento intacto: mantém o dia guardado na recorrência (o da despesa pode estar ajustado ao mês curto)
+          const { data: rec, error: recErr } = await supabase.from('expense_recurrences')
+            .select('day_of_month').eq('id', expense.recurrence_id!).eq('clinic_id', clinicId).single()
+          if (recErr || !rec) { setError('Não foi possível ler a recorrência. Tente novamente.'); return }
+          dayOfMonth = Number(rec.day_of_month)
+        }
         const msg = await chamarRecorrencia(`/api/financeiro/recorrencias/${expense.recurrence_id}`, 'PATCH', {
           ...camposRecorrencia,
-          dayOfMonth: diaDe(form.dueDate),
-          aPartirDe: mesDe(expense.recurrence_month),
+          dayOfMonth,
+          aPartirDe: mesDe(expense.recurrence_month!),
         })
         if (msg) { setError(msg); return }
         saved = { id: expense.id, receipt_path: expense.receipt_path }
-      } else if (saved) {
+      }
+      if (saved) {
         const { error: dbErr } = await supabase.from('expenses')
           .update({ ...result.row, updated_at: new Date().toISOString() })
           .eq('id', saved.id).eq('clinic_id', clinicId)
@@ -279,9 +289,16 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm text-tinta-2">
                 <input type="checkbox" checked={repeating} disabled={form.paid}
-                  onChange={(e) => setRepeat(e.target.checked)} />
+                  onChange={(e) => {
+                    setRepeat(e.target.checked)
+                    if (e.target.checked) onPickFile(null)
+                    if (e.target.checked && fileRef.current) fileRef.current.value = ''
+                  }} />
                 Repete todo mês
               </label>
+              {repeating && form.category === 'laboratorio' && (
+                <p className="text-xs text-tinta-3">Despesas recorrentes não ficam ligadas a um dentista (não descontam da comissão).</p>
+              )}
               {form.paid && (
                 <p className="text-xs text-tinta-3">Para repetir todo mês, desmarque &quot;Já foi paga&quot;.</p>
               )}
@@ -325,13 +342,15 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
                 {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>)}
               </select>
             </div>
-            <div>
-              <label htmlFor="dp-prof" className="block text-sm font-medium text-tinta mb-1">Dentista (opcional)</label>
-              <select id="dp-prof" value={form.professionalId} onChange={(e) => set('professionalId', e.target.value)} className={inputCls}>
-                <option value="">Nenhum</option>
-                {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
+            {!repeating && (
+              <div>
+                <label htmlFor="dp-prof" className="block text-sm font-medium text-tinta mb-1">Dentista (opcional)</label>
+                <select id="dp-prof" value={form.professionalId} onChange={(e) => set('professionalId', e.target.value)} className={inputCls}>
+                  <option value="">Nenhum</option>
+                  {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           {!repeating && (
@@ -346,11 +365,13 @@ export function ModalDespesa({ expense, onClose, onSaved }: Props) {
           </div>
           )}
 
+          {!repeating && (
           <div>
             <label htmlFor="dp-obs" className="block text-sm font-medium text-tinta mb-1">Observação</label>
             <textarea id="dp-obs" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-linha text-sm bg-white focus:outline-none focus:ring-2 focus:ring-petroleo" />
           </div>
+          )}
 
           {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 

@@ -114,11 +114,14 @@ export function createFluxoRepo(admin: SupabaseClient) {
         q.eq('clinic_id', clinicId).eq('status', 'paid').gte('paid_at', ini)
       const abertoQ = (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) =>
         q.eq('clinic_id', clinicId).in('status', ['pending', 'overdue']).lte('due_date', janela.fim)
+      // despesa sem vencimento também entra (calcular a lança hoje)
+      const abertaDespesaQ = (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) =>
+        q.eq('clinic_id', clinicId).in('status', ['pending', 'overdue']).or(`due_date.is.null,due_date.lte.${janela.fim}`)
       const [pagos, abertos, dPagas, dAbertas] = await Promise.all([
         todas<PagRow>(pag(pagoQ)),
         todas<PagRow>(pag(abertoQ)),
         todas<DesRow>(des(pagoQ)),
-        todas<DesRow>(des(abertoQ)),
+        todas<DesRow>(des(abertaDespesaQ)),
       ])
 
       const pagamentos = [...pagos, ...abertos].map(

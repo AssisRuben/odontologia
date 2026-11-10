@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -28,6 +28,11 @@ export default function FluxoCaixa({ onVerPainel }: { onVerPainel: () => void })
   const [reloadKey, setReloadKey] = useState(0)
   const [modal, setModal] = useState(false)
   const [aberto, setAberto] = useState<string | null>(null)
+  const diaADiaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (aberto) diaADiaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [aberto])
 
   useEffect(() => {
     let cancel = false
@@ -151,13 +156,13 @@ export default function FluxoCaixa({ onVerPainel }: { onVerPainel: () => void })
       {fluxo.emAtraso.quantidade > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-tinta-2 bg-white rounded-xl border border-linha px-4 py-3">
           <AlertCircle className={`w-4 h-4 ${RED}`} />
-          <span>{brl(fluxo.emAtraso.totalCentavos)} em {fluxo.emAtraso.quantidade} cobranças vencidas — não entram no saldo.</span>
+          <span>{brl(fluxo.emAtraso.totalCentavos)} em {fluxo.emAtraso.quantidade} {fluxo.emAtraso.quantidade === 1 ? 'cobrança vencida' : 'cobranças vencidas'} — não entram no saldo.</span>
           <button onClick={onVerPainel} className="font-medium text-petroleo underline">Ver no Painel</button>
         </div>
       )}
 
       {mesAberto && (
-        <div className="bg-white rounded-xl border border-linha p-5">
+        <div ref={diaADiaRef} className="bg-white rounded-xl border border-linha p-5">
           <h3 className="font-semibold text-tinta mb-3 capitalize">Dia a dia — {mesAno(mesAberto.mes)}</h3>
           {mesAberto.dias.length === 0 ? (
             <p className="text-sm text-tinta-4">Nenhum movimento neste mês.</p>
