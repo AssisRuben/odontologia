@@ -1,0 +1,63 @@
+import { describe, it, expect, vi } from 'vitest'
+import { fakeAdmin, type Query } from '../fakeSupabase'
+import { createFluxoRepo } from '@/lib/fluxo/repo'
+
+const CLINIC = '00000000-0000-4000-8000-0000000000c1'
+const ok = (data: unknown) => ({ data, error: null })
+const temEq = (q: Query, col: string, val?: unknown) =>
+  q.calls.some((c) => c[0] === 'eq' && c[1] === col && (val === undefined || c[2] === val))
+
+describe('dados', () => {
+  it('filtra todas as consultas por clínica e converte reais em centavos', async () => {
+    const c = fakeAdmin((q) =>
+      ok(
+        q.table === 'payments'
+          ? [{ id: 'p', amount: 123.45, net_amount: null, status: 'paid', due_date: null, paid_at: '2026-11-01T12:00:00Z', description: 'x', patient: { name: 'Ana' } }]
+          : [{ id: 'e', amount: 10.1, status: 'pending', due_date: '2026-11-20', paid_at: null, description: 'Luz', recurrence_id: 'r' }],
+      ),
+    )
+    const r = await createFluxoRepo(c.admin).dados(CLINIC, { inicio: '2026-09-01', fim: '2027-04-30' }, '2026-09-01')
+    expect(c.queries.length).toBeGreaterThanOrEqual(2)
+    for (const q of c.queries) expect(temEq(q, 'clinic_id', CLINIC)).toBe(true)
+    expect(r.pagamentos[0]).toMatchObject({ valorCentavos: 12345, liquidoCentavos: null, descricao: 'Ana' })
+    expect(r.despesas[0]).toMatchObject({ valorCentavos: 1010, recorrente: true, descricao: 'Luz' })
+    expect(c.queries.some((q) => q.calls.some((x) => x[0] === 'gte' && x[2] === '2026-09-01T00:00:00-03:00'))).toBe(true)
+  })
+})
+
+describe('criarRecorrencia', () => {
+  it('chama a rpc com valores em reais e mês no dia 1', async () => {
+    const rpc = vi.fn().mockResolvedValue(ok('id1'))
+    const r = await createFluxoRepo({ rpc } as never).criarRecorrencia(CLINIC, {
+      description: 'Aluguel', amountCentavos: 15000, category: 'aluguel', deductionGroup: null,
+      paymentMethod: null, dayOfMonth: 5, startMonth: '2026-11', endMonth: null,
+    })
+    expect(r).toBe('id1')
+    expect(rpc).toHaveBeenCalledWith('create_expense_recurrence', {
+      p_clinic_id: CLINIC,
+      p_data: {
+        description: 'Aluguel', amount: 150, category: 'aluguel', deduction_group: null,
+        payment_method: null, day_of_month: 5, start_month: '2026-11-01', end_month: null,
+      },
+    })
+  })
+})
+
+describe('saldoAtual', () => {
+  it('ordena por data e criação desc, limite 1', async () => {
+    const c = fakeAdmin(() => ok([{ balance_date: '2026-11-01', amount: -5.5 }]))
+    const r = await createFluxoRepo(c.admin).saldoAtual(CLINIC)
+    const q = c.queries[0]
+    expect(q.table).toBe('cash_balances')
+    expect(temEq(q, 'clinic_id', CLINIC)).toBe(true)
+    const orders = q.calls.filter((x) => x[0] === 'order')
+    expect(orders[0].slice(1, 3)).toEqual(['balance_date', { ascending: false }])
+    expect(orders[1].slice(1, 3)).toEqual(['created_at', { ascending: false }])
+    expect(q.calls.some((x) => x[0] === 'limit' && x[1] === 1)).toBe(true)
+    expect(r).toEqual({ data: '2026-11-01', valorCentavos: -550 })
+  })
+  it('null sem saldo', async () => {
+    const c = fakeAdmin(() => ok([]))
+    expect(await createFluxoRepo(c.admin).saldoAtual(CLINIC)).toBeNull()
+  })
+})
