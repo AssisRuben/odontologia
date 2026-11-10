@@ -49,7 +49,7 @@ export function parseProtese(raw: unknown): { ok: true; input: ProteseInput } | 
     return { ok: false, error: 'Dados inválidos' }
   }
   if (type && type.length > 80) return { ok: false, error: 'Tipo muito longo' }
-  if (toothRegion && toothRegion.length > 80) return { ok: false, error: 'Dente/região muito longo' }
+  if (toothRegion && toothRegion.length > 40) return { ok: false, error: 'Dente/região muito longo' }
   if (notes && notes.length > 1000) return { ok: false, error: 'Observações muito longas' }
   if (expectedAt && !dataValida(expectedAt)) return { ok: false, error: 'Data inválida' }
   let labCostCents: number | null = null

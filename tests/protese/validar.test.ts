@@ -32,6 +32,12 @@ describe('parseProtese', () => {
     expect(parseProtese({ patientId: UUID, professionalId: 'x' })).toEqual({ ok: false, error: 'Dados inválidos' })
     expect(parseProtese({ patientId: UUID, laboratoryId: 'x' })).toEqual({ ok: false, error: 'Dados inválidos' })
   })
+  it('dente/região até 40 e observações até 1000', () => {
+    expect(parseProtese({ patientId: UUID, toothRegion: 'a'.repeat(40) }).ok).toBe(true)
+    expect(parseProtese({ patientId: UUID, toothRegion: 'a'.repeat(41) })).toEqual({ ok: false, error: 'Dente/região muito longo' })
+    expect(parseProtese({ patientId: UUID, notes: 'a'.repeat(1000) }).ok).toBe(true)
+    expect(parseProtese({ patientId: UUID, notes: 'a'.repeat(1001) })).toEqual({ ok: false, error: 'Observações muito longas' })
+  })
   it('strings vazias ou com espaços viram null; texto é aparado', () => {
     const r = parseProtese({ patientId: UUID, professionalId: '', laboratoryId: '  ', type: '   ', toothRegion: '', expectedAt: '', notes: ' ' })
     expect(r).toMatchObject({ ok: true, input: { professionalId: null, laboratoryId: null, type: null, toothRegion: null, expectedAt: null, notes: null } })
