@@ -15,7 +15,7 @@ import { getInitials, formatPhone, formatCurrency } from '@/lib/utils'
 import {
   parsePatientNotes, serializePatientNotes,
 } from '@/types'
-import type { Patient, Appointment, Payment, Prosthetic, FiscalInvoice } from '@/types'
+import type { Patient, Appointment, Payment, FiscalInvoice } from '@/types'
 import { Odontograma } from '@/components/paciente/Odontograma'
 import { ModalCategoria, CATEGORIA_COLORS } from '@/components/paciente/ModalCategoria'
 import { ModalEditarPaciente } from '@/components/paciente/ModalEditarPaciente'
@@ -23,6 +23,7 @@ import { TabAnamneses } from '@/components/paciente/TabAnamneses'
 import { TabOrcamentos } from '@/components/paciente/TabOrcamentos'
 import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
+import { TabProteses } from '@/components/paciente/TabProteses'
 import { useClinicStore } from '@/store/clinicStore'
 import { ModalEnviarWhatsApp } from '@/components/mensagens/ModalEnviarWhatsApp'
 import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
@@ -43,13 +44,14 @@ function calcAge(birthdate: string) {
 }
 
 
-type Tab = 'visao-geral' | 'anamneses' | 'orcamentos' | 'tratamentos' | 'pagamentos' | 'evolucoes' | 'documentos'
+type Tab = 'visao-geral' | 'anamneses' | 'orcamentos' | 'tratamentos' | 'proteses' | 'pagamentos' | 'evolucoes' | 'documentos'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'visao-geral',  label: 'Visão Geral' },
   { id: 'anamneses',    label: 'Anamneses' },
   { id: 'orcamentos',   label: 'Orçamentos' },
   { id: 'tratamentos',  label: 'Tratamentos' },
+  { id: 'proteses',     label: 'Próteses' },
   { id: 'pagamentos',   label: 'Pagamentos' },
   { id: 'evolucoes',    label: 'Evoluções' },
   { id: 'documentos',   label: 'Documentos' },
@@ -89,7 +91,6 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
   const [evolutions, setEvolutions]   = useState<PatientEvolution[]>([])
   const [payments, setPayments]       = useState<Payment[]>([])
   const [invoices, setInvoices]       = useState<FiscalInvoice[]>([])
-  const [prosthetics, setProsthetics] = useState<Prosthetic[]>([])
   const [loading, setLoading]         = useState(true)
   const [activeTab, setActiveTab]     = useState<Tab>(() => {
     const aba = searchParams.get('aba')
@@ -109,11 +110,10 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
     async function load() {
       const { id } = await params
       const supabase = createClient()
-      const [patRes, aptsRes, paymentsRes, prostRes, evoRes] = await Promise.all([
+      const [patRes, aptsRes, paymentsRes, evoRes] = await Promise.all([
         supabase.from('patients').select('*, insurance_plan:insurance_plans(*)').eq('id', id).single(),
         supabase.from('appointments').select('*, professional:professionals(*)').eq('patient_id', id).order('start_time', { ascending: false }),
         supabase.from('payments').select('*').eq('patient_id', id).order('due_date', { ascending: false }),
-        supabase.from('prosthetics').select('*, professional:professionals(*)').eq('patient_id', id),
         supabase.from('evolutions')
           .select('id, date, description, images, ai_used, professional:professionals(name, color)')
           .eq('patient_id', id)
@@ -128,7 +128,6 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
         const { data: inv } = await supabase.from('fiscal_invoices').select('*').in('payment_id', paymentsRes.data.map((x: Payment) => x.id))
         setInvoices((inv as FiscalInvoice[]) || [])
       }
-      setProsthetics(prostRes.data || [])
       setEvolutions((evoRes.data as unknown as PatientEvolution[]) || [])
       if (p) {
         const parsed = parsePatientNotes(p.notes)
@@ -431,6 +430,11 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
             clinicId={clinicId}
             onTreatmentSaved={() => setTreatRefresh(v => v + 1)}
           />
+        )}
+
+        {/* ── Próteses ────────────────────────────────────────────────────── */}
+        {activeTab === 'proteses' && clinicId && (
+          <TabProteses patient={{ id: patient.id, name: patient.name }} />
         )}
 
         {/* ── Pagamentos ──────────────────────────────────────────────────── */}
