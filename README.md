@@ -517,13 +517,13 @@ Painel em Relatórios → Visão geral, com números reais da clínica: escolha 
 
 - **Agenda** (consultas do mês cujo horário já passou): *atendidas* = concluídas ou em atendimento; *faltas* = não compareceu; *canceladas* = canceladas; *sem desfecho* = agendada, confirmada ou aguardando já passada (o painel avisa e leva à Agenda).
 - **Comparecimento** = atendidas ÷ (atendidas + faltas). **Taxa de faltas** = faltas ÷ (atendidas + faltas). **Cancelamentos** = canceladas ÷ todas as consultas passadas do mês. Cancelada não entra no comparecimento. Sem base de cálculo aparece `—`.
-- **Pacientes que mais faltam:** quem tem 2 ou mais faltas nos 6 meses até o mês escolhido (até 10, mais faltas primeiro; mostra a última falta e leva à ficha). Respeita o filtro de dentista.
+- **Pacientes que mais faltam:** quem tem 2 ou mais faltas nos 6 meses até o mês escolhido (até 10, mais faltas primeiro e, em empate, por nome; mostra a última falta e leva à ficha). Respeita o filtro de dentista.
 - **Recebido** = soma bruta dos recebimentos pagos no mês (estornados e cancelados não entram). **Convênio** = forma de pagamento convênio; **particular** = o restante.
 - **Ticket médio** = recebido ÷ pacientes distintos com recebimento no mês (paciente com dois pagamentos conta uma vez); também separado em particular e convênio.
 - **Produção** = valor dos tratamentos concluídos no mês (pela data de "Executado em"), total e por dentista; tratamento sem dentista aparece como "Sem dentista".
 - **Aprovação de orçamentos:** o mesmo funil de Orçamentos, para os enviados no mês: apresentados, aprovados, taxa em valor e em quantidade, tempo médio até aprovar e quebra por dentista.
 - **Pacientes novos** = cadastros criados no mês; o painel informa quantos vieram pelo WhatsApp.
-- **Variação:** taxas em pontos percentuais (`▲ 5 p.p.`), valores e contagens em porcentagem (`▼ 12%`); `novo` quando o mês anterior era zero e `—` quando não há dado. Mais faltas aparece em vermelho.
+- **Variação:** taxas em pontos percentuais (`▲ 5 p.p.`), valores e contagens em porcentagem (`▼ 12%`); nas taxas, `novo` só quando o mês anterior não tinha base (sem atendimentos ou sem orçamentos), e nas contagens e valores, `novo` quando o mês anterior era zero e o atual não; `—` quando não há dado ou os dois meses são zero. Mais faltas aparece em vermelho.
 - **Filtro por dentista:** vale para agenda, produção e orçamentos. Recebido, ticket e pacientes novos são sempre da clínica inteira (o recebimento não tem dentista) e o cartão avisa "geral da clínica".
 
 ### O que não faz

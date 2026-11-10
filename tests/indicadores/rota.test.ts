@@ -73,6 +73,31 @@ describe('GET /api/indicadores', () => {
     expect(await r.json()).toEqual({ error: 'Profissional não encontrado' })
   })
 
+  it('dentista inexistente falha antes da leitura completa', async () => {
+    cenario([])
+    await GET(get(`?mes=2026-10&dentista=${PROF}`))
+    expect(queriesVistas).toHaveLength(1)
+    expect(queriesVistas[0].table).toBe('professionals')
+    expect(queriesVistas[0].calls).toContainEqual(['eq', 'id', PROF])
+  })
+
+  it('busca nomes só de quem entra no ranking', async () => {
+    const base = resolver
+    const linha = (id: string, pac: string, dia: string) => ({
+      id, patient_id: pac, professional_id: PROF, start_time: `2026-10-${dia}T15:00:00Z`, status: 'no_show',
+    })
+    resolver = (q, i) => {
+      if (q.table === 'appointments') {
+        return ok([linha('a1', PAC, '05'), linha('a2', PAC, '06'), linha('a3', 'solo', '07')])
+      }
+      return base(q, i)
+    }
+    await GET(get('?mes=2026-10'))
+    const porNome = queriesVistas.filter((q) => q.table === 'patients' && q.calls.some((c) => c[0] === 'in'))
+    expect(porNome).toHaveLength(1)
+    expect(porNome[0].calls).toContainEqual(['in', 'id', [PAC]])
+  })
+
   it('200 com o painel e todas as leituras filtradas por clínica', async () => {
     const r = await GET(get('?mes=2026-10'))
     expect(r.status).toBe(200)

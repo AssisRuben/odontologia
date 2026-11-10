@@ -39,14 +39,31 @@ const entrada: EntradaPainel = {
     { professional_id: null, value: 100, completed_at: '2026-10-05' },
   ],
   pacientes: [
-    { id: '1', name: 'A', created_at: '2026-10-02T15:00:00Z', source: 'whatsapp' },
-    { id: '2', name: 'B', created_at: '2026-10-03T15:00:00Z', source: null },
-    { id: '3', name: 'C', created_at: '2026-09-03T15:00:00Z', source: null },
+    { id: '1', created_at: '2026-10-02T15:00:00Z', source: 'whatsapp' },
+    { id: '2', created_at: '2026-10-03T15:00:00Z', source: null },
+    { id: '3', created_at: '2026-09-03T15:00:00Z', source: null },
   ],
   funil: [orc(P1, 'approved'), orc(P2, 'sent')],
   profissionais: [{ id: P1, name: 'Zélia' }, { id: P2, name: 'Ana' }],
   nomesPacientes: { pacX: 'Xavier' },
 }
+
+describe('maisFaltam no painel', () => {
+  it('empate cruzando a 10ª posição escolhe por nome', () => {
+    // 12 pacientes com 2 faltas cada; nomes fora de ordem em relação aos ids.
+    const nomes = ['Lia', 'Kátia', 'João', 'Iara', 'Hugo', 'Gil', 'Fábio', 'Eva', 'Dora', 'Caio', 'Bia', 'Ana']
+    const consultas = nomes.flatMap((_, i) => [
+      consulta(P1, 'no_show', '2026-10-05T15:00:00Z', `pac${i}`),
+      consulta(P1, 'no_show', '2026-10-06T15:00:00Z', `pac${i}`),
+    ])
+    // pac11 (Ana) tem 3 faltas e fica no topo; os demais empatam em 2.
+    consultas.push(consulta(P1, 'no_show', '2026-10-07T15:00:00Z', 'pac11'))
+    const nomesPacientes = Object.fromEntries(nomes.map((n, i) => [`pac${i}`, n]))
+    const r = montarPainel({ ...entrada, consultas, nomesPacientes }, '2026-10', AGORA, null).agenda.maisFaltam
+    expect(r).toHaveLength(10)
+    expect(r.map((x) => x.nome)).toEqual(['Ana', 'Bia', 'Caio', 'Dora', 'Eva', 'Fábio', 'Gil', 'Hugo', 'Iara', 'João'])
+  })
+})
 
 describe('montarPainel', () => {
   const p = montarPainel(entrada, '2026-10', AGORA, null)
@@ -97,5 +114,16 @@ describe('montarPainel', () => {
     expect(f.cartoes.aprovacao.valor).toBe(1)
     expect(f.orcamentos.presented.count).toBe(1)
     expect(f.agenda.maisFaltam[0].faltas).toBe(3)
+  })
+})
+
+describe('montarPainel com volume', () => {
+  it('10 mil consultas continuam corretas (sem asserção de tempo)', () => {
+    const consultas = Array.from({ length: 10000 }, (_, i) =>
+      consulta(i % 2 ? P1 : P2, i % 10 === 0 ? 'no_show' : 'completed', `2026-${String(5 + (i % 6)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}T15:00:00Z`, `pac${i % 500}`),
+    )
+    const painel = montarPainel({ ...entrada, consultas }, '2026-10', AGORA, null)
+    expect(painel.agenda.total).toBeGreaterThan(1000)
+    expect(painel.agenda.maisFaltam).toHaveLength(10)
   })
 })

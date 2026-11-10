@@ -1,6 +1,5 @@
 import type { AppointmentStatus } from '@/types'
-import { todayYmd } from '@/lib/messaging/time'
-import { mesDoInstante } from './periodo'
+import { diaDoInstante, mesDoInstante } from './periodo'
 
 export type ConsultaIn = {
   id: string
@@ -8,7 +7,11 @@ export type ConsultaIn = {
   professional_id: string
   start_time: string
   status: AppointmentStatus
+  /** Mês (YYYY-MM) em São Paulo, já classificado; se ausente, é calculado de start_time. */
+  mes?: string
 }
+
+const mesDaConsulta = (c: ConsultaIn) => c.mes ?? mesDoInstante(c.start_time)
 
 export type Contagem = {
   total: number
@@ -61,7 +64,7 @@ export function resumoAgenda(
   agora: Date,
   professionalId: string | null,
 ): Contagem & { porDentista: ({ professional_id: string } & Contagem)[] } {
-  const doMes = passadas(consultas, agora, professionalId).filter((c) => mesDoInstante(c.start_time) === mes)
+  const doMes = passadas(consultas, agora, professionalId).filter((c) => mesDaConsulta(c) === mes)
   const grupos = new Map<string, ConsultaIn[]>()
   for (const c of doMes) {
     const g = grupos.get(c.professional_id)
@@ -74,6 +77,10 @@ export function resumoAgenda(
   return { ...contar(doMes), porDentista }
 }
 
+/**
+ * Pacientes com 2+ faltas na janela, por faltas (desc) e patient_id (estável).
+ * Não corta em 10: o desempate por nome e o corte ficam em montarPainel, onde os nomes existem.
+ */
 export function maisFaltam(
   consultas: ConsultaIn[],
   meses: string[],
@@ -83,8 +90,8 @@ export function maisFaltam(
   const janela = new Set(meses)
   const acc = new Map<string, { faltas: number; ultima: string }>()
   for (const c of passadas(consultas, agora, professionalId)) {
-    if (c.status !== 'no_show' || !janela.has(mesDoInstante(c.start_time))) continue
-    const dia = todayYmd(new Date(c.start_time), 'America/Sao_Paulo')
+    if (c.status !== 'no_show' || !janela.has(mesDaConsulta(c))) continue
+    const dia = diaDoInstante(c.start_time)
     const a = acc.get(c.patient_id)
     if (a) {
       a.faltas++
@@ -94,6 +101,5 @@ export function maisFaltam(
   return [...acc.entries()]
     .filter(([, a]) => a.faltas >= 2)
     .map(([patient_id, a]) => ({ patient_id, ...a }))
-    .sort((x, y) => y.faltas - x.faltas || (x.ultima < y.ultima ? 1 : x.ultima > y.ultima ? -1 : 0))
-    .slice(0, 10)
+    .sort((x, y) => y.faltas - x.faltas || (x.patient_id < y.patient_id ? -1 : x.patient_id > y.patient_id ? 1 : 0))
 }

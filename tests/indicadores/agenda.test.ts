@@ -56,19 +56,19 @@ describe('maisFaltam', () => {
     expect(r.map((x) => [x.patient_id, x.faltas])).toEqual([['c', 3], ['b', 2]])
     expect(r[0].ultima).toBe('2026-11-06')
   })
-  it('empate desempata pela última falta mais recente', () => {
-    const cs = [f('a', '01'), f('a', '02'), f('b', '03'), f('b', '09')]
-    expect(maisFaltam(cs, meses, agora, null).map((x) => x.patient_id)).toEqual(['b', 'a'])
+  it('empate fica estável por patient_id (o desempate por nome é do painel)', () => {
+    const cs = [f('b', '03'), f('b', '09'), f('a', '01'), f('a', '02')]
+    expect(maisFaltam(cs, meses, agora, null).map((x) => x.patient_id)).toEqual(['a', 'b'])
   })
   it('falta fora da janela não conta', () => {
     const cs = [f('a', '01'), c('no_show', '2026-03-01T13:00:00Z', 'd1', 'a')]
     expect(maisFaltam(cs, meses, agora, null)).toEqual([])
   })
-  it('filtro de dentista e limite 10', () => {
+  it('filtro de dentista; devolve todos os candidatos (o corte em 10 é do painel)', () => {
     const cs = [f('a', '01', 'd2'), f('a', '02', 'd2')]
     expect(maisFaltam(cs, meses, agora, 'd1')).toEqual([])
     const muitos = Array.from({ length: 12 }, (_, i) => [f(`p${i}`, '01'), f(`p${i}`, '02')]).flat()
-    expect(maisFaltam(muitos, meses, agora, null)).toHaveLength(10)
+    expect(maisFaltam(muitos, meses, agora, null)).toHaveLength(12)
   })
   it('ignora faltas futuras', () => {
     const cs = [c('no_show', '2026-11-25T13:00:00Z', 'd1', 'a'), c('no_show', '2026-11-26T13:00:00Z', 'd1', 'a')]

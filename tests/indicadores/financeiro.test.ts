@@ -70,10 +70,10 @@ describe('producao', () => {
 describe('pacientesNovos', () => {
   it('conta no mês e via whatsapp', () => {
     const ps = [
-      { id: '1', name: 'a', created_at: '2026-11-02T13:00:00Z', source: 'whatsapp' },
-      { id: '2', name: 'b', created_at: '2026-11-03T13:00:00Z', source: null },
-      { id: '3', name: 'c', created_at: '2026-11-04T13:00:00Z', source: 'indicacao' },
-      { id: '4', name: 'd', created_at: '2026-10-04T13:00:00Z', source: 'whatsapp' },
+      { id: '1', created_at: '2026-11-02T13:00:00Z', source: 'whatsapp' },
+      { id: '2', created_at: '2026-11-03T13:00:00Z', source: null },
+      { id: '3', created_at: '2026-11-04T13:00:00Z', source: 'indicacao' },
+      { id: '4', created_at: '2026-10-04T13:00:00Z', source: 'whatsapp' },
     ]
     expect(pacientesNovos(ps, '2026-11')).toEqual({ total: 3, whatsapp: 1 })
   })

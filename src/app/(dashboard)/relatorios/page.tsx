@@ -25,7 +25,8 @@ const num = (n: number) => String(n)
 
 export default function RelatoriosPage() {
   const { clinicId } = useClinicStore()
-  const [mes, setMes] = useState(() => mesDe(todayYmd(new Date(), 'America/Sao_Paulo')))
+  const [mesAtual] = useState(() => mesDe(todayYmd(new Date(), 'America/Sao_Paulo')))
+  const [mes, setMes] = useState(mesAtual)
   const [dentista, setDentista] = useState('')
   const [profissionais, setProfissionais] = useState<{ id: string; name: string }[]>([])
   const [dados, setDados] = useState<Painel | null>(null)
@@ -88,8 +89,8 @@ export default function RelatoriosPage() {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-base font-semibold text-[#111827] w-28 text-center">{rotuloMes(mes)}</span>
-          <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês"
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+          <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês" disabled={mes >= mesAtual}
+            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -141,10 +142,10 @@ export default function RelatoriosPage() {
             <h2 className="text-base font-semibold text-[#111827]">Tendência (6 meses)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <MiniGrafico titulo="Comparecimento" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.comparecimento }))} formato={pctInteiro} />
-              <MiniGrafico titulo="Recebido" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.recebidoCentavos }))} formato={brl} />
-              <MiniGrafico titulo="Ticket médio" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.ticketCentavos }))} formato={brl} />
+              <MiniGrafico titulo="Recebido" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.recebidoCentavos }))} formato={brl} nota={filtrado ? GERAL : undefined} />
+              <MiniGrafico titulo="Ticket médio" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.ticketCentavos }))} formato={brl} nota={filtrado ? GERAL : undefined} />
               <MiniGrafico titulo="Aprovação de orçamentos" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.aprovacao }))} formato={pctInteiro} />
-              <MiniGrafico titulo="Pacientes novos" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.novos }))} formato={num} />
+              <MiniGrafico titulo="Pacientes novos" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.novos }))} formato={num} nota={filtrado ? GERAL : undefined} />
             </div>
           </section>
         </>

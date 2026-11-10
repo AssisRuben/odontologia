@@ -16,10 +16,19 @@ export async function GET(req: NextRequest) {
     const dentista = params.get('dentista')
     if (dentista !== null && !isUuid(dentista)) return { status: 422, body: { error: 'Identificador inválido' } }
 
-    const entrada = await entradaPainel(admin, clinicId, mesesJanela(mes))
-    if (dentista !== null && !entrada.profissionais.some((p) => p.id === dentista)) {
-      return { status: 404, body: { error: 'Profissional não encontrado' } }
+    if (dentista !== null) {
+      const { data, error } = await admin
+        .from('professionals')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('id', dentista)
+        .limit(1)
+      if (error) throw new Error(error.message)
+      if (!data?.length) return { status: 404, body: { error: 'Profissional não encontrado' } }
     }
-    return { status: 200, body: montarPainel(entrada, mes, new Date(), dentista) }
+
+    const agora = new Date()
+    const entrada = await entradaPainel(admin, clinicId, mesesJanela(mes), dentista, agora)
+    return { status: 200, body: montarPainel(entrada, mes, agora, dentista) }
   })
 }

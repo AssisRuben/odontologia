@@ -1,6 +1,6 @@
 export type Variacao = { tipo: 'pp' | 'pct' | 'novo' | 'vazio'; valor: number | null }
 
-const VAZIO: Variacao = { tipo: 'vazio', valor: null }
+export const VAZIO: Variacao = { tipo: 'vazio', valor: null }
 const NOVO: Variacao = { tipo: 'novo', valor: null }
 
 /** Taxas em fração 0–1; variação em pontos percentuais, 1 casa. */

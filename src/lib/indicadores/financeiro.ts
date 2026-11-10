@@ -66,9 +66,15 @@ export function producao(
   }
 }
 
-export type PacienteIn = { id: string; name: string; created_at: string; source: string | null }
+export type PacienteIn = {
+  id: string
+  created_at: string
+  source: string | null
+  /** Mês (YYYY-MM) em São Paulo, já classificado; se ausente, é calculado de created_at. */
+  mes?: string
+}
 
 export function pacientesNovos(pacs: PacienteIn[], mes: string): { total: number; whatsapp: number } {
-  const doMes = pacs.filter((p) => mesDoInstante(p.created_at) === mes)
+  const doMes = pacs.filter((p) => (p.mes ?? mesDoInstante(p.created_at)) === mes)
   return { total: doMes.length, whatsapp: doMes.filter((p) => p.source === 'whatsapp').length }
 }

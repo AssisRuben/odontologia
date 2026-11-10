@@ -1,7 +1,7 @@
-import { todayYmd } from '@/lib/messaging/time'
-import { mesAnterior, mesDe } from '@/lib/comissoes/periodo'
+import { mesAnterior } from '@/lib/comissoes/periodo'
 
-const TZ = 'America/Sao_Paulo'
+// São Paulo não tem horário de verão: -03:00 fixo (mesmo critério das leituras em repo.ts).
+const OFFSET_SP_MS = 3 * 3600e3
 
 /** 6 meses em ordem crescente, terminando em `mes`. */
 export function mesesJanela(mes: string): string[] {
@@ -10,7 +10,12 @@ export function mesesJanela(mes: string): string[] {
   return out
 }
 
+/** Dia (YYYY-MM-DD) em São Paulo de um timestamp ISO. */
+export function diaDoInstante(iso: string): string {
+  return new Date(new Date(iso).getTime() - OFFSET_SP_MS).toISOString().slice(0, 10)
+}
+
 /** Mês (YYYY-MM) em São Paulo de um timestamp ISO. */
 export function mesDoInstante(iso: string): string {
-  return mesDe(todayYmd(new Date(iso), TZ))
+  return diaDoInstante(iso).slice(0, 7)
 }

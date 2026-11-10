@@ -3,8 +3,8 @@ import { mesAnterior, mesDe, primeiroDia, ultimoDia } from '@/lib/comissoes/peri
 import { buildFunnel, type Funnel, type FunnelRow } from '@/lib/orcamentos/funil'
 import { maisFaltam, resumoAgenda, type ConsultaIn, type Contagem } from './agenda'
 import { pacientesNovos, producao, resumoFinanceiro, type PacienteIn, type RecebimentoIn, type TratamentoIn } from './financeiro'
-import { mesesJanela } from './periodo'
-import { variacaoTaxa, variacaoValor, type Variacao } from './variacao'
+import { diaDoInstante, mesDoInstante, mesesJanela } from './periodo'
+import { VAZIO, variacaoTaxa, variacaoValor, type Variacao } from './variacao'
 
 export type EntradaPainel = {
   consultas: ConsultaIn[]
@@ -51,31 +51,49 @@ export function montarPainel(e: EntradaPainel, mes: string, agora: Date, profess
   const nomeDe = new Map(e.profissionais.map((p) => [p.id, p.name]))
   const nomeProf = (id: string | null) => (id === null ? SEM_DENTISTA : (nomeDe.get(id) ?? SEM_DENTISTA))
 
+  // Cada linha é classificada por mês (São Paulo) uma única vez; as 8 passadas por mês só comparam texto.
+  const consultas = e.consultas.map((c) => ({ ...c, mes: mesDoInstante(c.start_time) }))
+  const pacientes = e.pacientes.map((p) => ({ ...p, mes: mesDoInstante(p.created_at) }))
+  const funilPorMes = new Map<string, FunnelRow[]>()
+  const janelaMeses = new Set(mesesJanela(mes))
+  for (const r of e.funil) {
+    if (!r.sent_at) continue
+    const m = diaDoInstante(r.sent_at).slice(0, 7)
+    if (!janelaMeses.has(m)) continue
+    const g = funilPorMes.get(m)
+    if (g) g.push(r)
+    else funilPorMes.set(m, [r])
+  }
+
   const aprovacao = (m: string) =>
-    buildFunnel(e.funil, {
+    buildFunnel(funilPorMes.get(m) ?? [], {
       from: primeiroDia(m),
       to: ultimoDia(m),
       professionalId: professionalId ?? undefined,
     })
-  const agendaDe = (m: string) => resumoAgenda(e.consultas, m, agora, professionalId)
+  const agendaDe = (m: string) => resumoAgenda(consultas, m, agora, professionalId)
 
   const anterior = mesAnterior(mes)
   const ag = agendaDe(mes)
   const agAnt = agendaDe(anterior)
   const fin = resumoFinanceiro(e.recebimentos, mes)
   const finAnt = resumoFinanceiro(e.recebimentos, anterior)
-  const nov = pacientesNovos(e.pacientes, mes)
-  const novAnt = pacientesNovos(e.pacientes, anterior)
+  const nov = pacientesNovos(pacientes, mes)
+  const novAnt = pacientesNovos(pacientes, anterior)
   const orc = aprovacao(mes)
   const orcAnt = aprovacao(anterior)
   const prod = producao(e.tratamentos, mes, professionalId)
 
-  const faltas = maisFaltam(e.consultas, mesesJanela(mes), agora, professionalId).map((m) => ({
-    patient_id: m.patient_id,
-    nome: e.nomesPacientes[m.patient_id] ?? '',
-    faltas: m.faltas,
-    ultima: m.ultima,
-  }))
+  // Faltas desc, depois nome; o corte em 10 vem depois de ordenar com os nomes.
+  const faltas = maisFaltam(consultas, mesesJanela(mes), agora, professionalId)
+    .map((m) => ({
+      patient_id: m.patient_id,
+      nome: e.nomesPacientes[m.patient_id] ?? '',
+      faltas: m.faltas,
+      ultima: m.ultima,
+    }))
+    .sort((x, y) => y.faltas - x.faltas || porNome(x, y) || (x.patient_id < y.patient_id ? -1 : x.patient_id > y.patient_id ? 1 : 0))
+    .slice(0, 10)
 
   const tendencia = mesesJanela(mes).map((m) => {
     const f = resumoFinanceiro(e.recebimentos, m)
@@ -85,7 +103,7 @@ export function montarPainel(e: EntradaPainel, mes: string, agora: Date, profess
       recebidoCentavos: f.recebidoCentavos,
       ticketCentavos: f.ticketCentavos,
       aprovacao: aprovacao(m).rateCents,
-      novos: pacientesNovos(e.pacientes, m).total,
+      novos: pacientesNovos(pacientes, m).total,
     }
   })
 
@@ -101,7 +119,7 @@ export function montarPainel(e: EntradaPainel, mes: string, agora: Date, profess
       ticket: {
         valor: fin.ticketCentavos,
         variacao:
-          fin.ticketCentavos === null ? variacaoTaxa(null, null) : variacaoValor(fin.ticketCentavos, finAnt.ticketCentavos ?? 0),
+          fin.ticketCentavos === null ? VAZIO : variacaoValor(fin.ticketCentavos, finAnt.ticketCentavos ?? 0),
       },
       aprovacao: { valor: orc.rateCents, variacao: variacaoTaxa(orc.rateCents, orcAnt.rateCents) },
       novos: { valor: nov.total, variacao: variacaoValor(nov.total, novAnt.total) },
