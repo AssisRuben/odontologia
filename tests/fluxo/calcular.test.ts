@@ -129,4 +129,19 @@ describe('montarFluxo', () => {
     })
     expect(mes(f, '2026-12').dias.map(d => d.data)).toEqual(['2026-12-03', '2026-12-10', '2026-12-20'])
   })
+
+  it('previsto datado no dia do saldo informado não é absorvido pelo saldo', () => {
+    const saldo = { data: hoje, valorCentavos: 100000 }
+    const f = montarFluxo({ ...base, saldo, despesas: [desp({ vencimento: '2026-11-03', valorCentavos: 30000 })] })
+    expect(f.saldoHojeCentavos).toBe(70000)
+    expect(mes(f, '2026-11').saldoFinalCentavos).toBe(70000)
+    expect(mes(f, '2026-10').saldoFinalCentavos).toBe(100000)
+    expect(f.menorSaldo).toEqual({ valorCentavos: 70000, data: hoje })
+  })
+
+  it('pagamento pendente com vencimento hoje soma ao saldo de hoje', () => {
+    const saldo = { data: hoje, valorCentavos: 100000 }
+    const f = montarFluxo({ ...base, saldo, pagamentos: [pag({ vencimento: hoje, valorCentavos: 5000 })] })
+    expect(f.saldoHojeCentavos).toBe(105000)
+  })
 })

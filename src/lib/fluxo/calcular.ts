@@ -106,23 +106,31 @@ export function montarFluxo(e: {
   }
 
   // --- Saldo ---
-  const deltas = new Map<string, number>()
+  // O saldo informado contém só movimentos REALIZADOS. Previstos nunca são
+  // "desfeitos" nem absorvidos: contam sempre a partir da própria data.
+  const deltasReais = new Map<string, number>()
+  const deltasPrev = new Map<string, number>()
   for (const m of movs) {
-    deltas.set(m.data, (deltas.get(m.data) ?? 0) + (m.tipo === 'entrada' ? m.valorCentavos : -m.valorCentavos))
+    const alvo = m.previsto ? deltasPrev : deltasReais
+    alvo.set(m.data, (alvo.get(m.data) ?? 0) + (m.tipo === 'entrada' ? m.valorCentavos : -m.valorCentavos))
   }
+  const deltas = new Map<string, number>()
+  for (const mp of [deltasReais, deltasPrev]) for (const [dt, v] of mp) deltas.set(dt, (deltas.get(dt) ?? 0) + v)
   const semSaldoInformado = e.saldo === null
   const refData = e.saldo ? e.saldo.data : ymd(addDays(inicioJanela, -1))
   const refValor = e.saldo ? e.saldo.valorCentavos : 0
 
   /** Saldo no fim do dia `d`, a partir do saldo de referência. */
   const saldoFim = (d: string): number => {
+    let prev = 0
+    for (const [dt, v] of deltasPrev) if (dt <= d) prev += v
     let soma = 0
     if (d >= refData) {
-      for (const [dt, v] of deltas) if (dt > refData && dt <= d) soma += v
-      return refValor + soma
+      for (const [dt, v] of deltasReais) if (dt > refData && dt <= d) soma += v
+      return refValor + soma + prev
     }
-    for (const [dt, v] of deltas) if (dt > d && dt <= refData) soma += v
-    return refValor - soma
+    for (const [dt, v] of deltasReais) if (dt > d && dt <= refData) soma += v
+    return refValor - soma + prev
   }
 
   // --- Meses ---

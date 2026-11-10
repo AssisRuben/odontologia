@@ -17,9 +17,13 @@ export function rotuloMes(mes: string): string {
 export default function GraficoFluxo({ meses }: { meses: MesFluxo[] }) {
   if (meses.length === 0) return null
 
-  const valores = meses.flatMap((m) => [m.entradasCentavos, m.saidasCentavos, m.saldoFinalCentavos, 0])
-  const max = Math.max(...valores)
-  const min = Math.min(...valores)
+  // A escala cobre barras e pontos de saldo (inclusive o saldo inicial do 1º mês) e sempre o zero.
+  const valores = [0, meses[0].saldoInicialCentavos, ...meses.flatMap((m) => [m.entradasCentavos, m.saidasCentavos, m.saldoFinalCentavos])]
+  const rawMax = Math.max(...valores)
+  const rawMin = Math.min(...valores)
+  const folga = (rawMax - rawMin || 1) * 0.06
+  const max = rawMax + folga
+  const min = rawMin < 0 ? rawMin - folga : rawMin
   const span = max - min || 1
   const innerW = W - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
@@ -45,15 +49,17 @@ export default function GraficoFluxo({ meses }: { meses: MesFluxo[] }) {
         {meses.map((m, i) => {
           const x = cx(i)
           return (
-            <g key={m.mes} opacity={m.situacao === 'previsto' ? 0.5 : 1}>
+            <g key={m.mes}>
+              <g opacity={m.situacao === 'previsto' ? 0.5 : 1}>
               <rect x={x - barW - 1} y={y(m.entradasCentavos)} width={barW} height={Math.max(y0 - y(m.entradasCentavos), 0)}
-                className="fill-gengiva" rx={2}>
+                fill="#10B981" rx={2}>
                 <title>{`Entradas ${rotuloMes(m.mes)}: ${formatCurrency(m.entradasCentavos / 100)}`}</title>
               </rect>
               <rect x={x + 1} y={y(m.saidasCentavos)} width={barW} height={Math.max(y0 - y(m.saidasCentavos), 0)}
                 fill="#EF4444" rx={2}>
                 <title>{`Saídas ${rotuloMes(m.mes)}: ${formatCurrency(m.saidasCentavos / 100)}`}</title>
               </rect>
+              </g>
               <text x={x} y={H - 8} textAnchor="middle" fontSize={11} fill="#6B7280">{rotuloMes(m.mes)}</text>
             </g>
           )
@@ -69,7 +75,7 @@ export default function GraficoFluxo({ meses }: { meses: MesFluxo[] }) {
         ))}
       </svg>
       <div className="flex flex-wrap gap-4 text-xs text-tinta-3 mt-2">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gengiva inline-block" />Entradas</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#10B981] inline-block" />Entradas</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#EF4444] inline-block" />Saídas</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-petroleo inline-block" />Saldo final</span>
       </div>
