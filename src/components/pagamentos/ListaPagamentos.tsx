@@ -16,6 +16,8 @@ interface Props {
   invoices: FiscalInvoice[]
   showPatient?: boolean
   onChanged: () => void | Promise<void>
+  /** Conteúdo extra logo abaixo das informações de cada linha. */
+  extra?: (p: Payment) => React.ReactNode
 }
 
 interface NfseInfo { enabled: boolean | null; description: string; invalidKey: boolean }
@@ -108,7 +110,7 @@ function reaisInput(amount: number): string {
   return fromCents(Math.round(amount * 100)).toFixed(2).replace('.', ',')
 }
 
-export default function ListaPagamentos({ payments, invoices, showPatient, onChanged }: Props) {
+export default function ListaPagamentos({ payments, invoices, showPatient, onChanged, extra }: Props) {
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [menu, setMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null)
@@ -267,6 +269,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
                     {p.status === 'paid' && paidAt ? `Pago em ${brDate(paidAt)}` : p.due_date ? `Venc. ${brDate(p.due_date)}` : ''}
                     {p.payment_method && ` · ${PAYMENT_METHOD_LABELS[p.payment_method as PaymentMethod] ?? p.payment_method}`}
                   </p>
+                  {extra?.(p)}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-tinta">{formatCurrency(p.amount)}</p>

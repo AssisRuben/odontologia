@@ -14,9 +14,10 @@ import ListaDespesas from '@/components/financeiro/ListaDespesas'
 import LivroCaixa from '@/components/financeiro/LivroCaixa'
 import AbaComissoes from '@/components/financeiro/AbaComissoes'
 import FluxoCaixa from '@/components/financeiro/FluxoCaixa'
+import AReceber from '@/components/financeiro/AReceber'
 import { categoryLabel } from '@/lib/livro-caixa/categorias'
 
-type Tab = 'painel' | 'fluxo' | 'boletos' | 'comissoes' | 'despesas' | 'livro'
+type Tab = 'painel' | 'fluxo' | 'receber' | 'comissoes' | 'despesas' | 'livro'
 
 export default function FinanceiroPage() {
   const { clinicId, loading: clinicLoading } = useClinicStore()
@@ -86,7 +87,7 @@ export default function FinanceiroPage() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'painel', label: 'Painel' },
     { id: 'fluxo', label: 'Fluxo de caixa' },
-    { id: 'boletos', label: 'Boletos' },
+    { id: 'receber', label: 'A receber' },
     { id: 'comissoes', label: 'Comissões' },
     { id: 'despesas', label: 'Despesas' },
     { id: 'livro', label: 'Livro-caixa' },
@@ -284,11 +285,7 @@ export default function FinanceiroPage() {
 
         {activeTab === 'fluxo' && <FluxoCaixa onVerPainel={() => setActiveTab('painel')} />}
 
-        {activeTab === 'boletos' && (
-          <div className="flex items-center justify-center h-48 text-tinta-4 text-sm">
-            Em desenvolvimento...
-          </div>
-        )}
+        {activeTab === 'receber' && <AReceber />}
       </div>
     </div>
   )
