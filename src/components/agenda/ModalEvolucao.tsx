@@ -51,6 +51,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
   const [fila, setFila] = useState<string[]>([])
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const montado = useRef(true)
+  const retornoRef = useRef<{ data: string; motivo: string; professionalId: string } | null>(null)
 
   useEffect(() => {
     montado.current = true
@@ -156,12 +157,10 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
     }
 
     setSuccess(true)
-    setLoading(false)
     const retorno =
       retornoSug && retornoSug.acao.tipo === 'retorno'
         ? { data: dataRetorno(date, retornoSug.acao.dias), motivo: retornoSug.acao.motivo, professionalId }
         : null
-    onSaved(retorno)
 
     let ids: string[] = []
     try {
@@ -174,17 +173,24 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
       ids = []
     }
     if (!montado.current) return
+    setLoading(false)
     if (ids.length === 0) {
+      onSaved(retorno)
       timerRef.current = setTimeout(onClose, 1500)
       return
     }
+    // O pai fecha este modal no onSaved; só avisa depois das baixas.
+    retornoRef.current = retorno
     setFila(ids)
   }
 
   function proximaBaixa() {
-    const resto = fila.slice(1)
-    setFila(resto)
-    if (resto.length === 0) onClose()
+    if (fila.length <= 1) {
+      onSaved(retornoRef.current)
+      onClose()
+      return
+    }
+    setFila((f) => f.slice(1))
   }
 
   async function handleOrganizar() {
