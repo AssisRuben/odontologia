@@ -56,6 +56,7 @@ describe('sendPaymentLink', () => {
     expect(d.deliver.mock.calls[0][1].body).toBe(
       'Olá, Maria! Segue o link para o pagamento de R$ 150,00 com vencimento em 10/11/2026: https://pay/1',
     )
+    expect(d.deliver.mock.calls[0][1].payment_id).toBe('pay1')
     const no = await sendPaymentLink(fakeAdmin(tables()), 'c1', 'pay2', makeDeps())
     expect(no).toEqual({ status: 422, body: { error: 'Esta cobrança não tem link' } })
   })
@@ -70,6 +71,7 @@ describe('sendInvoiceLink', () => {
     const d = makeDeps()
     expect(await sendInvoiceLink(fakeAdmin(tables()), 'c1', 'inv1', d)).toEqual({ status: 200, body: { id: 'm1' } })
     expect(d.deliver.mock.calls[0][1].body).toBe('Olá, Maria! Segue a nota fiscal do seu pagamento de R$ 150,00: https://nf/1.pdf')
+    expect(d.deliver.mock.calls[0][1].payment_id).toBeNull()
   })
   it('404 other clinic, 422 without pdf', async () => {
     expect(await sendInvoiceLink(fakeAdmin(tables()), 'c2', 'inv1', makeDeps())).toEqual({ status: 404, body: { error: 'Nota não encontrada' } })

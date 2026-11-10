@@ -24,7 +24,7 @@ async function findPayment(admin: SupabaseClient, clinicId: string, id: string):
 async function deliverLink(
   admin: SupabaseClient,
   clinicId: string,
-  args: { template: string; payment: PaymentRow; link: string },
+  args: { template: string; payment: PaymentRow; link: string; paymentId?: string },
   deps: ManualDeps,
 ): Promise<ManualResult> {
   const [patientRes, clinicRes] = await Promise.all([
@@ -48,7 +48,7 @@ async function deliverLink(
     link: args.link,
   })
   return sendManual(
-    { clinicId, patient_id: args.payment.patient_id, body: renderTemplate(args.template, ctx) },
+    { clinicId, patient_id: args.payment.patient_id, body: renderTemplate(args.template, ctx), paymentId: args.paymentId },
     deps,
   )
 }
@@ -64,7 +64,7 @@ export async function sendPaymentLink(
   if (!payment) return fail(404, 'Pagamento não encontrado')
   if (payment.status !== 'pending' && payment.status !== 'overdue') return fail(422, 'Esta cobrança não está em aberto')
   if (!payment.invoice_url) return fail(422, 'Esta cobrança não tem link')
-  return deliverLink(admin, clinicId, { template: MANUAL_TEMPLATES.payment_link, payment, link: payment.invoice_url }, deps)
+  return deliverLink(admin, clinicId, { template: MANUAL_TEMPLATES.payment_link, payment, link: payment.invoice_url, paymentId: payment.id }, deps)
 }
 
 /** Envia o PDF da nota fiscal pelo WhatsApp. */

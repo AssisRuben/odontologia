@@ -10,12 +10,16 @@ import { fromDbPaidAt } from '@/lib/payments/dates'
 import { parseReaisInput, fromCents } from '@/lib/payments/money'
 import { ModalEmitirNota } from './ModalEmitirNota'
 import { errorText } from './errorText'
+import { statusExibido } from '@/lib/payments/statusExibido'
+import { todayYmd } from '@/lib/messaging/time'
 
 interface Props {
   payments: Payment[]
   invoices: FiscalInvoice[]
   showPatient?: boolean
   onChanged: () => void | Promise<void>
+  /** Conteúdo extra logo abaixo das informações de cada linha. */
+  extra?: (p: Payment) => React.ReactNode
 }
 
 interface NfseInfo { enabled: boolean | null; description: string; invalidKey: boolean }
@@ -108,7 +112,7 @@ function reaisInput(amount: number): string {
   return fromCents(Math.round(amount * 100)).toFixed(2).replace('.', ',')
 }
 
-export default function ListaPagamentos({ payments, invoices, showPatient, onChanged }: Props) {
+export default function ListaPagamentos({ payments, invoices, showPatient, onChanged, extra }: Props) {
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [menu, setMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null)
@@ -241,12 +245,14 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
   }
 
   const menuPayment = menu ? payments.find(p => p.id === menu.id) : undefined
+  const hoje = todayYmd(new Date(), 'America/Sao_Paulo')
 
   return (
     <>
       <div className="divide-y divide-porcelana">
         {payments.map(p => {
-          const st = STATUS[p.status] ?? { label: p.status, cls: 'bg-gray-100 text-gray-600' }
+          const shown = statusExibido(p, hoje)
+          const st = STATUS[shown] ?? { label: shown, cls: 'bg-gray-100 text-gray-600' }
           const inv = invoiceByPayment.get(p.id)
           const creating = p.provider_state === 'creating'
           const paidAt = fromDbPaidAt(p.paid_at ?? null)
@@ -267,6 +273,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
                     {p.status === 'paid' && paidAt ? `Pago em ${brDate(paidAt)}` : p.due_date ? `Venc. ${brDate(p.due_date)}` : ''}
                     {p.payment_method && ` · ${PAYMENT_METHOD_LABELS[p.payment_method as PaymentMethod] ?? p.payment_method}`}
                   </p>
+                  {extra?.(p)}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-tinta">{formatCurrency(p.amount)}</p>
