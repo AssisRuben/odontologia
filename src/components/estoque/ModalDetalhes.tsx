@@ -6,6 +6,8 @@ import { KIND_LABEL } from '@/lib/estoque/rotulos'
 import { ordemFefo } from '@/lib/estoque/fefo'
 import { diasParaVencer, situacaoLote, type SituacaoLote } from '@/lib/estoque/validade'
 import { dataBr, umAnoAntes } from '@/lib/estoque/formatar'
+import { RotuloTratamento } from './RotuloTratamento'
+import { rotuloTratamento } from '@/lib/kits/baixa'
 import { ModalBase, CaixaErro, btnPriCls, btnSecCls } from './ModalBase'
 
 interface Props {
@@ -155,7 +157,9 @@ export function ModalDetalhes({ item, hojeYmd, onClose, onSaved, onAcao }: Props
                 </span>
                 <span className="text-tinta">{motivo(m)}</span>
                 {m.lot?.lot_code && <span className="text-tinta-3">lote {m.lot.lot_code}</span>}
-                {m.notes && <span className="text-tinta-3 truncate max-w-48">{m.notes}</span>}
+                {rotuloTratamento(m)
+                  ? <RotuloTratamento m={m} className="text-tinta-3 truncate max-w-48" />
+                  : m.notes && <span className="text-tinta-3 truncate max-w-48">{m.notes}</span>}
               </li>
             ))}
           </ul>

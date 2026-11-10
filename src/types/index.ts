@@ -313,6 +313,27 @@ export interface InventoryMovement {
   notes?: string | null
   created_by?: string | null
   lot?: { lot_code: string | null; expires_at: string | null } | null
+  treatment_id?: string | null
+  treatment?: { id: string; procedure: string; patient?: { id: string; name: string } | null } | null
+}
+
+export type MaterialStatus = 'pendente' | 'baixado' | 'dispensado'
+
+export interface KitItem {
+  id: string
+  item_id: string
+  quantity: number
+  item?: { id: string; name: string; unit: string | null; quantity: number; active: boolean } | null
+}
+
+export interface Kit {
+  id: string
+  clinic_id: string
+  name: string
+  active: boolean
+  created_at: string
+  updated_at: string
+  items?: KitItem[]
 }
 
 export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
@@ -378,6 +399,8 @@ export interface Treatment {
   notes?: string
   insurance_procedure_id?: string | null
   completed_at?: string | null
+  material_status?: MaterialStatus | null
+  material_kit_id?: string | null
   created_at: string
   professional?: Professional
   insurance_plan?: InsurancePlan

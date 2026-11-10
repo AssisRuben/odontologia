@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { InventoryItem, InventoryMovement } from '@/types'
 import { KIND_LABEL } from '@/lib/estoque/rotulos'
+import { RotuloTratamento } from './RotuloTratamento'
+import { rotuloTratamento } from '@/lib/kits/baixa'
 import { rotuloLote, trintaDiasAntes } from '@/lib/estoque/formatar'
 
 interface Props {
@@ -130,7 +132,7 @@ export function TabHistorico({ itens, hojeYmd }: Props) {
                     <td className="px-4 py-3 whitespace-nowrap">{qtd(m)}</td>
                     <td className="px-4 py-3">{lote(m)}</td>
                     <td className="px-4 py-3">{motivo(m)}{despesa(m)}</td>
-                    <td className="px-4 py-3 text-tinta-3">{m.notes || '—'}</td>
+                    <td className="px-4 py-3 text-tinta-3">{rotuloTratamento(m) ? <RotuloTratamento m={m} /> : (m.notes || '—')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -147,7 +149,9 @@ export function TabHistorico({ itens, hojeYmd }: Props) {
                 <p className="mt-1 text-xs text-tinta-3">{dataHora(m.created_at)}</p>
                 <p className="mt-2">{qtd(m)} · {lote(m)}</p>
                 <p className="mt-1">{motivo(m)}{despesa(m)}</p>
-                {m.notes && <p className="mt-1 text-tinta-3">{m.notes}</p>}
+                {rotuloTratamento(m)
+                  ? <p className="mt-1 text-tinta-3"><RotuloTratamento m={m} /></p>
+                  : m.notes && <p className="mt-1 text-tinta-3">{m.notes}</p>}
               </li>
             ))}
           </ul>

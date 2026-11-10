@@ -13,9 +13,10 @@ import { ModalSaida } from '@/components/estoque/ModalSaida'
 import { ModalContagem } from '@/components/estoque/ModalContagem'
 import { ModalDetalhes } from '@/components/estoque/ModalDetalhes'
 import { TabHistorico } from '@/components/estoque/TabHistorico'
+import { TabKits } from '@/components/kits/TabKits'
 import { ModalListaCompras } from '@/components/estoque/ModalListaCompras'
 
-type Tab = 'produtos' | 'historico'
+type Tab = 'produtos' | 'historico' | 'kits'
 
 export type Janela =
   | { tipo: 'produto'; item?: InventoryItem }
@@ -189,12 +190,12 @@ export default function EstoquePage() {
 
       <div className="border-b border-linha px-2 sm:px-6">
         <div className="flex">
-          {(['produtos', 'historico'] as Tab[]).map((tab) => (
+          {(['produtos', 'historico', 'kits'] as Tab[]).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab ? 'border-petroleo text-petroleo' : 'border-transparent text-tinta-3 hover:text-tinta'
               }`}>
-              {tab === 'historico' ? 'Histórico' : 'Produtos'}
+              {tab === 'historico' ? 'Histórico' : tab === 'kits' ? 'Kits' : 'Produtos'}
             </button>
           ))}
         </div>
@@ -250,6 +251,8 @@ export default function EstoquePage() {
         )}
 
         {activeTab === 'historico' && <TabHistorico itens={itens} hojeYmd={hoje} />}
+
+        {activeTab === 'kits' && <TabKits produtos={itens} />}
       </div>
 
       {janela?.tipo === 'produto' && (

@@ -10,6 +10,7 @@ import { ListaSugestoes } from '@/components/ia/ListaSugestoes'
 import { useIaStatus } from '@/components/ia/useIaStatus'
 import { appendText } from '@/lib/ia/texto'
 import { dataRetorno, type Sugestao } from '@/lib/ia/evolucao/sugestoes'
+import { ModalBaixaMaterial } from '@/components/kits/ModalBaixaMaterial'
 import type { Appointment, Professional } from '@/types'
 
 interface Evolution {
@@ -47,6 +48,18 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
   const { conectado } = useIaStatus()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
+  const [fila, setFila] = useState<string[]>([])
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const montado = useRef(true)
+  const retornoRef = useRef<{ data: string; motivo: string; professionalId: string } | null>(null)
+
+  useEffect(() => {
+    montado.current = true
+    return () => {
+      montado.current = false
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -79,6 +92,9 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
   if (!open) return null
 
   const patientName = appointment.patient?.name || 'Paciente'
+
+  // Evolução já salva: só a janela de baixa de material fica na tela.
+  if (fila.length > 0) return <ModalBaixaMaterial key={fila[0]} treatmentId={fila[0]} onClose={proximaBaixa} />
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
@@ -141,13 +157,40 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
     }
 
     setSuccess(true)
-    setLoading(false)
     const retorno =
       retornoSug && retornoSug.acao.tipo === 'retorno'
         ? { data: dataRetorno(date, retornoSug.acao.dias), motivo: retornoSug.acao.motivo, professionalId }
         : null
-    onSaved(retorno)
-    setTimeout(onClose, 1500)
+
+    let ids: string[] = []
+    try {
+      const r = await fetch(`/api/tratamentos/material/pendentes?paciente=${encodeURIComponent(appointment.patient_id)}`)
+      if (r.ok) {
+        const pj = await r.json().catch(() => ({}))
+        if (Array.isArray(pj.ids)) ids = pj.ids.filter((x: unknown): x is string => typeof x === 'string')
+      }
+    } catch {
+      ids = []
+    }
+    if (!montado.current) return
+    setLoading(false)
+    if (ids.length === 0) {
+      onSaved(retorno)
+      timerRef.current = setTimeout(onClose, 1500)
+      return
+    }
+    // O pai fecha este modal no onSaved; só avisa depois das baixas.
+    retornoRef.current = retorno
+    setFila(ids)
+  }
+
+  function proximaBaixa() {
+    if (fila.length <= 1) {
+      onSaved(retornoRef.current)
+      onClose()
+      return
+    }
+    setFila((f) => f.slice(1))
   }
 
   async function handleOrganizar() {
