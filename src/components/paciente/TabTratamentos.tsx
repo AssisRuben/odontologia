@@ -7,6 +7,7 @@ import { Plus, X, ChevronDown, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils'
 import { todayYmd } from '@/lib/messaging/time'
+import { ModalBaixaMaterial } from '@/components/kits/ModalBaixaMaterial'
 import { SecaoGuias } from '@/components/paciente/SecaoGuias'
 import { naTabela } from '@/lib/convenios/guias'
 import { dataValida } from '@/lib/convenios/cadastro'
@@ -79,6 +80,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
   const [modalOpen, setModalOpen]         = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null)
   const [expandedId, setExpandedId]       = useState<string | null>(null)
+  const [baixaId, setBaixaId]             = useState<string | null>(null)
   const [guides, setGuides]               = useState<InsuranceGuide[]>([])
   const [procById, setProcById]           = useState<Map<string, InsurancePlanProcedure>>(new Map())
   const [lotesPagos, setLotesPagos]       = useState<Set<string>>(new Set())
@@ -144,6 +146,18 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
 
   const allItems = guides.flatMap((g) => g.items || [])
 
+  // Concluir um tratamento deixa o material "pendente" (gatilho do banco): abre a baixa em seguida.
+  async function aposSalvar(id: string, status: TreatmentStatus) {
+    setModalOpen(false)
+    setEditingTreatment(null)
+    loadData()
+    onTreatmentSaved?.()
+    window.dispatchEvent(new Event('odontoRefresh'))
+    if (status !== 'completed') return
+    const { data } = await createClient().from('treatments').select('material_status').eq('id', id).single()
+    if (data?.material_status === 'pendente') setBaixaId(id)
+  }
+
   return (
     <div>
       <div className="bg-white rounded-xl border border-linha overflow-hidden">
@@ -174,8 +188,9 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
               const teeth = t.treatment_teeth || []
               return (
                 <div key={t.id}>
+                  <div className="flex items-center hover:bg-porcelana-2 transition-colors">
                   <button
-                    className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-porcelana-2 transition-colors text-left"
+                    className="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-3.5 text-left"
                     onClick={() => setExpandedId(expanded ? null : t.id)}
                   >
                     <div className="flex-1 min-w-0">
@@ -187,6 +202,17 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                         >
                           {s.label}
                         </span>
+                        {t.status === 'completed' && t.material_status === 'pendente' && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: '#FFFBEB', color: '#B45309' }}>
+                            Material pendente
+                          </span>
+                        )}
+                        {t.status === 'completed' && t.material_status === 'baixado' && (
+                          <span className="text-xs px-2 py-0.5 rounded-full text-tinta-3 bg-porcelana">
+                            Material baixado
+                          </span>
+                        )}
                         {t.insurance_plan_id && (() => {
                           const selo = seloDoTratamento(t, allItems, procById)
                           return (
@@ -214,6 +240,15 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                       className={`w-4 h-4 text-tinta-4 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
                     />
                   </button>
+                  {t.status === 'completed' && t.material_status === 'pendente' && (
+                    <button
+                      onClick={() => setBaixaId(t.id)}
+                      className="mr-5 shrink-0 px-3 py-1.5 rounded-lg border border-petroleo text-petroleo text-xs font-medium hover:bg-petroleo-50 transition-colors"
+                    >
+                      Dar baixa
+                    </button>
+                  )}
+                  </div>
 
                   {expanded && (
                     <div className="px-5 pb-4 bg-porcelana-2 border-t border-porcelana space-y-3 pt-3">
@@ -281,12 +316,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
           professionals={professionals}
           insurancePlans={insurancePlans}
           onClose={() => setModalOpen(false)}
-          onSaved={() => {
-            setModalOpen(false)
-            loadData()
-            onTreatmentSaved?.()
-            window.dispatchEvent(new Event('odontoRefresh'))
-          }}
+          onSaved={(id, status) => { void aposSalvar(id, status) }}
         />
       )}
 
@@ -296,12 +326,14 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
           professionals={professionals}
           insurancePlans={insurancePlans}
           onClose={() => setEditingTreatment(null)}
-          onSaved={() => {
-            setEditingTreatment(null)
-            loadData()
-            onTreatmentSaved?.()
-            window.dispatchEvent(new Event('odontoRefresh'))
-          }}
+          onSaved={(id, status) => { void aposSalvar(id, status) }}
+        />
+      )}
+
+      {baixaId && (
+        <ModalBaixaMaterial
+          treatmentId={baixaId}
+          onClose={() => { setBaixaId(null); loadData() }}
         />
       )}
     </div>
@@ -405,7 +437,7 @@ interface ModalProps {
   professionals: Professional[]
   insurancePlans: InsurancePlan[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (id: string, status: TreatmentStatus) => void
 }
 
 function ModalNovoTratamento({
@@ -466,7 +498,7 @@ function ModalNovoTratamento({
         status,
         notes:            notes.trim() || null,
       })
-      .select()
+      .select('id')
       .single()
 
     if (insertErr || !treat) {
@@ -491,7 +523,7 @@ function ModalNovoTratamento({
       }
     }
 
-    onSaved()
+    onSaved(treat.id, status)
   }
 
   const selectedTeeth = Object.keys(toothFaces).map(Number)
@@ -744,7 +776,7 @@ interface EditModalProps {
   professionals: Professional[]
   insurancePlans: InsurancePlan[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (id: string, status: TreatmentStatus) => void
 }
 
 function ModalEditarTratamento({
@@ -785,6 +817,39 @@ function ModalEditarTratamento({
       const cur = prev[tooth] || []
       return { ...prev, [tooth]: cur.includes(face) ? cur.filter(f => f !== face) : [...cur, face] }
     })
+  }
+
+  const [perguntaDevolver, setPerguntaDevolver] = useState(false)
+
+  function pedirSalvar() {
+    if (treatment.material_status === 'baixado' && status !== 'completed') {
+      if (!procedure.trim()) { setError('Informe o procedimento.'); return }
+      setPerguntaDevolver(true)
+      return
+    }
+    void handleSave()
+  }
+
+  async function devolverESalvar() {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/tratamentos/${treatment.id}/material/devolver`, { method: 'POST' })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setPerguntaDevolver(false)
+        setError(j.error ?? 'Não foi possível devolver o material.')
+        setLoading(false)
+        return
+      }
+    } catch {
+      setPerguntaDevolver(false)
+      setError('Não foi possível devolver o material.')
+      setLoading(false)
+      return
+    }
+    setPerguntaDevolver(false)
+    await handleSave()
   }
 
   async function handleSave() {
@@ -828,7 +893,7 @@ function ModalEditarTratamento({
       if (tErr) { setError(`Erro ao salvar dentes: ${tErr.message}`); setLoading(false); return }
     }
 
-    onSaved()
+    onSaved(treatment.id, status)
   }
 
   const selectedTeeth = Object.keys(toothFaces).map(Number)
@@ -995,13 +1060,37 @@ function ModalEditarTratamento({
             Cancelar
           </button>
           <button
-            type="button" onClick={handleSave} disabled={loading}
+            type="button" onClick={pedirSalvar} disabled={loading}
             className="flex-1 h-11 rounded-lg text-white text-sm font-semibold transition-colors disabled:opacity-50"
             style={{ backgroundColor: sc.color }}
           >
             {loading ? 'Salvando...' : `Salvar como ${sc.label}`}
           </button>
         </div>
+
+        {perguntaDevolver && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/40 p-4">
+            <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl space-y-4">
+              <p className="text-sm text-tinta">
+                Este tratamento teve baixa de material. Devolver o material ao estoque?
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button type="button" onClick={() => setPerguntaDevolver(false)}
+                  className="px-4 py-2 rounded-lg border border-linha text-sm text-tinta hover:bg-porcelana-2">
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => { setPerguntaDevolver(false); void handleSave() }}
+                  className="px-4 py-2 rounded-lg border border-linha text-sm text-tinta hover:bg-porcelana-2">
+                  Manter baixa
+                </button>
+                <button type="button" onClick={() => void devolverESalvar()}
+                  className="px-4 py-2 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro">
+                  Devolver
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
