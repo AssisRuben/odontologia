@@ -207,18 +207,18 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
             <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
               <CheckCircle2 className="w-9 h-9 text-green-500" />
             </div>
-            <p className="text-base font-semibold text-[#111827]">Evolução registrada!</p>
-            <p className="text-sm text-[#6B7280]">{patientName}</p>
+            <p className="text-base font-semibold text-tinta">Evolução registrada!</p>
+            <p className="text-sm text-tinta-3">{patientName}</p>
           </div>
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[#E5E7EB]">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-linha">
           <div>
-            <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Evolução clínica</p>
-            <h2 className="text-lg font-bold text-[#111827] leading-tight">{patientName}</h2>
+            <p className="text-xs font-medium text-tinta-3 uppercase tracking-wide">Evolução clínica</p>
+            <h2 className="text-lg font-bold text-tinta leading-tight">{patientName}</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-[#374151] hover:bg-[#F3F4F6]">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-tinta-4 hover:text-tinta-2 hover:bg-porcelana">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -227,13 +227,13 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
 
           {/* Dentista (slider horizontal) */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">Dentista</label>
+            <label className="block text-sm font-medium text-tinta mb-2">Dentista</label>
             <div className="relative flex items-center gap-1">
               {professionals.length > 3 && (
                 <button
                   type="button"
                   onClick={() => scrollSlider('left')}
-                  className="shrink-0 p-1 rounded-lg border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
+                  className="shrink-0 p-1 rounded-lg border border-linha bg-white text-tinta-3 hover:bg-porcelana"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -252,9 +252,9 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                       onClick={() => setProfessionalId(prof.id)}
                       className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all"
                       style={{
-                        borderColor: active ? prof.color : '#E5E7EB',
+                        borderColor: active ? prof.color : '#E1E7E8',
                         backgroundColor: active ? prof.color + '18' : 'white',
-                        color: active ? prof.color : '#374151',
+                        color: active ? prof.color : '#33444C',
                       }}
                     >
                       <span
@@ -270,7 +270,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                 <button
                   type="button"
                   onClick={() => scrollSlider('right')}
-                  className="shrink-0 p-1 rounded-lg border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
+                  className="shrink-0 p-1 rounded-lg border border-linha bg-white text-tinta-3 hover:bg-porcelana"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -280,18 +280,18 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
 
           {/* Data */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Data</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Data</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
           </div>
 
           {/* Descrição */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">
+            <label className="block text-sm font-medium text-tinta mb-1">
               Descreva a evolução do tratamento desse paciente
             </label>
             <div className="mb-2">
@@ -308,7 +308,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Paciente compareceu para limpeza. Foram realizados procedimentos de profilaxia e aplicação de flúor. Sem intercorrências..."
               rows={5}
-              className="w-full px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
+              className="w-full px-3 py-2.5 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none"
             />
             {conectado && (description.trim() || textoOriginal !== null) && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -317,7 +317,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                     type="button"
                     onClick={handleOrganizar}
                     disabled={organizando || loading || vozOcupada}
-                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#3B82F6] bg-[#EFF6FF] text-sm font-medium text-[#3B82F6] hover:bg-[#DBEAFE] disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-petroleo bg-petroleo-50 text-sm font-medium text-petroleo hover:bg-petroleo-100 disabled:opacity-50"
                   >
                     {organizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
                     {organizando ? 'Organizando…' : 'Organizar com IA'}
@@ -328,7 +328,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                     type="button"
                     onClick={handleDesfazer}
                     disabled={organizando || loading}
-                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-linha bg-white text-sm font-medium text-tinta-2 hover:bg-porcelana disabled:opacity-50"
                   >
                     <Undo2 className="w-4 h-4" /> Desfazer
                   </button>
@@ -352,7 +352,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-[#D1D5DB] text-sm text-[#6B7280] hover:border-[#3B82F6] hover:text-[#3B82F6] hover:bg-[#EFF6FF] transition-colors w-full justify-center"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-linha-forte text-sm text-tinta-3 hover:border-petroleo hover:text-petroleo hover:bg-petroleo-50 transition-colors w-full justify-center"
             >
               <ImagePlus className="w-4 h-4" />
               Adicionar imagem
@@ -365,7 +365,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
                     <img
                       src={img.preview}
                       alt=""
-                      className="w-20 h-20 object-cover rounded-lg border border-[#E5E7EB]"
+                      className="w-20 h-20 object-cover rounded-lg border border-linha"
                     />
                     <button
                       type="button"
@@ -391,7 +391,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
             type="button"
             onClick={handleSave}
             disabled={loading || organizando || vozOcupada}
-            className="w-full h-11 rounded-xl bg-[#3B82F6] text-white text-sm font-semibold hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+            className="w-full h-11 rounded-xl bg-petroleo text-white text-sm font-semibold hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
           >
             {loading ? 'Salvando...' : nMarcadas > 0 ? `Salvar e aplicar ${nMarcadas} ${nMarcadas === 1 ? 'sugestão' : 'sugestões'}` : 'Salvar'}
           </button>
@@ -399,27 +399,27 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
           {/* Últimas evoluções */}
           {pastEvolutions.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-3">
                 Últimas evoluções
               </p>
               <div className="space-y-2">
                 {pastEvolutions.map((ev) => {
-                  const color = ev.professional?.color || '#6B7280'
+                  const color = ev.professional?.color || '#5E6E75'
                   return (
                     <div
                       key={ev.id}
-                      className="flex items-start gap-3 p-3 rounded-xl border border-[#E5E7EB] bg-[#FAFAFA]"
+                      className="flex items-start gap-3 p-3 rounded-xl border border-linha bg-porcelana-2"
                     >
                       <div
                         className="w-1 self-stretch rounded-full shrink-0 mt-0.5"
                         style={{ backgroundColor: color }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-[#6B7280] mb-1">
+                        <p className="text-xs text-tinta-3 mb-1">
                           {format(parseISO(ev.date), "d MMM yyyy", { locale: ptBR })}
                           {ev.professional && ` · ${ev.professional.name}`}
                         </p>
-                        <p className="text-sm text-[#111827] leading-snug line-clamp-2">
+                        <p className="text-sm text-tinta leading-snug line-clamp-2">
                           {ev.description}
                         </p>
                       </div>

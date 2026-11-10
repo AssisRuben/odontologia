@@ -17,8 +17,8 @@ function signedDate(iso: string): string {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-full bg-[#F9FAFB] px-4 py-8">
-      <div className="mx-auto w-full max-w-lg rounded-xl border border-[#E5E7EB] bg-white p-6 text-center">{children}</div>
+    <main className="min-h-full bg-porcelana-2 px-4 py-8">
+      <div className="mx-auto w-full max-w-lg rounded-xl border border-linha bg-white p-6 text-center">{children}</div>
     </main>
   )
 }
@@ -32,8 +32,8 @@ export default async function Page({ params }: PageProps<'/orcamento/[token]'>) 
     console.error('[orcamento/page] falha:', (e as Error).message)
     return (
       <Card>
-        <h1 className="text-lg font-semibold text-[#111827]">Não foi possível abrir o orçamento</h1>
-        <p className="mt-2 text-sm text-[#6B7280]">Tente novamente em instantes ou fale com a clínica.</p>
+        <h1 className="text-lg font-semibold text-tinta">Não foi possível abrir o orçamento</h1>
+        <p className="mt-2 text-sm text-tinta-3">Tente novamente em instantes ou fale com a clínica.</p>
       </Card>
     )
   }
@@ -41,7 +41,7 @@ export default async function Page({ params }: PageProps<'/orcamento/[token]'>) 
   if (view.kind === 'unavailable') {
     return (
       <Card>
-        <h1 className="text-lg font-semibold text-[#111827]">Este link não está mais disponível. Fale com a clínica.</h1>
+        <h1 className="text-lg font-semibold text-tinta">Este link não está mais disponível. Fale com a clínica.</h1>
       </Card>
     )
   }
@@ -49,14 +49,14 @@ export default async function Page({ params }: PageProps<'/orcamento/[token]'>) 
   if (view.kind === 'approved') {
     return (
       <Card>
-        <p className="text-2xl font-semibold text-[#111827]">Aprovado ✓</p>
-        <p className="mt-2 text-sm text-[#6B7280]">
+        <p className="text-2xl font-semibold text-tinta">Aprovado ✓</p>
+        <p className="mt-2 text-sm text-tinta-3">
           Orçamento aprovado{view.signedAt ? ` em ${signedDate(view.signedAt)}` : ''}. A clínica entrará em contato para agendar.
         </p>
         {view.canDownload && (
           <a
             href={`/api/public/orcamento/${token}/comprovante`}
-            className="mt-5 inline-block rounded-xl bg-[#3B82F6] px-5 py-3 text-sm font-medium text-white"
+            className="mt-5 inline-block rounded-xl bg-petroleo px-5 py-3 text-sm font-medium text-white"
           >
             Baixar comprovante
           </a>

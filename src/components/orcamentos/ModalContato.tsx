@@ -67,30 +67,30 @@ export function ModalContato({ budgetId, patientName, onClose, onSaved, onDecide
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-[#111827]">Registrar contato: {patientName}</h2>
-          <button onClick={onClose} aria-label="Fechar" className="p-1 text-[#6B7280]"><X className="w-4 h-4" /></button>
+          <h2 className="font-semibold text-tinta">Registrar contato: {patientName}</h2>
+          <button onClick={onClose} aria-label="Fechar" className="p-1 text-tinta-3"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-2">
           {OPTIONS.map(o => (
-            <label key={o.value} className="flex items-center gap-2 text-sm text-[#374151]">
+            <label key={o.value} className="flex items-center gap-2 text-sm text-tinta-2">
               <input type="radio" name="outcome" checked={outcome === o.value} onChange={() => setOutcome(o.value)} />
               {o.label}
             </label>
           ))}
         </div>
         {outcome === 'pensar' && (
-          <label className="block text-sm text-[#374151]">Ligar de novo em
+          <label className="block text-sm text-tinta-2">Ligar de novo em
             <input type="date" value={date} min={today} onChange={e => setDate(e.target.value)}
-              className="mt-1 w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm" />
+              className="mt-1 w-full h-10 px-3 rounded-lg border border-linha text-sm" />
           </label>
         )}
         <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={500} rows={3}
-          placeholder="Observação (opcional)" className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm" />
+          placeholder="Observação (opcional)" className="w-full px-3 py-2 rounded-lg border border-linha text-sm" />
         {error && <p className="text-sm text-[#EF4444]">{error}</p>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 h-9 rounded-lg border border-[#E5E7EB] text-sm text-[#374151]">Cancelar</button>
+          <button onClick={onClose} className="px-4 h-9 rounded-lg border border-linha text-sm text-tinta-2">Cancelar</button>
           <button onClick={save} disabled={saving || !clinicId}
-            className="px-4 h-9 rounded-lg bg-[#3B82F6] text-white text-sm font-medium disabled:opacity-50">
+            className="px-4 h-9 rounded-lg bg-petroleo text-white text-sm font-medium disabled:opacity-50">
             {saving ? 'Salvando…' : outcome === 'aprovou' || outcome === 'perdido' ? 'Continuar' : 'Salvar'}
           </button>
         </div>

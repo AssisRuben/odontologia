@@ -168,16 +168,16 @@ export function ModalNovaConsulta({
             <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
               <CheckCircle2 className="w-9 h-9 text-green-500" />
             </div>
-            <p className="text-base font-semibold text-[#111827]">Consulta agendada!</p>
-            <p className="text-sm text-[#6B7280]">
+            <p className="text-base font-semibold text-tinta">Consulta agendada!</p>
+            <p className="text-sm text-tinta-3">
               {selectedPatient?.name} — {date.split('-').reverse().join('/')} às {startTime}
             </p>
           </div>
         )}
 
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-lg font-semibold text-[#111827]">Nova consulta</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-lg font-semibold text-tinta">Nova consulta</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -200,7 +200,7 @@ export function ModalNovaConsulta({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Paciente */}
           <div className="relative">
-            <label className="block text-sm font-medium text-[#111827] mb-1">Paciente *</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Paciente *</label>
             <input
               type="text"
               value={selectedPatient ? selectedPatient.name : patientSearch}
@@ -211,10 +211,10 @@ export function ModalNovaConsulta({
               }}
               onFocus={() => setShowPatientList(true)}
               placeholder="Buscar paciente..."
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
             {showPatientList && !selectedPatient && filteredPatients.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-[#E5E7EB] rounded-lg shadow-lg max-h-40 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white border border-linha rounded-lg shadow-lg max-h-40 overflow-y-auto">
                 {filteredPatients.slice(0, 8).map((p) => (
                   <button
                     key={p.id}
@@ -225,7 +225,7 @@ export function ModalNovaConsulta({
                       setPatientSearch('')
                       setShowPatientList(false)
                     }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#F3F4F6] text-[#111827]"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-porcelana text-tinta"
                   >
                     {p.name}
                   </button>
@@ -236,11 +236,11 @@ export function ModalNovaConsulta({
 
           {/* Profissional */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Profissional</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Profissional</label>
             <select
               value={professionalId}
               onChange={(e) => setProfessionalId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
               {professionals.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -250,11 +250,11 @@ export function ModalNovaConsulta({
 
           {/* Convênio */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Convênio</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Convênio</label>
             <select
               value={insurancePlanId}
               onChange={(e) => setInsurancePlanId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
               <option value="">Particular</option>
               {insurancePlans.map((plan) => (
@@ -266,31 +266,31 @@ export function ModalNovaConsulta({
           {/* Data e horários */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Data</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Data</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Início</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Início</label>
               <button
                 type="button"
                 onClick={() => setActivePicker('start')}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm text-left bg-white text-[#111827] hover:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] transition-colors"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm text-left bg-white text-tinta hover:border-petroleo focus:outline-none focus:ring-2 focus:ring-petroleo transition-colors"
               >
                 {startTime}
               </button>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Fim</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Fim</label>
               <button
                 type="button"
                 onClick={() => setActivePicker('end')}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm text-left bg-white text-[#111827] hover:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] transition-colors"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm text-left bg-white text-tinta hover:border-petroleo focus:outline-none focus:ring-2 focus:ring-petroleo transition-colors"
               >
                 {endTime}
               </button>
@@ -299,23 +299,23 @@ export function ModalNovaConsulta({
 
           {/* Procedimento */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Procedimento</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Procedimento</label>
             <input
               type="text"
               value={procedure}
               onChange={(e) => setProcedure(e.target.value)}
               placeholder="Ex: Limpeza, Extração, Canal..."
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
           </div>
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Status</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
               {statusOptions.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -325,13 +325,13 @@ export function ModalNovaConsulta({
 
           {/* Observações */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Observações</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Observações</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Informações adicionais..."
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none"
             />
           </div>
 
@@ -345,14 +345,14 @@ export function ModalNovaConsulta({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
             >
               {loading ? 'Salvando...' : 'Salvar consulta'}
             </button>

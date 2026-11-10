@@ -122,7 +122,7 @@ export default function TabHistorico() {
   }
 
   const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1)
-  const selectCls = 'px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-sm text-[#111827] bg-white'
+  const selectCls = 'px-3 py-1.5 border border-linha rounded-lg text-sm text-tinta bg-white'
 
   return (
     <div className="max-w-5xl">
@@ -141,9 +141,9 @@ export default function TabHistorico() {
 
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+      <div className="bg-white rounded-xl border border-linha overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#F9FAFB] text-left text-[#6B7280]">
+          <thead className="bg-porcelana-2 text-left text-tinta-3">
             <tr>
               <th className="px-4 py-2 font-medium">Data</th>
               <th className="px-4 py-2 font-medium">Paciente</th>
@@ -157,10 +157,10 @@ export default function TabHistorico() {
             {rows.map((m) => {
               const open = expanded.has(m.id)
               return (
-                <tr key={m.id} className="border-t border-[#E5E7EB] align-top">
-                  <td className="px-4 py-2 whitespace-nowrap text-[#111827]">{formatWhen(m.sent_at ?? m.created_at, tz)}</td>
-                  <td className="px-4 py-2 text-[#111827]">{patientName(m.patients, m.phone)}</td>
-                  <td className="px-4 py-2 text-[#111827]">
+                <tr key={m.id} className="border-t border-linha align-top">
+                  <td className="px-4 py-2 whitespace-nowrap text-tinta">{formatWhen(m.sent_at ?? m.created_at, tz)}</td>
+                  <td className="px-4 py-2 text-tinta">{patientName(m.patients, m.phone)}</td>
+                  <td className="px-4 py-2 text-tinta">
                     {KIND_LABELS[m.type] ?? m.type}
                     {m.reply_action && REPLY_LABELS[m.reply_action] && (
                       <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700">{REPLY_LABELS[m.reply_action]}</span>
@@ -169,12 +169,12 @@ export default function TabHistorico() {
                   <td className="px-4 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[m.status]}`}>{STATUS_LABELS[m.status]}</span>
                     {m.status === 'failed' && m.error && <div className="mt-1 text-xs text-red-600 max-w-[14rem] break-words">{errorLabel(m.error)}</div>}
-                    {m.status === 'cancelled' && m.error && <div className="mt-1 text-xs text-[#6B7280] max-w-[14rem] break-words">{errorLabel(m.error)}</div>}
+                    {m.status === 'cancelled' && m.error && <div className="mt-1 text-xs text-tinta-3 max-w-[14rem] break-words">{errorLabel(m.error)}</div>}
                     {rowError[m.id] && <div className="mt-1 text-xs text-red-600 max-w-[14rem]">{rowError[m.id]}</div>}
                   </td>
-                  <td className="px-4 py-2 text-[#6B7280] max-w-xs">
+                  <td className="px-4 py-2 text-tinta-3 max-w-xs">
                     <div className={open ? 'whitespace-pre-wrap break-words' : 'truncate'}>{m.body}</div>
-                    <button type="button" className="text-xs text-[#3B82F6] hover:underline"
+                    <button type="button" className="text-xs text-petroleo hover:underline"
                       onClick={() => setExpanded((s) => { const n = new Set(s); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n })}>
                       {open ? 'Recolher' : 'Expandir'}
                     </button>
@@ -182,7 +182,7 @@ export default function TabHistorico() {
                   <td className="px-4 py-2 text-right">
                     {m.status === 'failed' && (
                       <button type="button" disabled={retrying.has(m.id)} onClick={() => retry(m.id)}
-                        className="px-3 py-1 rounded-lg text-xs font-medium border border-[#3B82F6] text-[#3B82F6] hover:bg-[#EFF6FF] disabled:opacity-50">
+                        className="px-3 py-1 rounded-lg text-xs font-medium border border-petroleo text-petroleo hover:bg-petroleo-50 disabled:opacity-50">
                         {retrying.has(m.id) ? 'Reenviando...' : 'Reenviar'}
                       </button>
                     )}
@@ -191,23 +191,23 @@ export default function TabHistorico() {
               )
             })}
             {!loading && rows.length === 0 && !error && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-[#9CA3AF]">Nenhuma mensagem encontrada.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-tinta-4">Nenhuma mensagem encontrada.</td></tr>
             )}
             {loading && rows.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-[#9CA3AF]">Carregando...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-tinta-4">Carregando...</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-center justify-between mt-3 text-sm text-[#6B7280]">
+      <div className="flex items-center justify-between mt-3 text-sm text-tinta-3">
         <span>{total} {total === 1 ? 'mensagem' : 'mensagens'}</span>
         <div className="flex items-center gap-2">
           <button type="button" disabled={page === 0 || loading} onClick={() => { setLoading(true); setPage((p) => p - 1) }}
-            className="px-3 py-1 border border-[#E5E7EB] rounded-lg disabled:opacity-50">Anterior</button>
+            className="px-3 py-1 border border-linha rounded-lg disabled:opacity-50">Anterior</button>
           <span>Página {page + 1} de {lastPage + 1}</span>
           <button type="button" disabled={page >= lastPage || loading} onClick={() => { setLoading(true); setPage((p) => p + 1) }}
-            className="px-3 py-1 border border-[#E5E7EB] rounded-lg disabled:opacity-50">Próxima</button>
+            className="px-3 py-1 border border-linha rounded-lg disabled:opacity-50">Próxima</button>
         </div>
       </div>
     </div>

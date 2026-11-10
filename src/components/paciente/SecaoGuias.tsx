@@ -24,7 +24,7 @@ const AUTH_LABEL: Record<string, string> = {
 }
 
 const SELO_SITUACAO: Record<SituacaoPagamento, string> = {
-  aguardando: 'bg-[#F3F4F6] text-[#6B7280]',
+  aguardando: 'bg-porcelana text-tinta-3',
   pago: 'bg-[#F0FDF4] text-[#15803D]',
   glosado: 'bg-[#FEF2F2] text-[#B91C1C]',
   em_recurso: 'bg-[#FFF7ED] text-[#C2410C]',
@@ -121,13 +121,13 @@ export function SecaoGuias({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden mt-4">
-      <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#111827]">Guias</h3>
+    <div className="bg-white rounded-xl border border-linha overflow-hidden mt-4">
+      <div className="px-5 py-4 border-b border-linha flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-tinta">Guias</h3>
         <button
           onClick={() => setCriando(true)}
           disabled={plans.length === 0}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3B82F6] text-white text-xs font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-petroleo text-white text-xs font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
         >
           <Plus className="w-3.5 h-3.5" />
           Criar guia
@@ -138,10 +138,10 @@ export function SecaoGuias({
 
       {guides.length === 0 ? (
         <div className="flex items-center justify-center h-24">
-          <p className="text-sm text-[#9CA3AF]">Nenhuma guia registrada.</p>
+          <p className="text-sm text-tinta-4">Nenhuma guia registrada.</p>
         </div>
       ) : (
-        <div className="divide-y divide-[#F3F4F6]">
+        <div className="divide-y divide-porcelana">
           {guides.map((g) => {
             const s = GUIDE_STATUS[g.status]
             const plan = plans.find((p) => p.id === g.insurance_plan_id)
@@ -155,12 +155,12 @@ export function SecaoGuias({
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-[#111827]">{plan?.name || 'Convênio'}</span>
+                      <span className="text-sm font-medium text-tinta">{plan?.name || 'Convênio'}</span>
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: s.bg, color: s.color }}>
                         {s.label}
                       </span>
                     </div>
-                    <p className="text-xs text-[#6B7280] mt-0.5">
+                    <p className="text-xs text-tinta-3 mt-0.5">
                       Criada em {format(parseISO(g.created_at), 'dd/MM/yyyy')}
                       {` · Nº ${g.guide_number || '—'}`}
                       {` · Senha ${g.password || '—'}`}
@@ -173,13 +173,13 @@ export function SecaoGuias({
                         onClick={() => setRespondendo(g)}
                         disabled={emLote && !podeResponder}
                         title={emLote && !podeResponder ? 'Os itens que exigem autorização já estão em lote' : undefined}
-                        className="text-xs text-[#3B82F6] hover:underline disabled:opacity-40 disabled:no-underline"
+                        className="text-xs text-petroleo hover:underline disabled:opacity-40 disabled:no-underline"
                       >
                         Registrar resposta
                       </button>
                       {cancelando === g.id ? (
                         <span className="flex items-center gap-2 text-xs">
-                          <span className="text-[#6B7280]">
+                          <span className="text-tinta-3">
                             {emLote ? 'Cancelar os itens que ainda não estão em lote?' : 'Cancelar esta guia?'}
                           </span>
                           <button
@@ -188,7 +188,7 @@ export function SecaoGuias({
                           >
                             Confirmar
                           </button>
-                          <button onClick={() => setCancelando(null)} className="text-[#6B7280] hover:underline">
+                          <button onClick={() => setCancelando(null)} className="text-tinta-3 hover:underline">
                             Voltar
                           </button>
                         </span>
@@ -216,16 +216,16 @@ export function SecaoGuias({
                     const situacao = i.batch_id && lotesPagos.has(i.batch_id) ? situacaoPagamento(i) : null
                     const comCodigo = situacao === 'glosado' || situacao === 'glosa_definitiva'
                     return (
-                      <div key={i.id} className={`rounded-lg border border-[#E5E7EB] px-3 py-2 ${i.active ? '' : 'opacity-60'}`}>
+                      <div key={i.id} className={`rounded-lg border border-linha px-3 py-2 ${i.active ? '' : 'opacity-60'}`}>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm text-[#111827]">{i.code} · {i.name}</span>
-                          <span className="text-xs text-[#6B7280]">{AUTH_LABEL[i.authorization]}</span>
+                          <span className="text-sm text-tinta">{i.code} · {i.name}</span>
+                          <span className="text-xs text-tinta-3">{AUTH_LABEL[i.authorization]}</span>
                           {situacao ? (
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SELO_SITUACAO[situacao]}`}>
                               {rotuloSituacao(situacao)}{comCodigo && i.glosa_code ? ` · ${i.glosa_code}` : ''}
                             </span>
                           ) : i.batch_id && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3B82F6]">Em lote</span>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-petroleo-50 text-petroleo">Em lote</span>
                           )}
                           {diverge && (
                             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">
@@ -235,13 +235,13 @@ export function SecaoGuias({
                           {diverge && !i.batch_id && g.status !== 'cancelada' && (
                             <button
                               onClick={() => atualizarItem(i.id)} disabled={busy === `a-${i.id}`}
-                              className="text-xs text-[#3B82F6] hover:underline disabled:opacity-50"
+                              className="text-xs text-petroleo hover:underline disabled:opacity-50"
                             >
                               Atualizar item
                             </button>
                           )}
                         </div>
-                        <p className="text-xs text-[#6B7280] mt-0.5">
+                        <p className="text-xs text-tinta-3 mt-0.5">
                           {i.value !== null && formatCurrency(i.value)}
                           {i.teeth.length > 0 && ` · Dentes: ${i.teeth.map((t) => t.faces.length ? `${t.tooth} (${t.faces.join('')})` : t.tooth).join(', ')}`}
                           {i.denial_reason && ` · Motivo: ${i.denial_reason}`}
@@ -310,19 +310,19 @@ function ExecucaoItem({ stored, busy, onSave }: {
   }
 
   return (
-    <div className="flex items-center gap-2 mt-1.5 text-xs text-[#6B7280] flex-wrap">
+    <div className="flex items-center gap-2 mt-1.5 text-xs text-tinta-3 flex-wrap">
       <label className="flex items-center gap-2">
         Executado em
         <input
           type="date" value={value}
           onChange={(e) => { setValue(e.target.value); setMsg('') }}
-          className="h-8 px-2 rounded border border-[#E5E7EB] text-xs"
+          className="h-8 px-2 rounded border border-linha text-xs"
         />
       </label>
       {changed && (
         <button
           type="button" onClick={save} disabled={busy}
-          className="text-[#3B82F6] hover:underline disabled:opacity-50"
+          className="text-petroleo hover:underline disabled:opacity-50"
         >
           Salvar
         </button>

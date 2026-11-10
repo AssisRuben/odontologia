@@ -6,9 +6,11 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import ptBRLocale from '@fullcalendar/core/locales/pt-br'
-import { Check, CheckCheck, MessageCircle } from 'lucide-react'
+import { Check, CheckCheck, Clock, MessageCircle } from 'lucide-react'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import type { Appointment } from '@/types'
-import { APPOINTMENT_STATUS_COLORS } from '@/types'
+import { APPOINTMENT_STATUS_SOFT } from '@/types'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
 
 interface CalendarioAgendaProps {
@@ -50,15 +52,21 @@ export function CalendarioAgenda({
     return () => observer.disconnect()
   }, [])
 
-  const events = appointments.map((apt) => ({
-    id: apt.id,
-    title: apt.patient?.name || 'Paciente',
-    start: apt.start_time,
-    end: apt.end_time,
-    backgroundColor: APPOINTMENT_STATUS_COLORS[apt.status] || apt.color || '#3B82F6',
-    borderColor: 'transparent',
-    extendedProps: { appointment: apt },
-  }))
+  // Bloco em tom suave do status; a cor do dentista vai na borda esquerda.
+  const events = appointments.map((apt) => {
+    const soft = APPOINTMENT_STATUS_SOFT[apt.status] ?? APPOINTMENT_STATUS_SOFT.scheduled
+    return {
+      id: apt.id,
+      title: apt.patient?.name || 'Paciente',
+      start: apt.start_time,
+      end: apt.end_time,
+      backgroundColor: soft.bg,
+      textColor: soft.fg,
+      borderColor: 'transparent',
+      classNames: [`ev-${apt.status}`],
+      extendedProps: { appointment: apt },
+    }
+  })
 
   return (
     <div ref={containerRef} className="h-full fc-dental">
@@ -86,7 +94,17 @@ export function CalendarioAgenda({
           const hour = info.dateStr.split('T')[1]?.slice(0, 5) || '09:00'
           setTimeout(() => onDateClick(date, hour), 0)
         }}
+        dayHeaderContent={(arg) => (
+          <span className="fc-dia">
+            <small>{format(arg.date, 'EEE', { locale: ptBR }).replace('.', '')}</small>
+            <strong>{format(arg.date, 'd')}</strong>
+          </span>
+        )}
         eventDidMount={(info) => {
+          const apt = info.event.extendedProps.appointment as Appointment | undefined
+          const profColor = apt?.professional?.color || apt?.color
+          if (profColor) info.el.style.setProperty('--prof', profColor)
+
           const harness = info.el.parentElement as HTMLElement | null
           if (!harness) return
 
@@ -122,7 +140,7 @@ export function CalendarioAgenda({
         eventContent={(eventInfo) => {
           const apt = eventInfo.event.extendedProps.appointment as Appointment | undefined
           if (!apt?.start_time) {
-            return <div style={{ padding: '3px 7px', fontSize: 12, fontWeight: 700, color: '#fff' }}>{eventInfo.event.title}</div>
+            return <div style={{ padding: '3px 7px', fontSize: 12, fontWeight: 600 }}>{eventInfo.event.title}</div>
           }
           const start = new Date(apt.start_time)
           const end = new Date(apt.end_time)
@@ -141,10 +159,9 @@ export function CalendarioAgenda({
               overflow: 'hidden',
             }}>
               {/* nome do paciente */}
-              <div style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: '#fff',
+              <div className="ev-nome" style={{
+                fontSize: 12.5,
+                fontWeight: 600,
                 lineHeight: 1.25,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -156,13 +173,19 @@ export function CalendarioAgenda({
                     style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }}
                   >
                     {indicator === 'confirmed'
-                      ? <CheckCheck size={13} color="#86EFAC" strokeWidth={3} aria-label="Confirmada pelo WhatsApp" />
-                      : <Check size={13} color="rgba(255,255,255,0.75)" strokeWidth={3} aria-label="Confirmação enviada" />}
+                      ? <CheckCheck size={13} strokeWidth={3} aria-label="Confirmada pelo WhatsApp" />
+                      : <Check size={13} strokeWidth={3} style={{ opacity: 0.6 }} aria-label="Confirmação enviada" />}
                   </span>
                 )}
                 {apt.source === 'whatsapp' && (
                   <span title="Marcada pelo WhatsApp" style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }}>
-                    <MessageCircle size={13} color="rgba(255,255,255,0.9)" strokeWidth={2.5} aria-label="Marcada pelo WhatsApp" />
+                    <MessageCircle size={13} strokeWidth={2.5} aria-label="Marcada pelo WhatsApp" />
+                  </span>
+                )}
+                {apt.status === 'in_progress' && <span className="ev-pulso" title="Em atendimento" aria-label="Em atendimento" />}
+                {apt.status === 'waiting' && (
+                  <span title="Na sala de espera" style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }}>
+                    <Clock size={12} strokeWidth={2.6} aria-label="Na sala de espera" />
                   </span>
                 )}
                 {eventInfo.event.title}
@@ -171,8 +194,8 @@ export function CalendarioAgenda({
               {/* procedimento */}
               {apt?.procedure && (
                 <div style={{
-                  fontSize: 10,
-                  color: 'rgba(255,255,255,0.88)',
+                  fontSize: 11.5,
+                  opacity: 0.85,
                   lineHeight: 1.2,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -185,8 +208,9 @@ export function CalendarioAgenda({
               {/* horário + plano (só em eventos mais longos) */}
               {!compact && (
                 <div style={{
-                  fontSize: 10,
-                  color: 'rgba(255,255,255,0.72)',
+                  fontSize: 11,
+                  opacity: 0.7,
+                  fontVariantNumeric: 'tabular-nums',
                   lineHeight: 1.2,
                   marginTop: 2,
                   overflow: 'hidden',
@@ -194,7 +218,7 @@ export function CalendarioAgenda({
                   whiteSpace: 'nowrap',
                 }}>
                   {eventInfo.timeText}
-                  {apt?.patient?.insurance_plan ? ` · ${apt.patient.insurance_plan.name}` : ''}
+                  {apt?.patient?.insurance_plan ? `, ${apt.patient.insurance_plan.name}` : ''}
                 </div>
               )}
             </div>

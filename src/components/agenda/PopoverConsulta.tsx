@@ -68,13 +68,13 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
   if (top + popH > vh - margin) top = vh - popH - margin
   if (top < margin) top = margin
 
-  const statusColor = APPOINTMENT_STATUS_COLORS[apt.status] || '#6B7280'
+  const statusColor = APPOINTMENT_STATUS_COLORS[apt.status] || '#5E6E75'
   const statusLabel = APPOINTMENT_STATUS_LABELS[apt.status] || apt.status
 
   return (
     <div
       ref={popRef}
-      className="fixed z-50 bg-white rounded-xl shadow-2xl border border-[#E5E7EB] overflow-hidden"
+      className="fixed z-50 bg-white rounded-xl shadow-2xl border border-linha overflow-hidden"
       style={{ left, top, width: popW }}
     >
       {/* Faixa colorida de status no topo */}
@@ -92,13 +92,13 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
                 {statusLabel}
               </span>
             </div>
-            <h3 className="text-sm font-bold text-[#111827] leading-snug truncate">
+            <h3 className="text-sm font-bold text-tinta leading-snug truncate">
               {apt.patient?.name || 'Paciente'}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-[#9CA3AF] hover:text-[#374151] hover:bg-[#F3F4F6] transition-colors shrink-0"
+            className="p-1 rounded-md text-tinta-4 hover:text-tinta-2 hover:bg-porcelana transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -143,28 +143,28 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
             </div>
           )}
           {whatsapp === 'sent' && (
-            <div className="flex items-center gap-2 text-xs text-[#6B7280]">
+            <div className="flex items-center gap-2 text-xs text-tinta-3">
               <Check className="w-3.5 h-3.5 shrink-0" />
               Confirmação enviada
             </div>
           )}
 
           {apt.source === 'whatsapp' && (
-            <div className="flex items-center gap-2 text-xs text-[#6B7280]">
+            <div className="flex items-center gap-2 text-xs text-tinta-3">
               <MessageCircle className="w-3.5 h-3.5 shrink-0" />
               Marcada pelo WhatsApp
             </div>
           )}
 
           {apt.notes && (
-            <p className="text-xs text-[#6B7280] italic border-t border-[#F3F4F6] pt-2 mt-2">
+            <p className="text-xs text-tinta-3 italic border-t border-porcelana pt-2 mt-2">
               {apt.notes}
             </p>
           )}
         </div>
 
         {/* Ações */}
-        <div className="mt-4 pt-3 border-t border-[#F3F4F6] space-y-2">
+        <div className="mt-4 pt-3 border-t border-porcelana space-y-2">
 
           {/* Confirmar consulta */}
           {confirmed ? (
@@ -176,7 +176,7 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
             <button
               onClick={handleConfirm}
               disabled={confirming}
-              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-[#3B82F6] text-white text-xs font-semibold hover:bg-[#2563EB] transition-colors disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-petroleo text-white text-xs font-semibold hover:bg-petroleo-escuro transition-colors disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {confirming ? 'Confirmando...' : 'Confirmar consulta'}
@@ -195,7 +195,7 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               <Link
                 href={`/pacientes/${apt.patient_id}`}
                 onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-[#E5E7EB] text-xs font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Prontuário
@@ -218,8 +218,8 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
 function InfoLine({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="text-[#9CA3AF] mt-0.5 shrink-0">{icon}</span>
-      <span className="text-xs text-[#374151] leading-tight">{children}</span>
+      <span className="text-tinta-4 mt-0.5 shrink-0">{icon}</span>
+      <span className="text-xs text-tinta-2 leading-tight">{children}</span>
     </div>
   )
 }

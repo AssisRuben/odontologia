@@ -13,9 +13,9 @@ interface View {
   usoMes: { audioMinutes: number; transcricoes: number; evolucoes: number; anamneses: number; agente: number; transcricoesWhatsapp: number; estimatedUsd: number }
 }
 
-const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
+const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo'
 const errCls = 'text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2'
-const primaryBtn = 'h-10 px-5 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50'
+const primaryBtn = 'h-10 px-5 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50'
 
 function fmtNum(n: number): string {
   return n.toLocaleString('pt-BR')
@@ -108,10 +108,10 @@ export default function IaConfigPage() {
   return (
     <div className="p-6 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-xl font-semibold text-[#111827]">Inteligência artificial</h1>
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Inteligência artificial</h1>
       </div>
 
       {loadError && (
@@ -128,12 +128,12 @@ export default function IaConfigPage() {
 
       {view === null && !loadError ? (
         <div className="flex justify-center py-8">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : view !== null && (
         <div className="space-y-4">
-          <form onSubmit={handleSave} className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4">
-            <p className="text-sm font-semibold text-[#111827]">Chave da OpenAI</p>
+          <form onSubmit={handleSave} className="bg-white rounded-xl border border-linha p-5 space-y-4">
+            <p className="text-sm font-semibold text-tinta">Chave da OpenAI</p>
 
             {view.conectado && (
               <p className="flex items-center gap-1.5 text-sm text-[#10B981] font-medium">
@@ -143,7 +143,7 @@ export default function IaConfigPage() {
             )}
 
             <div>
-              <label htmlFor="ia-chave" className="block text-sm font-medium text-[#111827] mb-1">
+              <label htmlFor="ia-chave" className="block text-sm font-medium text-tinta mb-1">
                 {view.conectado ? 'Trocar a chave (opcional)' : 'Chave de API'}
               </label>
               <input id="ia-chave" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
@@ -152,7 +152,7 @@ export default function IaConfigPage() {
             </div>
 
             <div>
-              <label htmlFor="ia-modelo" className="block text-sm font-medium text-[#111827] mb-1">Modelo para organizar</label>
+              <label htmlFor="ia-modelo" className="block text-sm font-medium text-tinta mb-1">Modelo para organizar</label>
               <select id="ia-modelo" value={tier} onChange={e => setTier(e.target.value as Tier)}
                 disabled={busy} className={inputCls}>
                 <option value="economico">Econômico (padrão)</option>
@@ -190,7 +190,7 @@ export default function IaConfigPage() {
                     {busy ? 'Removendo...' : 'Sim, remover'}
                   </button>
                   <button type="button" onClick={() => setConfirmRemove(false)} disabled={busy}
-                    className="h-9 px-4 rounded-lg border border-[#E5E7EB] text-sm text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-50">
+                    className="h-9 px-4 rounded-lg border border-linha text-sm text-tinta-2 hover:bg-porcelana disabled:opacity-50">
                     Cancelar
                   </button>
                 </div>
@@ -198,43 +198,43 @@ export default function IaConfigPage() {
             )}
           </form>
 
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-3">
-            <p className="text-sm font-semibold text-[#111827]">Uso do mês</p>
+          <div className="bg-white rounded-xl border border-linha p-5 space-y-3">
+            <p className="text-sm font-semibold text-tinta">Uso do mês</p>
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <dt className="text-[#6B7280]">Minutos de áudio</dt>
-                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.audioMinutes)}</dd>
+                <dt className="text-tinta-3">Minutos de áudio</dt>
+                <dd className="text-tinta font-medium">{fmtNum(view.usoMes.audioMinutes)}</dd>
               </div>
               <div>
-                <dt className="text-[#6B7280]">Organizações de evolução</dt>
-                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.evolucoes)}</dd>
+                <dt className="text-tinta-3">Organizações de evolução</dt>
+                <dd className="text-tinta font-medium">{fmtNum(view.usoMes.evolucoes)}</dd>
               </div>
               <div>
-                <dt className="text-[#6B7280]">Preenchimentos de anamnese</dt>
-                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.anamneses)}</dd>
+                <dt className="text-tinta-3">Preenchimentos de anamnese</dt>
+                <dd className="text-tinta font-medium">{fmtNum(view.usoMes.anamneses)}</dd>
               </div>
               <div>
-                <dt className="text-[#6B7280]">Respostas do agente no WhatsApp</dt>
-                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.agente)}</dd>
+                <dt className="text-tinta-3">Respostas do agente no WhatsApp</dt>
+                <dd className="text-tinta font-medium">{fmtNum(view.usoMes.agente)}</dd>
               </div>
               <div>
-                <dt className="text-[#6B7280]">Áudios do WhatsApp transcritos</dt>
-                <dd className="text-[#111827] font-medium">{fmtNum(view.usoMes.transcricoesWhatsapp)}</dd>
+                <dt className="text-tinta-3">Áudios do WhatsApp transcritos</dt>
+                <dd className="text-tinta font-medium">{fmtNum(view.usoMes.transcricoesWhatsapp)}</dd>
               </div>
               <div>
-                <dt className="text-[#6B7280]">Custo estimado</dt>
-                <dd className="text-[#111827] font-medium">US$ {view.usoMes.estimatedUsd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+                <dt className="text-tinta-3">Custo estimado</dt>
+                <dd className="text-tinta font-medium">US$ {view.usoMes.estimatedUsd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
               </div>
             </dl>
-            <p className="text-xs text-[#6B7280]">Estimativa; o valor real é o da fatura da OpenAI.</p>
+            <p className="text-xs text-tinta-3">Estimativa; o valor real é o da fatura da OpenAI.</p>
           </div>
 
-          <p className="text-xs text-[#6B7280] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">
+          <p className="text-xs text-tinta-3 bg-porcelana-2 border border-linha rounded-lg px-3 py-2">
             Por padrão, segundo a política da OpenAI para a API, os dados enviados não são usados para treinar
             modelos. Para atender à LGPD, a clínica deve aceitar o contrato de tratamento de dados (DPA) da OpenAI
             na conta dela.
           </p>
-          <p className="text-xs text-[#6B7280] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">
+          <p className="text-xs text-tinta-3 bg-porcelana-2 border border-linha rounded-lg px-3 py-2">
             &quot;Ditar&quot; usa o serviço de voz do navegador ou do celular (Google ou Apple) e pode enviar o áudio a
             eles. Para mais controle, prefira &quot;Gravar&quot;, que usa a OpenAI, coberta pelo DPA da clínica.
           </p>

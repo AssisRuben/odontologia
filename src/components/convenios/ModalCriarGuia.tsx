@@ -95,9 +95,9 @@ export function ModalCriarGuia({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Criar guia</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Criar guia</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -105,19 +105,19 @@ export function ModalCriarGuia({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Operadora</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Operadora</label>
               <select
                 value={planId} onChange={(e) => changePlan(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
               >
                 {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Executante</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Executante</label>
               <select
                 value={professionalId} onChange={(e) => setProfessionalId(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
               >
                 <option value="">— selecione —</option>
                 {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -133,22 +133,22 @@ export function ModalCriarGuia({
           )}
 
           <div>
-            <p className="block text-sm font-medium text-[#111827] mb-2">Tratamentos</p>
+            <p className="block text-sm font-medium text-tinta mb-2">Tratamentos</p>
             {eligible.length === 0 ? (
-              <p className="text-sm text-[#9CA3AF]">Nenhum tratamento elegível para esta operadora.</p>
+              <p className="text-sm text-tinta-4">Nenhum tratamento elegível para esta operadora.</p>
             ) : (
               <div className="space-y-1.5">
                 {eligible.map((t) => (
                   <label
                     key={t.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-[#E5E7EB] cursor-pointer hover:bg-[#F9FAFB]"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-linha cursor-pointer hover:bg-porcelana-2"
                   >
                     <input
                       type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)}
-                      className="w-4 h-4 accent-[#3B82F6]"
+                      className="w-4 h-4 accent-petroleo"
                     />
-                    <span className="flex-1 min-w-0 text-sm text-[#111827] truncate">{t.procedure}</span>
-                    <span className="text-xs text-[#6B7280] shrink-0">{formatCurrency(t.value)}</span>
+                    <span className="flex-1 min-w-0 text-sm text-tinta truncate">{t.procedure}</span>
+                    <span className="text-xs text-tinta-3 shrink-0">{formatCurrency(t.value)}</span>
                   </label>
                 ))}
               </div>
@@ -160,13 +160,13 @@ export function ModalCriarGuia({
           <div className="flex gap-3 pt-2">
             <button
               type="button" onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit" disabled={loading || eligible.length === 0}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
             >
               {loading ? 'Criando...' : 'Criar guia'}
             </button>

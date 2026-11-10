@@ -37,8 +37,8 @@ async function errorOf(res: Response, fallback: string): Promise<string> {
 function Line({ label, value, strong, sub }: { label: string; value: number; strong?: boolean; sub?: boolean }) {
   return (
     <div className={`flex justify-between text-sm ${sub ? 'pl-4' : ''}`}>
-      <span className="text-[#6B7280]">{label}</span>
-      <span className={strong ? 'font-bold text-[#111827]' : 'font-medium text-[#374151]'}>{formatCurrency(fromCents(value))}</span>
+      <span className="text-tinta-3">{label}</span>
+      <span className={strong ? 'font-bold text-tinta' : 'font-medium text-tinta-2'}>{formatCurrency(fromCents(value))}</span>
     </div>
   )
 }
@@ -165,17 +165,17 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Mês anterior"
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-base font-semibold text-[#111827] capitalize w-44 text-center">{monthLabel(month)}</span>
+          <span className="text-base font-semibold text-tinta capitalize w-44 text-center">{monthLabel(month)}</span>
           <button onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Próximo mês"
-            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
         <button onClick={download} disabled={downloading || loading || !ledger}
-          className="flex items-center gap-1.5 h-10 px-4 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+          className="flex items-center gap-1.5 h-10 px-4 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
           <Download className="w-4 h-4" /> {downloading ? 'Gerando...' : 'Baixar pacote do contador'}
         </button>
       </div>
@@ -185,30 +185,30 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : ledger && t ? (
         <>
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-2">
+          <div className="bg-white rounded-xl border border-linha p-5 space-y-2">
             <Line label="Receitas de pacientes" value={t.patientRevenueCents} />
             <Line label="Despesas de custeio" value={t.custeioCents} />
             {t.feesCents > 0 && <Line sub label="Tarifas de cobrança (Asaas)" value={t.feesCents} />}
             <Line label="Salários e encargos" value={t.pessoalCents} />
             <Line label="Emolumentos" value={t.emolumentosCents} />
             <Line label="Total dedutível" value={t.deductibleCents} />
-            <div className="border-t border-[#E5E7EB] pt-2 flex justify-between text-sm">
-              <span className="font-semibold text-[#111827]">Resultado do mês</span>
+            <div className="border-t border-linha pt-2 flex justify-between text-sm">
+              <span className="font-semibold text-tinta">Resultado do mês</span>
               <span className={`text-lg font-bold ${t.resultCents >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
                 {formatCurrency(fromCents(t.resultCents))}
               </span>
             </div>
-            <div className="border-t border-[#E5E7EB] pt-2 space-y-2">
+            <div className="border-t border-linha pt-2 space-y-2">
               <Line label="Recebimentos de convênios (informativo)" value={t.insuranceRevenueCents} />
               <Line label="Despesas não dedutíveis (informativo)" value={t.nonDeductibleCents} />
             </div>
           </div>
 
-          <p className="text-xs text-[#6B7280]">{DISCLAIMER}</p>
+          <p className="text-xs text-tinta-3">{DISCLAIMER}</p>
 
           {alertLines.length > 0 && (
             <ul className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1 text-sm text-[#92400E]">
@@ -220,44 +220,44 @@ export default function LivroCaixa({ onOpenDespesas }: { onOpenDespesas: () => v
             </ul>
           )}
 
-          <div ref={receiptsRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden scroll-mt-4">
-            <div className="px-4 py-3 border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold text-[#111827]">Recibos do Receita Saúde</h3>
-              <label className="flex items-center gap-2 text-sm text-[#6B7280] cursor-pointer">
+          <div ref={receiptsRef} className="bg-white rounded-xl border border-linha overflow-hidden scroll-mt-4">
+            <div className="px-4 py-3 border-b border-linha flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-semibold text-tinta">Recibos do Receita Saúde</h3>
+              <label className="flex items-center gap-2 text-sm text-tinta-3 cursor-pointer">
                 <input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#D1D5DB]" />
+                  className="w-4 h-4 rounded border-linha-forte" />
                 Só pendentes
               </label>
             </div>
             {receipts.length === 0 ? (
-              <div className="py-10 text-center text-sm text-[#9CA3AF]">Nenhum recibo neste mês.</div>
+              <div className="py-10 text-center text-sm text-tinta-4">Nenhum recibo neste mês.</div>
             ) : (
-              <div className="divide-y divide-[#F3F4F6]">
+              <div className="divide-y divide-porcelana">
                 {receipts.map((r) => {
                   const busy = busyIds.has(r.paymentId)
                   return (
                     <div key={r.paymentId} className="px-4 py-3 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-[#111827] truncate">{r.payerName}</p>
-                          <p className="text-xs text-[#9CA3AF]">
+                          <p className="text-sm font-medium text-tinta truncate">{r.payerName}</p>
+                          <p className="text-xs text-tinta-4">
                             {ddmmyyyy(r.date)}
                           </p>
-                          <p className="text-xs text-[#9CA3AF]">
+                          <p className="text-xs text-tinta-4">
                             Paciente: {r.patientName} · {r.patientCpf ? formatCpf(r.patientCpf) : 'CPF ausente ou inválido'}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-[#111827]">{formatCurrency(fromCents(r.amountCents))}</p>
+                          <p className="text-sm font-semibold text-tinta">{formatCurrency(fromCents(r.amountCents))}</p>
                           <span className={`text-xs font-medium ${r.issuedAt ? 'text-[#10B981]' : 'text-[#F59E0B]'}`}>
                             {r.issuedAt ? 'Emitido' : 'Pendente'}
                           </span>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-[#3B82F6]">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-petroleo">
                         {r.payerCpf ? (
                           <>
-                            <span className="text-[#6B7280] font-normal">{formatCpf(r.payerCpf)}</span>
+                            <span className="text-tinta-3 font-normal">{formatCpf(r.payerCpf)}</span>
                             <button onClick={() => copy(`cpf-${r.paymentId}`, r.payerCpf!)}
                               className="flex items-center gap-1 hover:underline">
                               <Copy className="w-3 h-3" /> {copied === `cpf-${r.paymentId}` ? 'Copiado' : 'Copiar CPF'}

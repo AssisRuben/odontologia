@@ -18,10 +18,10 @@ function proximoMes(mes: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-const th = 'px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase whitespace-nowrap'
+const th = 'px-4 py-3 text-left text-xs font-medium text-tinta-3 uppercase whitespace-nowrap'
 const thR = th.replace('text-left', 'text-right')
-const tdR = 'px-4 py-3 text-sm text-[#374151] text-right whitespace-nowrap'
-const linkBtn = 'text-xs font-medium text-[#3B82F6] hover:underline disabled:opacity-50 whitespace-nowrap'
+const tdR = 'px-4 py-3 text-sm text-tinta-2 text-right whitespace-nowrap'
+const linkBtn = 'text-xs font-medium text-petroleo hover:underline disabled:opacity-50 whitespace-nowrap'
 
 export default function AbaComissoes() {
   const [mes, setMes] = useState(() => mesAnterior(mesDe(todayYmd(new Date(), 'America/Sao_Paulo'))))
@@ -95,12 +95,12 @@ export default function AbaComissoes() {
     <div className="space-y-4 max-w-6xl">
       <div className="flex items-center gap-3">
         <button onClick={() => setMes(mesAnterior(mes))} aria-label="Mês anterior" disabled={!!busyId}
-          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] disabled:opacity-40">
+          className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3 disabled:opacity-40">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-base font-semibold text-[#111827] w-28 text-center">{rotuloMes(mes)}</span>
+        <span className="text-base font-semibold text-tinta w-28 text-center">{rotuloMes(mes)}</span>
         <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês" disabled={!!busyId}
-          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] disabled:opacity-40">
+          className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3 disabled:opacity-40">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -114,14 +114,14 @@ export default function AbaComissoes() {
 
       {!dados && !erro && (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {dados && (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-x-auto">
+        <div className="bg-white rounded-xl border border-linha overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b border-[#E5E7EB]">
+            <thead className="border-b border-linha">
               <tr>
                 <th className={th}>Dentista</th>
                 <th className={thR}>Particular</th>
@@ -133,19 +133,19 @@ export default function AbaComissoes() {
                 <th className={th}>Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F3F4F6]">
+            <tbody className="divide-y divide-porcelana">
               {dados.dentistas.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#9CA3AF]">Nenhum dentista cadastrado.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-tinta-4">Nenhum dentista cadastrado.</td></tr>
               )}
               {dados.dentistas.map((d) => {
                 const busy = busyId === d.professional_id
                 return (
                   <tr key={d.professional_id}>
-                    <td className="px-4 py-3 text-sm font-medium text-[#111827]">{d.nome}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-tinta">{d.nome}</td>
                     {d.semPercentual || d.semInicio ? (
                       <td colSpan={5} className="px-4 py-3 text-sm text-[#92400E]">
                         {d.semPercentual ? 'Sem percentual.' : 'Sem mês inicial.'}{' '}
-                        <Link href="/configuracoes/profissionais" className="font-medium text-[#3B82F6] underline">Definir em Configurações</Link>
+                        <Link href="/configuracoes/profissionais" className="font-medium text-petroleo underline">Definir em Configurações</Link>
                       </td>
                     ) : (
                       <>
@@ -153,10 +153,10 @@ export default function AbaComissoes() {
                         <td className={tdR}>{brl(d.convenioBaseCentavos)}</td>
                         <td className={tdR}>{brl(d.laboratorioCustoCentavos)}</td>
                         <td className={tdR}>{brl(d.ajusteCentavos)}</td>
-                        <td className={`${tdR} font-semibold text-[#111827]`}>{brl(d.totalCentavos)}</td>
+                        <td className={`${tdR} font-semibold text-tinta`}>{brl(d.totalCentavos)}</td>
                       </>
                     )}
-                    <td className="px-4 py-3 text-sm text-[#374151] whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-tinta-2 whitespace-nowrap">
                       {d.situacao === 'aberto' && 'Aberto'}
                       {d.situacao === 'fechado' && 'Fechado'}
                       {d.situacao === 'pago' && `Pago em ${d.fechamento?.paid_at ? dmy(d.fechamento.paid_at).slice(0, 5) : ''}`}
@@ -184,10 +184,10 @@ export default function AbaComissoes() {
                 )
               })}
             </tbody>
-            <tfoot className="border-t border-[#E5E7EB]">
+            <tfoot className="border-t border-linha">
               <tr>
-                <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-[#111827]">Total geral</td>
-                <td className="px-4 py-3 text-sm font-bold text-[#111827] text-right whitespace-nowrap">{brl(totalGeral)}</td>
+                <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-tinta">Total geral</td>
+                <td className="px-4 py-3 text-sm font-bold text-tinta text-right whitespace-nowrap">{brl(totalGeral)}</td>
                 <td colSpan={2} />
               </tr>
             </tfoot>

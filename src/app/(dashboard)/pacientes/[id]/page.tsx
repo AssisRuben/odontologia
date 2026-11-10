@@ -73,7 +73,7 @@ export default function PacienteDetalhePage({ params }: { params: Promise<{ id: 
     <Suspense
       fallback={
         <div className="flex items-center justify-center h-[calc(100vh-56px)]">
-          <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       }
     >
@@ -165,13 +165,13 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-56px)]">
-        <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   if (!patient) {
-    return <div className="p-6 text-[#6B7280]">Paciente não encontrado.</div>
+    return <div className="p-6 text-tinta-3">Paciente não encontrado.</div>
   }
 
   const firstAppointment = appointments.length > 0
@@ -185,12 +185,12 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
   const patientCode = patient.id.replace(/-/g, '').slice(0, 6).toUpperCase()
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6]">
+    <div className="min-h-screen bg-porcelana">
       {/* Header */}
-      <div className="bg-white border-b border-[#E5E7EB]">
+      <div className="border-b border-linha">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="pt-4 pb-2">
-            <Link href="/pacientes" className="inline-flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#111827] mb-4">
+            <Link href="/pacientes" className="inline-flex items-center gap-1 text-sm text-tinta-3 hover:text-tinta mb-4">
               <ChevronLeft className="w-4 h-4" />
               Pacientes
             </Link>
@@ -206,10 +206,10 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold text-[#111827] uppercase tracking-wide">
+                <h1 className="text-xl sm:text-2xl font-bold text-tinta uppercase tracking-wide">
                   {patient.name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-[#6B7280]">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-tinta-3">
                   {patient.phone && (
                     <span className="flex items-center gap-1">
                       <Phone className="w-3.5 h-3.5 text-[#25D366]" />
@@ -237,14 +237,14 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
                     <span
                       key={tag}
                       className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white"
-                      style={{ backgroundColor: CATEGORIA_COLORS[tag] || '#6B7280' }}
+                      style={{ backgroundColor: CATEGORIA_COLORS[tag] || '#5E6E75' }}
                     >
                       {tag}
                     </span>
                   ))}
                   <button
                     onClick={() => setModalCatOpen(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border border-dashed border-[#D1D5DB] text-[#6B7280] hover:border-[#3B82F6] hover:text-[#3B82F6] transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border border-dashed border-linha-forte text-tinta-3 hover:border-petroleo hover:text-petroleo transition-colors"
                   >
                     <Tag className="w-3 h-3" />
                     Categorizar
@@ -258,13 +258,13 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
                   onClick={() => setModalWaOpen(true)}
                   disabled={!!waDisabledHint}
                   title={waDisabledHint ?? undefined}
-                  className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-linha text-sm font-medium text-tinta-2 hover:bg-porcelana transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
                   <MessageCircle className="w-4 h-4 text-[#25D366]" />
                   <span className="hidden sm:inline">Enviar WhatsApp</span>
                 </button>
                 <button
                   onClick={() => setModalEditOpen(true)}
-                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-linha text-sm font-medium text-tinta-2 hover:bg-porcelana transition-colors">
                   <Edit2 className="w-4 h-4" />
                   Editar
                 </button>
@@ -280,8 +280,8 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === tab.id
-                    ? 'border-[#3B82F6] text-[#3B82F6]'
-                    : 'border-transparent text-[#6B7280] hover:text-[#111827]'
+                    ? 'border-petroleo text-petroleo'
+                    : 'border-transparent text-tinta-3 hover:text-tinta'
                 }`}
               >
                 {tab.label}
@@ -301,26 +301,26 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
             <div className="lg:w-80 xl:w-96 shrink-0 space-y-4">
 
               {/* Card Tarefas */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+              <div className="bg-white rounded-xl border border-linha p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <ClipboardList className="w-4 h-4 text-[#6B7280]" />
-                    <span className="text-sm font-semibold text-[#111827]">Tarefas</span>
+                    <ClipboardList className="w-4 h-4 text-tinta-3" />
+                    <span className="text-sm font-semibold text-tinta">Tarefas</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button className="p-1 rounded text-[#3B82F6] hover:bg-[#EFF6FF] text-xs font-medium flex items-center gap-1">
+                    <button className="p-1 rounded text-petroleo hover:bg-petroleo-50 text-xs font-medium flex items-center gap-1">
                       <Plus className="w-3 h-3" />
                       Nova
                     </button>
-                    <ChevronLeft className="w-4 h-4 text-[#9CA3AF] rotate-180" />
+                    <ChevronLeft className="w-4 h-4 text-tinta-4 rotate-180" />
                   </div>
                 </div>
-                <p className="text-xs text-[#9CA3AF]">Nenhuma tarefa cadastrada</p>
+                <p className="text-xs text-tinta-4">Nenhuma tarefa cadastrada</p>
               </div>
 
               {/* Card Informações */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-                <h3 className="text-sm font-semibold text-[#111827] mb-4">Informações</h3>
+              <div className="bg-white rounded-xl border border-linha p-4">
+                <h3 className="text-sm font-semibold text-tinta mb-4">Informações</h3>
                 <div className="space-y-3">
                   <InfoRow label="Código do paciente" value={patientCode} />
                   <InfoRow
@@ -357,18 +357,18 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
                   )}
                   {clinicalNotes && (
                     <div>
-                      <p className="text-xs text-[#9CA3AF] mb-0.5">Observações clínicas</p>
-                      <p className="text-sm text-[#374151] whitespace-pre-wrap">{clinicalNotes}</p>
+                      <p className="text-xs text-tinta-4 mb-0.5">Observações clínicas</p>
+                      <p className="text-sm text-tinta-2 whitespace-pre-wrap">{clinicalNotes}</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Card Serasa */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+              <div className="bg-white rounded-xl border border-linha p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-[#111827]">Consulta no Serasa</h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                  <h3 className="text-sm font-semibold text-tinta">Consulta no Serasa</h3>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana transition-colors">
                     <ClipboardList className="w-3.5 h-3.5" />
                     Consultar
                   </button>
@@ -376,12 +376,12 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
                 {/* Ilustração decorativa */}
                 <div className="flex items-center justify-center py-4">
                   <svg width="80" height="60" viewBox="0 0 80 60" fill="none">
-                    <circle cx="25" cy="30" r="20" fill="#EFF6FF" stroke="#BFDBFE" strokeWidth="1.5" />
-                    <path d="M15 30 L25 20 L35 30 L25 40Z" fill="#3B82F6" opacity="0.6" />
-                    <circle cx="25" cy="30" r="6" fill="#3B82F6" />
+                    <circle cx="25" cy="30" r="20" fill="#E4EFF2" stroke="#B7D0D7" strokeWidth="1.5" />
+                    <path d="M15 30 L25 20 L35 30 L25 40Z" fill="#173B47" opacity="0.6" />
+                    <circle cx="25" cy="30" r="6" fill="#173B47" />
                     <rect x="52" y="15" width="24" height="30" rx="4" fill="#F0FDF4" stroke="#BBF7D0" strokeWidth="1.5" />
                     <text x="64" y="34" textAnchor="middle" fill="#16A34A" fontSize="14" fontWeight="bold">$</text>
-                    <path d="M43 28 L48 28 M43 32 L48 32" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M43 28 L48 28 M43 32 L48 32" stroke="#8A989E" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                 </div>
               </div>
@@ -391,8 +391,8 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
             <div className="flex-1 min-w-0 space-y-4">
 
               {/* Card Odontograma */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 sm:p-5">
-                <h3 className="text-sm font-semibold text-[#111827] mb-4">Odontograma</h3>
+              <div className="bg-white rounded-xl border border-linha p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-tinta mb-4">Odontograma</h3>
                 <Odontograma
                   patientId={patient.id}
                   clinicId={clinicId || ''}
@@ -401,17 +401,17 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
               </div>
 
               {/* Card Últimas Evoluções */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 sm:p-5">
+              <div className="bg-white rounded-xl border border-linha p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-[#111827]">Últimas Evoluções</h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-medium text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                  <h3 className="text-sm font-semibold text-tinta">Últimas Evoluções</h3>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana transition-colors">
                     <Plus className="w-3.5 h-3.5" />
                     Adicionar
                   </button>
                 </div>
 
                 {lastEvolutions.length === 0 ? (
-                  <p className="text-sm text-[#9CA3AF]">Nenhuma evolução registrada.</p>
+                  <p className="text-sm text-tinta-4">Nenhuma evolução registrada.</p>
                 ) : (
                   <div className="space-y-3">
                     {lastEvolutions.map((ev) => (
@@ -435,13 +435,13 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
 
         {/* ── Pagamentos ──────────────────────────────────────────────────── */}
         {activeTab === 'pagamentos' && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[#111827]">Pagamentos</h3>
+          <div className="bg-white rounded-xl border border-linha overflow-hidden">
+            <div className="px-5 py-4 border-b border-linha flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-tinta">Pagamentos</h3>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-[#6B7280]">{payments.length} lançamento(s)</span>
+                <span className="text-xs text-tinta-3">{payments.length} lançamento(s)</span>
                 <button onClick={() => setModalCobrancaOpen(true)}
-                  className="flex items-center gap-1.5 px-3 h-8 bg-[#3B82F6] text-white text-xs font-medium rounded-lg hover:bg-[#2563EB] transition-colors">
+                  className="flex items-center gap-1.5 px-3 h-8 bg-petroleo text-white text-xs font-medium rounded-lg hover:bg-petroleo-escuro transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Nova cobrança
                 </button>
               </div>
@@ -450,8 +450,8 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
 
             {/* Totalizador */}
             {payments.length > 0 && (
-              <div className="px-5 py-3 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
-                <span className="text-xs font-medium text-[#6B7280]">Total pago</span>
+              <div className="px-5 py-3 bg-porcelana-2 border-t border-linha flex items-center justify-between">
+                <span className="text-xs font-medium text-tinta-3">Total pago</span>
                 <span className="text-sm font-bold text-[#10B981]">
                   {formatCurrency(payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0))}
                 </span>
@@ -464,7 +464,7 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
         {activeTab === 'evolucoes' && (
           <div className="space-y-3">
             {evolutions.length === 0 ? (
-              <div className="bg-white rounded-xl border border-[#E5E7EB] flex items-center justify-center h-40 text-sm text-[#9CA3AF]">
+              <div className="bg-white rounded-xl border border-linha flex items-center justify-center h-40 text-sm text-tinta-4">
                 Nenhuma evolução registrada.
               </div>
             ) : (
@@ -500,7 +500,7 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
       />
 
       {waNotice && (
-        <div role="status" className="fixed bottom-4 right-4 z-50 bg-[#111827] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div role="status" className="fixed bottom-4 right-4 z-50 bg-tinta text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           Mensagem enviada
         </div>
       )}
@@ -540,8 +540,8 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[#9CA3AF] mb-0.5">{label}</p>
-      <p className="text-sm text-[#111827] font-medium">{value}</p>
+      <p className="text-xs text-tinta-4 mb-0.5">{label}</p>
+      <p className="text-sm text-tinta font-medium">{value}</p>
     </div>
   )
 }
@@ -551,17 +551,17 @@ function EvolutionCard({ ev, full = false }: { ev: PatientEvolution; full?: bool
   const initials = ev.professional ? getInitials(ev.professional.name) : 'D'
   const fotos = (ev.images ?? []).filter((u) => /^https?:\/\//.test(u))
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+    <div className="bg-white rounded-xl border border-linha p-4">
       <div className="flex items-start gap-3">
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-          style={{ backgroundColor: ev.professional?.color || '#3B82F6' }}
+          style={{ backgroundColor: ev.professional?.color || '#173B47' }}
         >
           {initials}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-xs text-[#6B7280]">
+            <p className="text-xs text-tinta-3">
               {name} ·{' '}
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -574,7 +574,7 @@ function EvolutionCard({ ev, full = false }: { ev: PatientEvolution; full?: bool
               </span>
             )}
           </div>
-          <p className={`mt-1.5 text-sm text-[#111827] leading-relaxed whitespace-pre-line ${full ? '' : 'line-clamp-3'}`}>
+          <p className={`mt-1.5 text-sm text-tinta leading-relaxed whitespace-pre-line ${full ? '' : 'line-clamp-3'}`}>
             {ev.description}
           </p>
           {full && fotos.length > 0 && (
@@ -582,7 +582,7 @@ function EvolutionCard({ ev, full = false }: { ev: PatientEvolution; full?: bool
               {fotos.map((url) => (
                 <a key={url} href={url} target="_blank" rel="noopener noreferrer">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="Foto da evolução" className="w-20 h-20 object-cover rounded-lg border border-[#E5E7EB]" />
+                  <img src={url} alt="Foto da evolução" className="w-20 h-20 object-cover rounded-lg border border-linha" />
                 </a>
               ))}
             </div>

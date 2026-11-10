@@ -12,7 +12,7 @@ interface Props {
   plan: InsurancePlan
 }
 
-const INPUT = 'h-9 px-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white'
+const INPUT = 'h-9 px-2.5 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white'
 
 function mensagemErro(err: { code?: string; message: string }): string {
   return err.code === '23505' ? 'Esse código já está na tabela' : `Erro: ${err.message}`
@@ -141,65 +141,65 @@ export function TabelaOperadora({ plan }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Tabela de procedimentos</p>
+      <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide">Tabela de procedimentos</p>
 
       {!adicionando && (
         <div className="space-y-2">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-tinta-4 absolute left-3 top-1/2 -translate-y-1/2" />
             <input value={query} onChange={e => setQuery(e.target.value)}
               placeholder="Buscar procedimento TUSS por nome ou código"
               className={`${INPUT} w-full pl-9 h-10`} />
           </div>
           {query.trim().length >= 2 && (
-            <div className="bg-white rounded-lg border border-[#E5E7EB] divide-y divide-[#F3F4F6] max-h-60 overflow-y-auto">
+            <div className="bg-white rounded-lg border border-linha divide-y divide-porcelana max-h-60 overflow-y-auto">
               {searching ? (
-                <p className="px-3 py-3 text-sm text-[#6B7280]">Buscando...</p>
+                <p className="px-3 py-3 text-sm text-tinta-3">Buscando...</p>
               ) : visibleResults.length === 0 ? (
-                <p className="px-3 py-3 text-sm text-[#6B7280]">Nenhum procedimento encontrado.</p>
+                <p className="px-3 py-3 text-sm text-tinta-3">Nenhum procedimento encontrado.</p>
               ) : visibleResults.map(r => (
                 <button key={r.code} type="button" onClick={() => setPicked(r)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-[#F3F4F6]">
-                  <span className="font-mono text-[#6B7280] mr-2">{r.code}</span>
-                  <span className="text-[#111827]">{r.name}</span>
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-porcelana">
+                  <span className="font-mono text-tinta-3 mr-2">{r.code}</span>
+                  <span className="text-tinta">{r.name}</span>
                 </button>
               ))}
             </div>
           )}
           <button type="button" onClick={() => { setManual(true); setQuery('') }}
-            className="text-sm text-[#3B82F6] hover:underline">
+            className="text-sm text-petroleo hover:underline">
             Código fora da lista
           </button>
         </div>
       )}
 
       {adicionando && (
-        <form onSubmit={handleAdd} className="bg-white rounded-lg border border-[#E5E7EB] p-3 space-y-3">
+        <form onSubmit={handleAdd} className="bg-white rounded-lg border border-linha p-3 space-y-3">
           {manual ? (
             <div className="grid grid-cols-3 gap-2">
               <input value={manualCode} onChange={e => setManualCode(e.target.value)} placeholder="Código" className={INPUT} />
               <input value={manualName} onChange={e => setManualName(e.target.value)} placeholder="Nome do procedimento" className={`${INPUT} col-span-2`} />
             </div>
           ) : (
-            <p className="text-sm text-[#111827]">
-              <span className="font-mono text-[#6B7280] mr-2">{picked!.code}</span>{picked!.name}
+            <p className="text-sm text-tinta">
+              <span className="font-mono text-tinta-3 mr-2">{picked!.code}</span>{picked!.name}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-3">
             <input value={newValue} onChange={e => setNewValue(e.target.value)} placeholder="Valor (R$)" inputMode="decimal"
               className={`${INPUT} w-32`} />
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-[#111827]">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-tinta">
               <input type="checkbox" checked={newAuth} onChange={e => setNewAuth(e.target.checked)}
-                className="w-4 h-4 rounded border-[#D1D5DB]" />
+                className="w-4 h-4 rounded border-linha-forte" />
               Exige autorização
             </label>
             <div className="flex gap-2 ml-auto">
               <button type="button" onClick={resetAdd}
-                className="px-3 h-9 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
+                className="px-3 h-9 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana">
                 Cancelar
               </button>
               <button type="submit" disabled={adding}
-                className="flex items-center gap-1.5 px-3 h-9 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB] disabled:opacity-50">
+                className="flex items-center gap-1.5 px-3 h-9 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro disabled:opacity-50">
                 <Plus className="w-4 h-4" /> Adicionar
               </button>
             </div>
@@ -210,15 +210,15 @@ export function TabelaOperadora({ plan }: Props) {
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
       {loading ? (
-        <p className="text-sm text-[#6B7280]">Carregando...</p>
+        <p className="text-sm text-tinta-3">Carregando...</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-[#6B7280] py-3">Nenhum procedimento na tabela.</p>
+        <p className="text-sm text-tinta-3 py-3">Nenhum procedimento na tabela.</p>
       ) : (
-        <div className="bg-white rounded-lg border border-[#E5E7EB] divide-y divide-[#F3F4F6]">
+        <div className="bg-white rounded-lg border border-linha divide-y divide-porcelana">
           {items.map(item => (
             <div key={item.id} className={`flex flex-wrap items-center gap-3 px-3 py-2 ${item.active ? '' : 'opacity-60'}`}>
-              <span className="font-mono text-xs text-[#6B7280] w-24 shrink-0">{item.code}</span>
-              <span className="flex-1 min-w-40 text-sm text-[#111827]">{item.name}</span>
+              <span className="font-mono text-xs text-tinta-3 w-24 shrink-0">{item.code}</span>
+              <span className="flex-1 min-w-40 text-sm text-tinta">{item.name}</span>
               <input
                 value={editing[item.id] ?? valorParaTexto(item.value)}
                 onChange={e => setEditing(prev => ({ ...prev, [item.id]: e.target.value }))}
@@ -227,14 +227,14 @@ export function TabelaOperadora({ plan }: Props) {
                 inputMode="decimal"
                 aria-label={`Valor de ${item.code} (${formatCurrency(item.value)})`}
                 className={`${INPUT} w-28 text-right`} />
-              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-[#6B7280]">
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-tinta-3">
                 <input type="checkbox" checked={item.requires_authorization}
                   onChange={e => update(item, { requires_authorization: e.target.checked })}
-                  className="w-4 h-4 rounded border-[#D1D5DB]" />
+                  className="w-4 h-4 rounded border-linha-forte" />
                 Exige autorização
               </label>
               <button type="button" onClick={() => update(item, { active: !item.active })}
-                className="text-xs font-medium text-[#6B7280] hover:text-[#111827] px-2 py-1 rounded-lg hover:bg-[#F3F4F6]">
+                className="text-xs font-medium text-tinta-3 hover:text-tinta px-2 py-1 rounded-lg hover:bg-porcelana">
                 {item.active ? 'Desativar' : 'Reativar'}
               </button>
             </div>

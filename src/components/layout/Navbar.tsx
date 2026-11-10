@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, Settings, Stethoscope,
+  Menu, X, Settings,
   Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,7 @@ import type { Pendencia } from '@/lib/convenios/pendencias'
 import { BuscaRapida } from './BuscaRapida'
 import { SinoPendencias } from './SinoPendencias'
 import { MenuUsuario } from './MenuUsuario'
-import { MenuMais } from './MenuMais'
+import { LogoDente } from './LogoDente'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
@@ -22,23 +22,24 @@ const navLinks = [
   { label: 'Orçamentos',    href: '/orcamentos',    icon: ClipboardList },
   { label: 'Financeiro',    href: '/financeiro',    icon: DollarSign },
   { label: 'Convênios',     href: '/convenios',     icon: ShieldCheck },
+  { label: 'Mensagens',     href: '/mensagens',     icon: MessageSquare },
   { label: 'Prótese',       href: '/protese',       icon: Layers },
   { label: 'Estoque',       href: '/estoque',       icon: Package },
-  { label: 'Mensagens',     href: '/mensagens',     icon: MessageSquare },
   { label: 'Relatórios',    href: '/relatorios',    icon: FileText },
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
 ]
 
-const desktopPrimary  = navLinks.slice(0, 5)   // Agenda, Pacientes, Orçamentos, Financeiro, Convênios
-// No computador, Mensagens e Configurações já têm ícone no topo; o resto vai no "Mais".
-const desktopMais     = navLinks.filter((l) => !desktopPrimary.includes(l) && !['/mensagens', '/configuracoes'].includes(l.href))
-const bottomNavLinks  = navLinks.filter((l) => ['/agenda', '/pacientes', '/financeiro'].includes(l.href))
-const secondaryLinks  = navLinks.filter((l) => !bottomNavLinks.includes(l))  // itens do "Mais"
+// Computador: menu lateral em dois grupos (dia a dia / apoio).
+const sidebarPrincipal = navLinks.slice(0, 6)
+const sidebarApoio     = navLinks.slice(6)
+// Celular: barra de baixo com os mais usados; o resto vai no "Mais".
+const bottomNavLinks   = navLinks.filter((l) => ['/agenda', '/pacientes', '/financeiro', '/mensagens'].includes(l.href))
+const secondaryLinks   = navLinks.filter((l) => !bottomNavLinks.includes(l))
 
 export function Navbar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { clinicId } = useClinicStore()
+  const { clinicId, clinicName } = useClinicStore()
   const [approvedBadge, setApprovedBadge] = useState(0)
   const [pendingChats, setPendingChats] = useState(0)
   const [convenioCount, setConvenioCount] = useState(0)
@@ -102,92 +103,74 @@ export function Navbar() {
 
   const badgeFor = (href: string) =>
     href === '/orcamentos' ? approvedBadge : href === '/mensagens' ? pendingChats : href === '/convenios' ? convenioCount : 0
-  // O que o botão "Mais" (celular) esconde: mensagens e convênios não estão na barra de baixo.
-  const maisBadge = pendingChats + convenioCount
+  // O que o botão "Mais" (celular) esconde: orçamentos e convênios não estão na barra de baixo.
+  const maisBadge = approvedBadge + convenioCount
+
+  const isActive = (href: string) => pathname.startsWith(href)
 
   return (
     <>
-      {/* ── Top bar ─────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-40 h-14 bg-white border-b border-[#E5E7EB]">
-        <div className="flex items-center h-full px-4 gap-2">
-          {/* Logo */}
-          <Link href="/agenda" className="flex items-center gap-2 mr-4 shrink-0">
-            <div className="w-8 h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center">
-              <Stethoscope className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-[#111827] text-lg">Dental</span>
+      {/* ── Menu lateral — computador ───────────────────────────────────── */}
+      <aside
+        className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[220px] flex-col bg-petroleo text-[#C9D8DC] px-3 pt-4 pb-3"
+        aria-label="Menu principal"
+      >
+        <Link href="/agenda" className="flex items-center gap-2.5 px-2 pb-5 rounded-lg focus-visible:outline-2 focus-visible:outline-gengiva">
+          <LogoDente />
+          <span className="min-w-0">
+            <span className="block font-display text-[21px] leading-none font-bold tracking-tight text-white">Dental</span>
+            {clinicName && <span className="block mt-1 text-xs text-[#93AEB5] truncate">{clinicName}</span>}
+          </span>
+        </Link>
+
+        <nav className="flex-1 overflow-y-auto -mx-1 px-1">
+          {sidebarPrincipal.map((link) => (
+            <SidebarLink key={link.href} link={link} active={isActive(link.href)} badge={badgeFor(link.href)} />
+          ))}
+          <hr className="border-0 border-t border-white/10 my-3 mx-2" />
+          {sidebarApoio.map((link) => (
+            <SidebarLink key={link.href} link={link} active={isActive(link.href)} badge={badgeFor(link.href)} />
+          ))}
+        </nav>
+      </aside>
+
+      {/* ── Barra de topo ───────────────────────────────────────────────── */}
+      <header className="fixed top-0 right-0 left-0 md:left-[220px] z-30 h-14 bg-porcelana/90 backdrop-blur border-b border-linha">
+        <div className="flex items-center h-full px-4 md:px-6 gap-2">
+          {/* Logo — só no celular (no computador está no menu lateral) */}
+          <Link href="/agenda" className="flex items-center gap-2 mr-2 shrink-0 md:hidden">
+            <LogoDente size={30} />
+            <span className="font-display font-bold text-tinta text-lg tracking-tight">Dental</span>
           </Link>
 
-          {/* Desktop nav links */}
-          <nav className="hidden md:flex items-center gap-1 flex-1">
-            {desktopPrimary.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  'px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap',
-                  pathname.startsWith(link.href)
-                    ? 'text-[#3B82F6] bg-[#EFF6FF]'
-                    : 'text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6]'
-                )}
-              >
-                {link.label}
-                {badgeFor(link.href) > 0 && (
-                  <span className="ml-1.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
-                    {badgeFor(link.href)}
-                  </span>
-                )}
-              </Link>
-            ))}
-            <MenuMais itens={desktopMais} pathname={pathname} />
-          </nav>
+          <BuscaRapida variante="campo" className="hidden md:flex" />
 
-          {/* Desktop right icons */}
-          <div className="hidden md:flex items-center gap-1 ml-auto">
-            <BuscaRapida />
+          {/* Direita — computador */}
+          <div className="hidden md:flex items-center gap-1.5 ml-auto">
             <SinoPendencias
               conversas={pendingChats}
               orcamentosAprovados={approvedBadge}
               convenios={{ contador: convenioCount, itens: convenioItens }}
             />
-            <Link
-              href="/mensagens"
-              className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
-              aria-label={pendingChats > 0 ? `Mensagens: ${pendingChats} conversa(s) aguardando` : 'Mensagens'}
-            >
-              <MessageSquare className="w-4 h-4" />
-              {pendingChats > 0 && <CountBadge value={pendingChats} />}
-            </Link>
-            <Link href="/configuracoes" className="p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
-              <Settings className="w-4 h-4" />
-            </Link>
             <MenuUsuario />
           </div>
 
-          {/* Mobile right side — só busca + avatar + "Mais" */}
+          {/* Direita — celular: busca + avatar */}
           <div className="flex items-center gap-1 ml-auto md:hidden">
             <BuscaRapida />
             <MenuUsuario />
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="relative p-2 rounded-md text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
-              aria-label={maisBadge > 0 ? `Mais opções: ${maisBadge} pendência(s)` : 'Mais opções'}
-            >
-              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              {!mobileOpen && maisBadge > 0 && <CountBadge value={maisBadge} />}
-            </button>
           </div>
         </div>
       </header>
 
-      {/* ── Mobile "Mais" drawer (itens secundários) ────────────────────── */}
+      {/* ── Gaveta "Mais" — celular ─────────────────────────────────────── */}
       {mobileOpen && (
         <>
           <div
-            className="fixed inset-0 z-30 bg-black/30 md:hidden"
+            className="fixed inset-0 z-30 bg-tinta/30 md:hidden"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="fixed top-14 left-0 right-0 z-30 bg-white border-b border-[#E5E7EB] shadow-lg md:hidden">
+          <div className="fixed bottom-16 left-0 right-0 z-30 bg-white rounded-t-2xl border-t border-linha shadow-xl md:hidden">
             <nav className="p-3 grid grid-cols-2 gap-1">
               {secondaryLinks.map((link) => (
                 <Link
@@ -196,15 +179,15 @@ export function Navbar() {
                   onClick={() => setMobileOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors',
-                    pathname.startsWith(link.href)
-                      ? 'text-[#3B82F6] bg-[#EFF6FF]'
-                      : 'text-[#374151] hover:bg-[#F3F4F6]'
+                    isActive(link.href)
+                      ? 'text-petroleo bg-petroleo-50'
+                      : 'text-tinta-2 hover:bg-porcelana'
                   )}
                 >
                   <link.icon className="w-4 h-4 shrink-0" />
                   {link.label}
                   {badgeFor(link.href) > 0 && (
-                    <span className="inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+                    <span className="inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-gengiva text-white text-[10px] font-bold">
                       {badgeFor(link.href)}
                     </span>
                   )}
@@ -215,51 +198,83 @@ export function Navbar() {
         </>
       )}
 
-      {/* ── Bottom navigation bar — mobile only ─────────────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-white border-t border-[#E5E7EB] flex md:hidden shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+      {/* ── Barra de baixo — celular ────────────────────────────────────── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-white border-t border-linha flex md:hidden">
         {bottomNavLinks.map((link) => {
-          const active = pathname.startsWith(link.href)
+          const active = isActive(link.href)
+          const badge = badgeFor(link.href)
           return (
             <Link
               key={link.href}
               href={link.href}
+              aria-current={active ? 'page' : undefined}
               className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
             >
               <div className={cn(
-                'w-10 h-7 flex items-center justify-center rounded-full transition-colors',
-                active ? 'bg-[#EFF6FF]' : ''
+                'relative w-11 h-7 flex items-center justify-center rounded-full transition-colors',
+                active ? 'bg-petroleo-50' : ''
               )}>
-                <link.icon className={cn('w-5 h-5', active ? 'text-[#3B82F6]' : 'text-[#9CA3AF]')} />
+                <link.icon className={cn('w-5 h-5', active ? 'text-petroleo' : 'text-tinta-4')} />
+                {badge > 0 && <CountBadge value={badge} />}
               </div>
               <span className={cn(
-                'text-[10px] font-medium leading-none',
-                active ? 'text-[#3B82F6]' : 'text-[#9CA3AF]'
+                'text-[10px] leading-none',
+                active ? 'text-petroleo font-bold' : 'text-tinta-4 font-medium'
               )}>
                 {link.label}
               </span>
             </Link>
           )
         })}
-        {/* "Mais" abre o drawer secundário */}
+        {/* "Mais" abre a gaveta com os outros itens */}
         <button
           onClick={() => setMobileOpen(v => !v)}
+          aria-expanded={mobileOpen}
+          aria-label={maisBadge > 0 ? `Mais opções: ${maisBadge} pendência(s)` : 'Mais opções'}
           className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
         >
-          <div className="relative w-10 h-7 flex items-center justify-center rounded-full">
-            <Menu className="w-5 h-5 text-[#9CA3AF]" />
-            {maisBadge > 0 && <CountBadge value={maisBadge} />}
+          <div className="relative w-11 h-7 flex items-center justify-center rounded-full">
+            {mobileOpen ? <X className="w-5 h-5 text-tinta-3" /> : <Menu className="w-5 h-5 text-tinta-4" />}
+            {!mobileOpen && maisBadge > 0 && <CountBadge value={maisBadge} />}
           </div>
-          <span className="text-[10px] font-medium leading-none text-[#9CA3AF]">Mais</span>
+          <span className="text-[10px] font-medium leading-none text-tinta-4">Mais</span>
         </button>
       </nav>
     </>
   )
 }
 
+type NavLink = (typeof navLinks)[number]
+
+/** Item do menu lateral (fundo claro quando é a página atual). */
+function SidebarLink({ link, active, badge }: { link: NavLink; active: boolean; badge: number }) {
+  return (
+    <Link
+      href={link.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-3 px-2.5 py-2 my-0.5 rounded-[9px] text-sm transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-gengiva',
+        active
+          ? 'bg-porcelana-2 text-petroleo font-semibold'
+          : 'font-medium hover:bg-white/[.07] hover:text-white'
+      )}
+    >
+      <link.icon className={cn('w-[17px] h-[17px] shrink-0', active ? 'opacity-100' : 'opacity-80')} />
+      <span className="truncate">{link.label}</span>
+      {badge > 0 && (
+        <span className="ml-auto min-w-5 px-1.5 py-px rounded-full bg-gengiva text-white text-[11px] font-bold text-center tabular-nums">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </Link>
+  )
+}
+
 /** Número vermelho sobre um ícone (ex.: conversas aguardando a recepção). */
 function CountBadge({ value }: { value: number }) {
   return (
-    <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-[#EF4444] text-white text-[10px] font-bold">
+    <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-gengiva text-white text-[10px] font-bold">
       {value > 99 ? '99+' : value}
     </span>
   )

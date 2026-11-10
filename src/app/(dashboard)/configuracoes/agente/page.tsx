@@ -53,12 +53,12 @@ const PLACEHOLDER = `Exemplos:
 - Preparo: venha de boca escovada; para sedação, jejum de 6 horas.
 - Faltas: avise com 24 horas de antecedência para remarcar.`
 
-const inputCls = 'w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]'
-const timeCls = 'h-9 px-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] disabled:opacity-40'
+const inputCls = 'w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo'
+const timeCls = 'h-9 px-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo disabled:opacity-40'
 const errCls = 'text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2'
-const primaryBtn = 'h-10 px-5 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50'
-const cardCls = 'bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4'
-const linkCls = 'text-[#3B82F6] hover:underline'
+const primaryBtn = 'h-10 px-5 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50'
+const cardCls = 'bg-white rounded-xl border border-linha p-5 space-y-4'
+const linkCls = 'text-petroleo hover:underline'
 
 export default function AgenteConfigPage() {
   const mounted = useRef(true)
@@ -217,10 +217,10 @@ export default function AgenteConfigPage() {
   return (
     <div className="p-6 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+        <Link href="/configuracoes" className="p-1.5 rounded-lg hover:bg-porcelana text-tinta-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-xl font-semibold text-[#111827]">Agente do WhatsApp</h1>
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-tinta leading-tight">Agente do WhatsApp</h1>
       </div>
 
       {loadError && (
@@ -237,7 +237,7 @@ export default function AgenteConfigPage() {
 
       {view === null && !loadError ? (
         <div className="flex justify-center py-8">
-          <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       ) : view !== null && (
         <div className="space-y-4">
@@ -245,12 +245,12 @@ export default function AgenteConfigPage() {
             <div className={cardCls}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-[#111827]">Agente ligado</p>
-                  <p className="text-sm text-[#6B7280]">Responde os pacientes no WhatsApp e passa para a recepção o que não souber.</p>
+                  <p className="text-sm font-semibold text-tinta">Agente ligado</p>
+                  <p className="text-sm text-tinta-3">Responde os pacientes no WhatsApp e passa para a recepção o que não souber.</p>
                 </div>
                 <input type="checkbox" role="switch" aria-label="Agente ligado" checked={enabled}
                   onChange={e => setEnabled(e.target.checked)} disabled={toggleDisabled}
-                  className="w-5 h-5 mt-0.5 shrink-0 accent-[#3B82F6] disabled:opacity-40" />
+                  className="w-5 h-5 mt-0.5 shrink-0 accent-petroleo disabled:opacity-40" />
               </div>
 
               {faltaAlgo && (
@@ -267,7 +267,7 @@ export default function AgenteConfigPage() {
                 </div>
               )}
 
-              <p className="text-xs text-[#6B7280] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2">
+              <p className="text-xs text-tinta-3 bg-porcelana-2 border border-linha rounded-lg px-3 py-2">
                 Com o agente ligado, mensagens de números que não são pacientes também ficam guardadas.
               </p>
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -276,23 +276,23 @@ export default function AgenteConfigPage() {
             </div>
 
             <div className={cardCls}>
-              <p className="text-sm font-semibold text-[#111827]">Horário de atendimento</p>
+              <p className="text-sm font-semibold text-tinta">Horário de atendimento</p>
               <div className="space-y-2">
                 {DIAS.map(d => {
                   const r = hours[d.key]
                   const closed = !r
                   return (
                     <div key={d.key} className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="w-20 text-[#111827]">{d.label}</span>
-                      <label className="flex items-center gap-1.5 text-[#6B7280]">
+                      <span className="w-20 text-tinta">{d.label}</span>
+                      <label className="flex items-center gap-1.5 text-tinta-3">
                         <input type="checkbox" checked={closed} disabled={busy}
                           onChange={e => setClosed(d.key, e.target.checked)}
-                          className="accent-[#3B82F6]" />
+                          className="accent-petroleo" />
                         Fechado
                       </label>
                       <input type="time" aria-label={`${d.label}: abre às`} value={r?.[0] ?? ''}
                         disabled={busy || closed} onChange={e => setTime(d.key, 0, e.target.value)} className={timeCls} />
-                      <span className="text-[#6B7280]">até</span>
+                      <span className="text-tinta-3">até</span>
                       <input type="time" aria-label={`${d.label}: fecha às`} value={r?.[1] ?? ''}
                         disabled={busy || closed} onChange={e => setTime(d.key, 1, e.target.value)} className={timeCls} />
                     </div>
@@ -303,8 +303,8 @@ export default function AgenteConfigPage() {
 
             <div className={cardCls}>
               <div>
-                <p className="text-sm font-semibold text-[#111827]">Tipos de consulta pelo WhatsApp</p>
-                <p className="text-sm text-[#6B7280]">O agente só marca os tipos ativos desta lista.</p>
+                <p className="text-sm font-semibold text-tinta">Tipos de consulta pelo WhatsApp</p>
+                <p className="text-sm text-tinta-3">O agente só marca os tipos ativos desta lista.</p>
               </div>
               {view.profissionaisWhatsApp === 0 && (
                 <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -313,7 +313,7 @@ export default function AgenteConfigPage() {
               )}
               <div className="space-y-3">
                 {tipos.map((t, i) => (
-                  <div key={t.id} className="border border-[#E5E7EB] rounded-lg p-3 space-y-2">
+                  <div key={t.id} className="border border-linha rounded-lg p-3 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <input type="text" aria-label={`Nome do tipo ${i + 1}`} value={t.nome} maxLength={60}
                         onChange={e => updTipo(t.id, { nome: e.target.value })} placeholder="Ex.: Limpeza"
@@ -322,29 +322,29 @@ export default function AgenteConfigPage() {
                         onChange={e => updTipo(t.id, { duracao_min: Number(e.target.value) })} className={timeCls}>
                         {DURACOES.map(m => <option key={m} value={m}>{fmtDuracao(m)}</option>)}
                       </select>
-                      <label className="flex items-center gap-1.5 text-sm text-[#6B7280]">
+                      <label className="flex items-center gap-1.5 text-sm text-tinta-3">
                         <input type="checkbox" checked={t.ativo} disabled={busy}
-                          onChange={e => updTipo(t.id, { ativo: e.target.checked })} className="accent-[#3B82F6]" />
+                          onChange={e => updTipo(t.id, { ativo: e.target.checked })} className="accent-petroleo" />
                         Ativo
                       </label>
                       <button type="button" aria-label={`Remover tipo ${t.nome || i + 1}`} disabled={busy || tipos.length <= 1}
                         onClick={() => setTipos(ts => ts.filter(x => x.id !== t.id))}
-                        className="p-1.5 rounded-lg text-[#6B7280] hover:bg-red-50 hover:text-red-500 disabled:opacity-40">
+                        className="p-1.5 rounded-lg text-tinta-3 hover:bg-red-50 hover:text-red-500 disabled:opacity-40">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                     {view.profissionais.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#6B7280]">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-tinta-3">
                         <label className="flex items-center gap-1.5">
                           <input type="checkbox" checked={t.profissionais === null} disabled={busy}
                             onChange={e => updTipo(t.id, { profissionais: e.target.checked ? null : [] })}
-                            className="accent-[#3B82F6]" />
+                            className="accent-petroleo" />
                           Todos os profissionais
                         </label>
                         {t.profissionais !== null && view.profissionais.map(p => (
                           <label key={p.id} className="flex items-center gap-1.5">
                             <input type="checkbox" checked={t.profissionais!.includes(p.id)} disabled={busy}
-                              onChange={e => toggleProf(t, p.id, e.target.checked)} className="accent-[#3B82F6]" />
+                              onChange={e => toggleProf(t, p.id, e.target.checked)} className="accent-petroleo" />
                             {p.name}
                           </label>
                         ))}
@@ -354,28 +354,28 @@ export default function AgenteConfigPage() {
                 ))}
               </div>
               <button type="button" onClick={addTipo} disabled={busy || tipos.length >= MAX_TIPOS}
-                className="flex items-center gap-1.5 text-sm text-[#3B82F6] hover:underline disabled:opacity-40">
+                className="flex items-center gap-1.5 text-sm text-petroleo hover:underline disabled:opacity-40">
                 <Plus className="w-4 h-4" /> Adicionar tipo
               </button>
             </div>
 
             <div className={cardCls}>
-              <p className="text-sm font-semibold text-[#111827]">Regras de agendamento</p>
+              <p className="text-sm font-semibold text-tinta">Regras de agendamento</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                 <div>
-                  <label htmlFor="regra-antecedencia" className="block text-[#6B7280] mb-1">Antecedência mínima (horas)</label>
+                  <label htmlFor="regra-antecedencia" className="block text-tinta-3 mb-1">Antecedência mínima (horas)</label>
                   <input id="regra-antecedencia" type="number" min={0} max={168} step={1} value={Number.isNaN(regras.antecedencia_h) ? '' : regras.antecedencia_h} disabled={busy}
                     onChange={e => setRegras(r => ({ ...r, antecedencia_h: e.target.value === '' ? NaN : Number(e.target.value) }))}
                     className={inputCls} />
                 </div>
                 <div>
-                  <label htmlFor="regra-dias" className="block text-[#6B7280] mb-1">Dias à frente</label>
+                  <label htmlFor="regra-dias" className="block text-tinta-3 mb-1">Dias à frente</label>
                   <input id="regra-dias" type="number" min={1} max={90} step={1} value={Number.isNaN(regras.dias_a_frente) ? '' : regras.dias_a_frente} disabled={busy}
                     onChange={e => setRegras(r => ({ ...r, dias_a_frente: e.target.value === '' ? NaN : Number(e.target.value) }))}
                     className={inputCls} />
                 </div>
                 <div>
-                  <label htmlFor="regra-intervalo" className="block text-[#6B7280] mb-1">Intervalo entre horários</label>
+                  <label htmlFor="regra-intervalo" className="block text-tinta-3 mb-1">Intervalo entre horários</label>
                   <select id="regra-intervalo" value={regras.intervalo_min} disabled={busy}
                     onChange={e => setRegras(r => ({ ...r, intervalo_min: Number(e.target.value) as 15 | 30 | 60 }))}
                     className={inputCls}>
@@ -389,22 +389,22 @@ export default function AgenteConfigPage() {
 
             <div className={cardCls}>
               <div>
-                <label htmlFor="agente-info" className="block text-sm font-semibold text-[#111827] mb-1">
+                <label htmlFor="agente-info" className="block text-sm font-semibold text-tinta mb-1">
                   Informações para o agente
                 </label>
                 <textarea id="agente-info" value={info} onChange={e => setInfo(e.target.value)}
                   maxLength={MAX_INFO} rows={8} placeholder={PLACEHOLDER} disabled={busy}
-                  className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
-                <p className="text-xs text-[#6B7280] text-right mt-1">{info.length}/{MAX_INFO}</p>
+                  className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
+                <p className="text-xs text-tinta-3 text-right mt-1">{info.length}/{MAX_INFO}</p>
               </div>
 
-              <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm space-y-1">
-                <p className="text-xs font-medium text-[#6B7280]">O agente também usa estes dados da clínica</p>
-                <p className="text-[#111827]">{view.clinica.name}</p>
-                <p className="text-[#6B7280]">Endereço: {view.clinica.address || 'não informado'}</p>
-                <p className="text-[#6B7280]">Telefone: {view.clinica.phone || 'não informado'}</p>
+              <div className="bg-porcelana-2 border border-linha rounded-lg px-3 py-2 text-sm space-y-1">
+                <p className="text-xs font-medium text-tinta-3">O agente também usa estes dados da clínica</p>
+                <p className="text-tinta">{view.clinica.name}</p>
+                <p className="text-tinta-3">Endereço: {view.clinica.address || 'não informado'}</p>
+                <p className="text-tinta-3">Telefone: {view.clinica.phone || 'não informado'}</p>
                 <p className="text-xs"><Link href="/configuracoes/clinica" className={linkCls}>Editar dados da clínica</Link></p>
-                <p className="text-[#6B7280] pt-1">
+                <p className="text-tinta-3 pt-1">
                   Convênios: {view.convenios.length ? view.convenios.join(', ') : 'nenhum cadastrado'}
                 </p>
                 <p className="text-xs"><Link href="/configuracoes/convenios" className={linkCls}>Editar convênios</Link></p>
@@ -427,8 +427,8 @@ export default function AgenteConfigPage() {
 
           <form onSubmit={handleTest} className={cardCls}>
             <div>
-              <p className="text-sm font-semibold text-[#111827]">Testar</p>
-              <p className="text-sm text-[#6B7280]">Escreva como um paciente e veja o que o agente faria. Usa as configurações já salvas.</p>
+              <p className="text-sm font-semibold text-tinta">Testar</p>
+              <p className="text-sm text-tinta-3">Escreva como um paciente e veja o que o agente faria. Usa as configurações já salvas.</p>
             </div>
             <div className="flex gap-2">
               <input type="text" aria-label="Mensagem de teste" value={texto} onChange={e => setTexto(e.target.value)}
@@ -439,17 +439,17 @@ export default function AgenteConfigPage() {
             </div>
             {testError && <p role="alert" className={errCls}>{testError}</p>}
             {teste && (
-              <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm space-y-1">
-                <p className="text-xs font-medium text-[#6B7280]">
+              <div className="bg-porcelana-2 border border-linha rounded-lg px-3 py-2 text-sm space-y-1">
+                <p className="text-xs font-medium text-tinta-3">
                   {teste.acao === 'responder' && 'Responderia'}
                   {teste.acao === 'guardar_nome' && `Guardaria o nome: ${teste.nome ?? ''}`}
                   {teste.acao === 'passar_recepcao' && `Passaria para a recepção: ${teste.motivo ?? ''}`}
                 </p>
-                {teste.resposta && <p className="text-[#111827] whitespace-pre-wrap">{teste.resposta}</p>}
+                {teste.resposta && <p className="text-tinta whitespace-pre-wrap">{teste.resposta}</p>}
                 {teste.ofertas && teste.ofertas.length > 0 && (
                   <div className="pt-1">
-                    <p className="text-xs font-medium text-[#6B7280]">Ofertas de horário</p>
-                    <ul className="text-[#111827]">
+                    <p className="text-xs font-medium text-tinta-3">Ofertas de horário</p>
+                    <ul className="text-tinta">
                       {teste.ofertas.map(o => <li key={o.n}>{o.texto}</li>)}
                     </ul>
                   </div>

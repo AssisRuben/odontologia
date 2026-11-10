@@ -8,10 +8,10 @@ const days = (v: number | null) =>
 
 function Card({ title, value, sub }: { title: string; value: string; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-      <p className="text-xs text-[#6B7280]">{title}</p>
-      <p className="text-xl font-bold text-[#111827] mt-1">{value}</p>
-      {sub && <p className="text-xs text-[#6B7280] mt-0.5">{sub}</p>}
+    <div className="bg-white rounded-xl border border-linha p-4">
+      <p className="text-xs text-tinta-3">{title}</p>
+      <p className="text-xl font-bold text-tinta mt-1">{value}</p>
+      {sub && <p className="text-xs text-tinta-3 mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -27,17 +27,17 @@ export function Indicadores({ funnel }: { funnel: Funnel }) {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-3">
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 overflow-x-auto">
-          <h3 className="text-sm font-semibold text-[#111827] mb-2">Por dentista</h3>
-          {funnel.byProfessional.length === 0 ? <p className="text-sm text-[#6B7280]">Sem dados no período.</p> : (
+        <div className="bg-white rounded-xl border border-linha p-4 overflow-x-auto">
+          <h3 className="text-sm font-semibold text-tinta mb-2">Por dentista</h3>
+          {funnel.byProfessional.length === 0 ? <p className="text-sm text-tinta-3">Sem dados no período.</p> : (
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-[#6B7280]">
+              <thead><tr className="text-left text-xs text-tinta-3">
                 <th className="py-1 font-medium">Dentista</th><th className="font-medium">Apresentado</th>
                 <th className="font-medium">Aprovado</th><th className="font-medium text-right">Taxa</th>
               </tr></thead>
               <tbody>
                 {funnel.byProfessional.map(p => (
-                  <tr key={p.id ?? 'none'} className="border-t border-[#F3F4F6]">
+                  <tr key={p.id ?? 'none'} className="border-t border-porcelana">
                     <td className="py-1.5">{p.name}</td>
                     <td>{reais(p.presented.cents)} ({p.presented.count})</td>
                     <td>{reais(p.approved.cents)} ({p.approved.count})</td>
@@ -49,9 +49,9 @@ export function Indicadores({ funnel }: { funnel: Funnel }) {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-          <h3 className="text-sm font-semibold text-[#111827] mb-2">Motivos de perda</h3>
-          {funnel.lostReasons.length === 0 ? <p className="text-sm text-[#6B7280]">Nenhuma perda no período.</p> : (
+        <div className="bg-white rounded-xl border border-linha p-4">
+          <h3 className="text-sm font-semibold text-tinta mb-2">Motivos de perda</h3>
+          {funnel.lostReasons.length === 0 ? <p className="text-sm text-tinta-3">Nenhuma perda no período.</p> : (
             <ul className="text-sm space-y-1">
               {funnel.lostReasons.map(l => (
                 <li key={l.code} className="flex justify-between"><span>{l.label}</span><span className="font-medium">{l.count}</span></li>

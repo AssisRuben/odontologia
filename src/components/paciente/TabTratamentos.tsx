@@ -25,7 +25,7 @@ const FACES = ['V','M','O','D','L','T'] as const
 type Face = typeof FACES[number]
 
 const STATUS_CONFIG: Record<TreatmentStatus, { label: string; color: string; bg: string }> = {
-  planned:     { label: 'Planejado',    color: '#3B82F6', bg: '#EFF6FF' },
+  planned:     { label: 'Planejado',    color: '#173B47', bg: '#E4EFF2' },
   in_progress: { label: 'Em andamento', color: '#F97316', bg: '#FFF7ED' },
   completed:   { label: 'Concluído',    color: '#22C55E', bg: '#F0FDF4' },
   cancelled:   { label: 'Cancelado',    color: '#EF4444', bg: '#FEF2F2' },
@@ -38,12 +38,12 @@ type ToothFaces = Record<number, Face[]>
 type Selo = 'Fora da tabela' | 'Sem guia' | 'Aguardando autorização' | 'Autorizado' | 'Negado' | 'Em lote'
 
 const SELO_COLORS: Record<Selo, { color: string; bg: string }> = {
-  'Fora da tabela':         { color: '#6B7280', bg: '#F3F4F6' },
-  'Sem guia':               { color: '#6B7280', bg: '#F3F4F6' },
+  'Fora da tabela':         { color: '#5E6E75', bg: '#EEF2F2' },
+  'Sem guia':               { color: '#5E6E75', bg: '#EEF2F2' },
   'Aguardando autorização': { color: '#F97316', bg: '#FFF7ED' },
   'Autorizado':             { color: '#16A34A', bg: '#F0FDF4' },
   'Negado':                 { color: '#EF4444', bg: '#FEF2F2' },
-  'Em lote':                { color: '#3B82F6', bg: '#EFF6FF' },
+  'Em lote':                { color: '#173B47', bg: '#E4EFF2' },
 }
 
 function seloDoTratamento(
@@ -146,12 +146,12 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
 
   return (
     <div>
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#111827]">Tratamentos</h3>
+      <div className="bg-white rounded-xl border border-linha overflow-hidden">
+        <div className="px-5 py-4 border-b border-linha flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-tinta">Tratamentos</h3>
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3B82F6] text-white text-xs font-medium hover:bg-[#2563EB] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-petroleo text-white text-xs font-medium hover:bg-petroleo-escuro transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Tratamento
@@ -160,14 +160,14 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
 
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
           </div>
         ) : treatments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <p className="text-sm text-[#9CA3AF]">Nenhum tratamento registrado.</p>
+            <p className="text-sm text-tinta-4">Nenhum tratamento registrado.</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#F3F4F6]">
+          <div className="divide-y divide-porcelana">
             {treatments.map((t) => {
               const s = STATUS_CONFIG[t.status] || STATUS_CONFIG.planned
               const expanded = expandedId === t.id
@@ -175,12 +175,12 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
               return (
                 <div key={t.id}>
                   <button
-                    className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors text-left"
+                    className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-porcelana-2 transition-colors text-left"
                     onClick={() => setExpandedId(expanded ? null : t.id)}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-[#111827]">{t.procedure}</span>
+                        <span className="text-sm font-medium text-tinta">{t.procedure}</span>
                         <span
                           className="text-xs font-medium px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: s.bg, color: s.color }}
@@ -199,24 +199,24 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                           )
                         })()}
                       </div>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
+                      <p className="text-xs text-tinta-3 mt-0.5">
                         {t.date && format(parseISO(t.date), "dd/MM/yyyy", { locale: ptBR })}
                         {t.professional && ` · ${(t.professional as Professional).name}`}
                         {t.value > 0 && ` · ${formatCurrency(t.value)}`}
                       </p>
                       {teeth.length > 0 && (
-                        <p className="text-xs text-[#9CA3AF] mt-0.5">
+                        <p className="text-xs text-tinta-4 mt-0.5">
                           Dentes: {teeth.map(tt => tt.tooth_number).sort((a, b) => a - b).join(', ')}
                         </p>
                       )}
                     </div>
                     <ChevronDown
-                      className={`w-4 h-4 text-[#9CA3AF] shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                      className={`w-4 h-4 text-tinta-4 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
                     />
                   </button>
 
                   {expanded && (
-                    <div className="px-5 pb-4 bg-[#F9FAFB] border-t border-[#F3F4F6] space-y-3 pt-3">
+                    <div className="px-5 pb-4 bg-porcelana-2 border-t border-porcelana space-y-3 pt-3">
                       {t.insurance_plan && (
                         <InfoLine label="Convênio" value={(t.insurance_plan as InsurancePlan).name} />
                       )}
@@ -226,16 +226,16 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                       {t.notes && <InfoLine label="Observações" value={t.notes} />}
                       {teeth.length > 0 && (
                         <div>
-                          <p className="text-xs text-[#9CA3AF] mb-2">Dentes e faces</p>
+                          <p className="text-xs text-tinta-4 mb-2">Dentes e faces</p>
                           <div className="flex flex-wrap gap-2">
                             {teeth
                               .slice()
                               .sort((a, b) => a.tooth_number - b.tooth_number)
                               .map(tt => (
-                                <span key={tt.id} className="inline-flex items-center gap-1 text-xs bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-1.5">
-                                  <span className="font-semibold text-[#374151]">{tt.tooth_number}</span>
+                                <span key={tt.id} className="inline-flex items-center gap-1 text-xs bg-white border border-linha rounded-lg px-2.5 py-1.5">
+                                  <span className="font-semibold text-tinta-2">{tt.tooth_number}</span>
                                   {tt.faces.length > 0 && (
-                                    <span className="text-[#6B7280]">· {tt.faces.join(', ')}</span>
+                                    <span className="text-tinta-3">· {tt.faces.join(', ')}</span>
                                   )}
                                 </span>
                               ))}
@@ -244,7 +244,7 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                       )}
                       <button
                         onClick={() => setEditingTreatment(t)}
-                        className="flex items-center gap-1.5 text-xs text-[#3B82F6] hover:underline mt-1"
+                        className="flex items-center gap-1.5 text-xs text-petroleo hover:underline mt-1"
                       >
                         <Pencil className="w-3 h-3" />
                         Editar tratamento
@@ -313,8 +313,8 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2">
-      <span className="text-xs text-[#9CA3AF] w-24 shrink-0">{label}</span>
-      <span className="text-xs text-[#374151]">{value}</span>
+      <span className="text-xs text-tinta-4 w-24 shrink-0">{label}</span>
+      <span className="text-xs text-tinta-2">{value}</span>
     </div>
   )
 }
@@ -367,27 +367,27 @@ function ProcedimentoPicker({ planId, text, onText, onPick, placeholder, require
         onFocus={() => { setOpen(true); search(text) }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
-        className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+        className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
       />
       {open && (
-        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#E5E7EB] rounded-lg shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-linha rounded-lg shadow-lg max-h-56 overflow-y-auto">
           {searching ? (
-            <p className="px-3 py-2 text-xs text-[#9CA3AF]">Buscando...</p>
+            <p className="px-3 py-2 text-xs text-tinta-4">Buscando...</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-[#9CA3AF]">Nenhum procedimento na tabela da operadora.</p>
+            <p className="px-3 py-2 text-xs text-tinta-4">Nenhum procedimento na tabela da operadora.</p>
           ) : (
             results.map(p => (
               <button
                 key={p.id} type="button"
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => { onPick(p); setOpen(false) }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-[#F3F4F6] flex items-center justify-between gap-3"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-porcelana flex items-center justify-between gap-3"
               >
                 <span className="min-w-0 truncate">
-                  <span className="font-medium text-[#111827]">{p.code}</span>
-                  <span className="text-[#6B7280]"> · {p.name}</span>
+                  <span className="font-medium text-tinta">{p.code}</span>
+                  <span className="text-tinta-3"> · {p.name}</span>
                 </span>
-                <span className="text-xs text-[#6B7280] shrink-0">{formatCurrency(p.value)}</span>
+                <span className="text-xs text-tinta-3 shrink-0">{formatCurrency(p.value)}</span>
               </button>
             ))
           )}
@@ -502,9 +502,9 @@ function ModalNovoTratamento({
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[92vh] overflow-y-auto">
 
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Novo Tratamento</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Novo Tratamento</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -514,21 +514,21 @@ function ModalNovoTratamento({
           {/* Profissional + Convênio */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Profissional</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Profissional</label>
               <select
                 value={professionalId} onChange={e => setProfessionalId(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
               >
                 <option value="">— selecione —</option>
                 {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Convênio</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Convênio</label>
               <select
                 value={insurancePlanId}
                 onChange={e => { setInsurancePlanId(e.target.value); setProcedureId(null) }}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
               >
                 <option value="">Particular</option>
                 {insurancePlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -539,25 +539,25 @@ function ModalNovoTratamento({
           {/* Data + Valor + Status */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Data</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Data</label>
               <input
                 type="date" value={date} onChange={e => setDate(e.target.value)} required
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Valor (R$)</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Valor (R$)</label>
               <input
                 type="number" min="0" step="0.01" value={value} onChange={e => setValue(e.target.value)}
                 placeholder="0,00"
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Status</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Status</label>
               <select
                 value={status} onChange={e => setStatus(e.target.value as TreatmentStatus)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
               >
                 {(Object.entries(STATUS_CONFIG) as [TreatmentStatus, typeof STATUS_CONFIG[TreatmentStatus]][]).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
@@ -568,7 +568,7 @@ function ModalNovoTratamento({
 
           {/* Procedimento */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Procedimento *</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Procedimento *</label>
             {insurancePlanId ? (
               <ProcedimentoPicker
                 key={insurancePlanId}
@@ -581,39 +581,39 @@ function ModalNovoTratamento({
               <input
                 type="text" value={procedure} onChange={e => setProcedure(e.target.value)} required
                 placeholder="Ex: Canal, Restauração, Extração, Implante..."
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               />
             )}
           </div>
 
           {/* Observações */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Observações</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Observações</label>
             <textarea
               value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Informações adicionais..."
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none"
             />
           </div>
 
           {/* Arcada dental */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">
+            <label className="block text-sm font-medium text-tinta mb-2">
               Dentes envolvidos
-              <span className="text-xs font-normal text-[#9CA3AF] ml-1">(clique para selecionar)</span>
+              <span className="text-xs font-normal text-tinta-4 ml-1">(clique para selecionar)</span>
             </label>
-            <div className="bg-[#F9FAFB] rounded-lg border border-[#E5E7EB] p-3">
+            <div className="bg-porcelana-2 rounded-lg border border-linha p-3">
               <ArchSelector selectedTeeth={selectedTeeth} onToggle={toggleTooth} />
             </div>
 
             {/* Face selectors per tooth */}
             {selectedTeeth.length > 0 && (
               <div className="mt-3 space-y-2.5">
-                <p className="text-xs font-medium text-[#6B7280]">Faces por dente:</p>
+                <p className="text-xs font-medium text-tinta-3">Faces por dente:</p>
                 {selectedTeeth.sort((a, b) => a - b).map(tooth => (
                   <div key={tooth} className="flex items-center gap-3 flex-wrap">
-                    <span className="text-xs font-semibold text-[#374151] w-8 shrink-0 text-right">
+                    <span className="text-xs font-semibold text-tinta-2 w-8 shrink-0 text-right">
                       {tooth}
                     </span>
                     <div className="flex gap-1.5">
@@ -627,8 +627,8 @@ function ModalNovoTratamento({
                             title={FACE_TITLES[face]}
                             className={`w-7 h-7 rounded text-xs font-bold transition-colors ${
                               active
-                                ? 'bg-[#3B82F6] text-white shadow-sm'
-                                : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#3B82F6] hover:text-[#3B82F6]'
+                                ? 'bg-petroleo text-white shadow-sm'
+                                : 'bg-white border border-linha text-tinta-3 hover:border-petroleo hover:text-petroleo'
                             }`}
                           >
                             {face}
@@ -649,13 +649,13 @@ function ModalNovoTratamento({
           <div className="flex gap-3 pt-2">
             <button
               type="button" onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit" disabled={loading}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
             >
               {loading ? 'Salvando...' : 'Salvar tratamento'}
             </button>
@@ -688,21 +688,21 @@ function ArchSelector({ selectedTeeth, onToggle }: {
         {UPPER_LEFT.map(n => (
           <ArchToothBtn key={n} num={n} selected={selectedTeeth.includes(n)} onClick={() => onToggle(n)} />
         ))}
-        <div className="self-stretch mx-0.5 border-l border-dashed border-[#CBD5E1]" />
+        <div className="self-stretch mx-0.5 border-l border-dashed border-linha-forte" />
         {UPPER_RIGHT.map(n => (
           <ArchToothBtn key={n} num={n} selected={selectedTeeth.includes(n)} onClick={() => onToggle(n)} />
         ))}
       </div>
 
       {/* Midline */}
-      <div className="w-full border-t border-dashed border-[#CBD5E1] my-0.5" />
+      <div className="w-full border-t border-dashed border-linha-forte my-0.5" />
 
       {/* Lower arch */}
       <div className="flex items-start gap-0.5">
         {LOWER_LEFT.map(n => (
           <ArchToothBtn key={n} num={n} selected={selectedTeeth.includes(n)} onClick={() => onToggle(n)} />
         ))}
-        <div className="self-stretch mx-0.5 border-l border-dashed border-[#CBD5E1]" />
+        <div className="self-stretch mx-0.5 border-l border-dashed border-linha-forte" />
         {LOWER_RIGHT.map(n => (
           <ArchToothBtn key={n} num={n} selected={selectedTeeth.includes(n)} onClick={() => onToggle(n)} />
         ))}
@@ -712,15 +712,15 @@ function ArchSelector({ selectedTeeth, onToggle }: {
 }
 
 function ArchToothBtn({ num, selected, onClick }: { num: number; selected: boolean; onClick: () => void }) {
-  const fillSeg = selected ? '#BFDBFE' : '#F1F5F9'
-  const strkSeg = selected ? '#3B82F6' : '#CBD5E1'
-  const fillCtr = selected ? '#3B82F6' : '#E2E8F0'
-  const strkCtr = selected ? '#2563EB' : '#CBD5E1'
+  const fillSeg = selected ? '#B7D0D7' : '#EEF2F2'
+  const strkSeg = selected ? '#173B47' : '#CBD5D8'
+  const fillCtr = selected ? '#173B47' : '#E1E7E8'
+  const strkCtr = selected ? '#0F2C36' : '#CBD5D8'
   return (
     <button
       type="button" onClick={onClick} title={`Dente ${num}`}
       className={`flex flex-col items-center gap-0.5 px-0.5 py-0.5 rounded transition-colors ${
-        selected ? 'bg-blue-50' : 'hover:bg-[#F3F4F6]'
+        selected ? 'bg-petroleo-50' : 'hover:bg-porcelana'
       }`}
     >
       <svg width="16" height="16" viewBox="0 0 20 20">
@@ -730,7 +730,7 @@ function ArchToothBtn({ num, selected, onClick }: { num: number; selected: boole
         <path d="M 1,1 V 19 L 10,10 Z" fill={fillSeg} stroke={strkSeg} strokeWidth="0.8" strokeLinejoin="round" />
         <circle cx="10" cy="10" r="4.5" fill={fillCtr} stroke={strkCtr} strokeWidth="0.8" />
       </svg>
-      <span className={`text-[7px] font-medium leading-none ${selected ? 'text-[#3B82F6]' : 'text-[#94A3B8]'}`}>
+      <span className={`text-[7px] font-medium leading-none ${selected ? 'text-petroleo' : 'text-tinta-4'}`}>
         {num}
       </span>
     </button>
@@ -840,12 +840,12 @@ function ModalEditarTratamento({
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 flex flex-col max-h-[92vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-linha shrink-0">
           <div>
-            <h2 className="text-base font-semibold text-[#111827]">Editar Tratamento</h2>
-            <p className="text-xs text-[#6B7280] mt-0.5">{treatment.procedure}</p>
+            <h2 className="text-base font-semibold text-tinta">Editar Tratamento</h2>
+            <p className="text-xs text-tinta-3 mt-0.5">{treatment.procedure}</p>
           </div>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -855,7 +855,7 @@ function ModalEditarTratamento({
 
           {/* Status — destaque */}
           <div>
-            <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Status</label>
+            <label className="block text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-2">Status</label>
             <div className="flex flex-wrap gap-2">
               {(Object.entries(STATUS_CONFIG) as [TreatmentStatus, typeof STATUS_CONFIG[TreatmentStatus]][]).map(([k, v]) => (
                 <button
@@ -864,7 +864,7 @@ function ModalEditarTratamento({
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all"
                   style={status === k
                     ? { borderColor: v.color, backgroundColor: v.bg, color: v.color }
-                    : { borderColor: '#E5E7EB', backgroundColor: 'white', color: '#6B7280' }
+                    : { borderColor: '#E1E7E8', backgroundColor: 'white', color: '#5E6E75' }
                   }
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: v.color }} />
@@ -874,20 +874,20 @@ function ModalEditarTratamento({
             </div>
             {status === 'completed' && (
               <div className="mt-3 max-w-[14rem]">
-                <label htmlFor="trat-executado" className="block text-sm font-medium text-[#111827] mb-1">Executado em</label>
+                <label htmlFor="trat-executado" className="block text-sm font-medium text-tinta mb-1">Executado em</label>
                 <input
                   id="trat-executado" type="date" value={executedAt} max={hoje}
                   onChange={e => setExecutedAt(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
                 />
-                <p className="text-xs text-[#6B7280] mt-1">Usada na comissão do dentista.</p>
+                <p className="text-xs text-tinta-3 mt-1">Usada na comissão do dentista.</p>
               </div>
             )}
           </div>
 
           {/* Procedimento */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Procedimento *</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Procedimento *</label>
             {insurancePlanId ? (
               <ProcedimentoPicker
                 key={insurancePlanId}
@@ -900,7 +900,7 @@ function ModalEditarTratamento({
               <input
                 type="text" value={procedure} onChange={e => setProcedure(e.target.value)}
                 placeholder="Ex: Canal, Restauração, Extração..."
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
               />
             )}
           </div>
@@ -908,32 +908,32 @@ function ModalEditarTratamento({
           {/* Data + Valor */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Data</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Data</label>
               <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Valor (R$)</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Valor (R$)</label>
               <input type="number" min="0" step="0.01" value={value} onChange={e => setValue(e.target.value)}
                 placeholder="0,00"
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
             </div>
           </div>
 
           {/* Profissional + Convênio */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Profissional</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Profissional</label>
               <select value={professionalId} onChange={e => setProfId(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white">
                 <option value="">— selecione —</option>
                 {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#111827] mb-1">Convênio</label>
+              <label className="block text-sm font-medium text-tinta mb-1">Convênio</label>
               <select value={insurancePlanId} onChange={e => { setPlanId(e.target.value); setProcedureId(null) }}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
+                className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white">
                 <option value="">Particular</option>
                 {insurancePlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -942,27 +942,27 @@ function ModalEditarTratamento({
 
           {/* Observações */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-1">Observações</label>
+            <label className="block text-sm font-medium text-tinta mb-1">Observações</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
               placeholder="Informações adicionais..."
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none" />
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo resize-none" />
           </div>
 
           {/* Dentes */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">
+            <label className="block text-sm font-medium text-tinta mb-2">
               Dentes envolvidos
-              <span className="text-xs font-normal text-[#9CA3AF] ml-1">(clique para selecionar/deselecionar)</span>
+              <span className="text-xs font-normal text-tinta-4 ml-1">(clique para selecionar/deselecionar)</span>
             </label>
-            <div className="bg-[#F9FAFB] rounded-lg border border-[#E5E7EB] p-3">
+            <div className="bg-porcelana-2 rounded-lg border border-linha p-3">
               <ArchSelector selectedTeeth={selectedTeeth} onToggle={toggleTooth} />
             </div>
             {selectedTeeth.length > 0 && (
               <div className="mt-3 space-y-2">
-                <p className="text-xs font-medium text-[#6B7280]">Faces por dente:</p>
+                <p className="text-xs font-medium text-tinta-3">Faces por dente:</p>
                 {selectedTeeth.sort((a, b) => a - b).map(tooth => (
                   <div key={tooth} className="flex items-center gap-3 flex-wrap">
-                    <span className="text-xs font-semibold text-[#374151] w-8 shrink-0 text-right">{tooth}</span>
+                    <span className="text-xs font-semibold text-tinta-2 w-8 shrink-0 text-right">{tooth}</span>
                     <div className="flex gap-1.5">
                       {FACES.map(face => {
                         const active = (toothFaces[tooth] || []).includes(face)
@@ -971,8 +971,8 @@ function ModalEditarTratamento({
                             title={FACE_TITLES[face]}
                             className={`w-7 h-7 rounded text-xs font-bold transition-colors ${
                               active
-                                ? 'bg-[#3B82F6] text-white'
-                                : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#3B82F6] hover:text-[#3B82F6]'
+                                ? 'bg-petroleo text-white'
+                                : 'bg-white border border-linha text-tinta-3 hover:border-petroleo hover:text-petroleo'
                             }`}>
                             {face}
                           </button>
@@ -989,9 +989,9 @@ function ModalEditarTratamento({
         </div>
 
         {/* Footer — botão salvar sempre visível */}
-        <div className="px-5 py-4 border-t border-[#E5E7EB] shrink-0 flex gap-3">
+        <div className="px-5 py-4 border-t border-linha shrink-0 flex gap-3">
           <button type="button" onClick={onClose}
-            className="h-11 px-5 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
+            className="h-11 px-5 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana transition-colors">
             Cancelar
           </button>
           <button

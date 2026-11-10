@@ -47,15 +47,15 @@ export function ModalCategoria({ open, currentTags, onClose, onSave }: ModalCate
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Categorizar paciente</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#6B7280] hover:text-[#111827]">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Categorizar paciente</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-3 hover:text-tinta">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-5">
-          <p className="text-sm text-[#6B7280] mb-4">Selecione uma ou mais categorias:</p>
+          <p className="text-sm text-tinta-3 mb-4">Selecione uma ou mais categorias:</p>
           <div className="flex flex-wrap gap-2">
             {CATEGORIAS.map((cat) => {
               const active = selected.includes(cat.value)
@@ -65,7 +65,7 @@ export function ModalCategoria({ open, currentTags, onClose, onSave }: ModalCate
                   onClick={() => toggle(cat.value)}
                   className={cn(
                     'px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all',
-                    active ? 'text-white border-transparent' : 'bg-white border-[#E5E7EB] text-[#374151]'
+                    active ? 'text-white border-transparent' : 'bg-white border-linha text-tinta-2'
                   )}
                   style={active ? { backgroundColor: cat.color, borderColor: cat.color } : {}}
                 >
@@ -79,14 +79,14 @@ export function ModalCategoria({ open, currentTags, onClose, onSave }: ModalCate
         <div className="flex gap-3 p-5 pt-0">
           <button
             onClick={onClose}
-            className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+            className="flex-1 h-10 rounded-lg border border-linha text-sm text-tinta-3 hover:bg-porcelana transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] transition-colors disabled:opacity-50"
+            className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
           >
             {loading ? 'Salvando...' : 'Salvar'}
           </button>

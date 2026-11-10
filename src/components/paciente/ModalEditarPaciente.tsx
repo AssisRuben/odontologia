@@ -124,13 +124,13 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
             <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8 text-green-500" />
             </div>
-            <p className="text-base font-semibold text-[#111827]">Dados salvos!</p>
+            <p className="text-base font-semibold text-tinta">Dados salvos!</p>
           </div>
         )}
 
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Editar paciente</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Editar paciente</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-4 hover:text-tinta-2">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -138,37 +138,37 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
         <form onSubmit={handleSave} className="p-5 space-y-5">
           {/* Dados pessoais */}
           <section>
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Dados pessoais</p>
+            <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-3">Dados pessoais</p>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-1">Nome completo *</label>
+                <label className="block text-sm font-medium text-tinta mb-1">Nome completo *</label>
                 <input value={name} onChange={e => setName(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">CPF</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">CPF</label>
                   <input value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00"
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Data de nascimento</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Data de nascimento</label>
                   <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Gênero</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Gênero</label>
                   <select value={gender} onChange={e => setGender(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white">
                     {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Convênio</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Convênio</label>
                   <select value={planId} onChange={e => setPlanId(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white">
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white">
                     <option value="">Particular</option>
                     {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
@@ -176,14 +176,14 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Carteirinha</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Carteirinha</label>
                   <input value={card} onChange={e => setCard(e.target.value)} maxLength={30}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Validade</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Validade</label>
                   <input type="date" value={cardValid} onChange={e => setCardValid(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
               </div>
             </div>
@@ -191,32 +191,32 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
 
           {/* Contato */}
           <section>
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Contato</p>
+            <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-3">Contato</p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Telefone</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Telefone</label>
                   <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(11) 99999-0000"
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">WhatsApp</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">WhatsApp</label>
                   <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(11) 99999-0000"
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-1">E-mail</label>
+                <label className="block text-sm font-medium text-tinta mb-1">E-mail</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="paciente@email.com"
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
               </div>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" checked={optOut} onChange={e => setOptOut(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-[#D1D5DB]" />
+                  className="mt-0.5 w-4 h-4 rounded border-linha-forte" />
                 <span>
-                  <span className="block text-sm font-medium text-[#111827]">Não enviar WhatsApp</span>
-                  <span className="block text-xs text-[#6B7280]">O paciente não receberá mensagens automáticas nem manuais.</span>
+                  <span className="block text-sm font-medium text-tinta">Não enviar WhatsApp</span>
+                  <span className="block text-xs text-tinta-3">O paciente não receberá mensagens automáticas nem manuais.</span>
                 </span>
               </label>
             </div>
@@ -224,42 +224,42 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
 
           {/* Endereço */}
           <section>
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Endereço</p>
+            <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-3">Endereço</p>
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Rua</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Rua</label>
                   <input value={street} onChange={e => setStreet(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Número</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Número</label>
                   <input value={number} onChange={e => setNumber(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Bairro</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Bairro</label>
                   <input value={neighborhood} onChange={e => setNeighborhood(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">CEP</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">CEP</label>
                   <input value={zip} onChange={e => setZip(e.target.value)} placeholder="00000-000"
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Cidade</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">Cidade</label>
                   <input value={city} onChange={e => setCity(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">UF</label>
+                  <label className="block text-sm font-medium text-tinta mb-1">UF</label>
                   <input value={state} onChange={e => setState(e.target.value)} maxLength={2} placeholder="SP"
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] uppercase" />
+                    className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo uppercase" />
                 </div>
               </div>
             </div>
@@ -267,17 +267,17 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
 
           {/* Responsável pelo pagamento */}
           <section>
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Responsável pelo pagamento (opcional)</p>
+            <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-3">Responsável pelo pagamento (opcional)</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-1">Nome do responsável</label>
+                <label className="block text-sm font-medium text-tinta mb-1">Nome do responsável</label>
                 <input value={payerName} onChange={e => setPayerName(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#111827] mb-1">CPF do responsável</label>
+                <label className="block text-sm font-medium text-tinta mb-1">CPF do responsável</label>
                 <input value={payerCpf} onChange={e => setPayerCpf(e.target.value)} placeholder="000.000.000-00"
-                  className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" />
+                  className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo" />
               </div>
             </div>
           </section>
@@ -286,11 +286,11 @@ export function ModalEditarPaciente({ open, patient, onClose, onSaved }: Props) 
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6]">
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana">
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 h-10 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563EB] disabled:opacity-50">
+              className="flex-1 h-10 rounded-lg bg-petroleo text-white text-sm font-medium hover:bg-petroleo-escuro disabled:opacity-50">
               {saving ? 'Salvando...' : 'Salvar alterações'}
             </button>
           </div>

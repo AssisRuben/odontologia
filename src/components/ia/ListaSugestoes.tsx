@@ -11,17 +11,17 @@ interface ListaSugestoesProps {
 export function ListaSugestoes({ sugestoes, marcadas, onToggle }: ListaSugestoesProps) {
   if (sugestoes.length === 0) return null
   return (
-    <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
-      <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Sugestões da IA</p>
+    <div className="rounded-xl border border-linha bg-porcelana-2 p-3">
+      <p className="text-xs font-semibold text-tinta-3 uppercase tracking-wide mb-2">Sugestões da IA</p>
       <ul className="space-y-1.5">
         {sugestoes.map((s, i) => (
           <li key={i}>
-            <label className="flex items-start gap-2 text-sm text-[#111827] cursor-pointer">
+            <label className="flex items-start gap-2 text-sm text-tinta cursor-pointer">
               <input
                 type="checkbox"
                 checked={marcadas[i] ?? false}
                 onChange={() => onToggle(i)}
-                className="mt-0.5 accent-[#3B82F6]"
+                className="mt-0.5 accent-petroleo"
               />
               <span>{s.descricao}</span>
             </label>

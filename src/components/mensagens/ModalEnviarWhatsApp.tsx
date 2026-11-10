@@ -141,23 +141,23 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={sending ? undefined : onClose} />
       <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB]">
-          <h2 className="text-base font-semibold text-[#111827]">Enviar WhatsApp</h2>
-          <button onClick={onClose} className="p-1 rounded text-[#9CA3AF] hover:text-[#374151]" aria-label="Fechar">
+        <div className="flex items-center justify-between p-5 border-b border-linha">
+          <h2 className="text-base font-semibold text-tinta">Enviar WhatsApp</h2>
+          <button onClick={onClose} className="p-1 rounded text-tinta-4 hover:text-tinta-2" aria-label="Fechar">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
-          <p className="text-sm text-[#6B7280]">Para: <span className="font-medium text-[#111827]">{patient.name}</span></p>
+          <p className="text-sm text-tinta-3">Para: <span className="font-medium text-tinta">{patient.name}</span></p>
 
           <div>
-            <label htmlFor="wa-modelo" className="block text-sm font-medium text-[#111827] mb-1">Mensagem</label>
+            <label htmlFor="wa-modelo" className="block text-sm font-medium text-tinta mb-1">Mensagem</label>
             <select
               id="wa-modelo"
               value={choice}
               onChange={(e) => pick(e.target.value as Choice)}
-              className="w-full h-10 px-3 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] bg-white"
+              className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
               <option value="free">Texto livre</option>
               {TEMPLATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -173,9 +173,9 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
               onChange={(e) => setText(e.target.value)}
               rows={8}
               placeholder="Digite a mensagem"
-              className="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              className="w-full px-3 py-2 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
-            <p className={`text-xs mt-1 text-right ${tooLong ? 'text-red-600' : 'text-[#9CA3AF]'}`}>
+            <p className={`text-xs mt-1 text-right ${tooLong ? 'text-red-600' : 'text-tinta-4'}`}>
               {text.length}/{MAX_MANUAL_LENGTH}
             </p>
           </div>
@@ -184,7 +184,7 @@ export function ModalEnviarWhatsApp({ patient, appointments, onClose, onSent }: 
 
           <div className="flex gap-3">
             <button type="button" onClick={onClose} disabled={sending}
-              className="flex-1 h-10 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] disabled:opacity-50">
+              className="flex-1 h-10 rounded-lg border border-linha text-sm font-medium text-tinta-3 hover:bg-porcelana disabled:opacity-50">
               Cancelar
             </button>
             <button type="button" onClick={handleSend} disabled={!canSend}

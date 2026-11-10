@@ -125,13 +125,13 @@ function PdfThumb({ src }: { src: File | string }) {
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (state === 'error') return <FileText className="w-8 h-8 text-[#9CA3AF]" />
+  if (state === 'error') return <FileText className="w-8 h-8 text-tinta-4" />
 
   return (
     <div className="w-full h-full flex items-center justify-center bg-[#F0F0EE] relative">
       {state === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-4 h-4 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <div className="w-4 h-4 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       <canvas
@@ -305,7 +305,7 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
 
   if (loading) return (
     <div className="flex justify-center py-16">
-      <div className="w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+      <div className="w-7 h-7 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
@@ -313,11 +313,11 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
     <div>
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="flex gap-1 bg-white border border-[#E5E7EB] rounded-lg p-1 flex-wrap">
+        <div className="flex gap-1 bg-white border border-linha rounded-lg p-1 flex-wrap">
           {CATEGORIES.map(c => (
             <button key={c.value} onClick={() => setCategory(c.value)}
               className={`px-3 h-7 rounded-md text-xs font-medium transition-colors ${
-                category === c.value ? 'bg-[#3B82F6] text-white' : 'text-[#6B7280] hover:bg-[#F3F4F6]'
+                category === c.value ? 'bg-petroleo text-white' : 'text-tinta-3 hover:bg-porcelana'
               }`}>
               {c.label}
             </button>
@@ -328,12 +328,12 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
           className="hidden" onChange={handleFileSelect} />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1 px-3 h-9 border border-[#E5E7EB] bg-white text-[#374151] text-xs font-medium rounded-lg hover:bg-[#F3F4F6] transition-colors">
+          className="flex items-center gap-1 px-3 h-9 border border-linha bg-white text-tinta-2 text-xs font-medium rounded-lg hover:bg-porcelana transition-colors">
           <Plus className="w-3.5 h-3.5" /> Selecionar
         </button>
         {pendingCount > 0 && (
           <button onClick={handleUpload} disabled={uploading}
-            className="ml-auto flex items-center gap-1.5 px-3 h-8 bg-[#3B82F6] text-white text-xs font-medium rounded-lg hover:bg-[#2563EB] transition-colors disabled:opacity-60">
+            className="ml-auto flex items-center gap-1.5 px-3 h-8 bg-petroleo text-white text-xs font-medium rounded-lg hover:bg-petroleo-escuro transition-colors disabled:opacity-60">
             <Upload className="w-3.5 h-3.5" />
             Enviar {pendingCount} arquivo{pendingCount > 1 ? 's' : ''}
           </button>
@@ -343,11 +343,11 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
       {/* Empty state */}
       {filtered.length === 0 && pendingFiles.length === 0 && (
         <div
-          className="bg-white rounded-xl border border-dashed border-[#E5E7EB] flex flex-col items-center justify-center h-28 gap-2 cursor-pointer hover:border-[#3B82F6] transition-colors mb-3"
+          className="bg-white rounded-xl border border-dashed border-linha flex flex-col items-center justify-center h-28 gap-2 cursor-pointer hover:border-petroleo transition-colors mb-3"
           onClick={() => fileInputRef.current?.click()}>
-          <Upload className="w-6 h-6 text-[#D1D5DB]" />
-          <p className="text-sm text-[#6B7280]">Clique para adicionar arquivos</p>
-          <p className="text-xs text-[#9CA3AF]">Imagens, PDFs e documentos</p>
+          <Upload className="w-6 h-6 text-linha-forte" />
+          <p className="text-sm text-tinta-3">Clique para adicionar arquivos</p>
+          <p className="text-xs text-tinta-4">Imagens, PDFs e documentos</p>
         </div>
       )}
 
@@ -366,18 +366,18 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
             return (
               <div key={pending.localId}
                 className={`bg-white rounded-xl border overflow-hidden ${
-                  isError ? 'border-red-300' : 'border-[#3B82F6] border-dashed'
+                  isError ? 'border-red-300' : 'border-petroleo border-dashed'
                 }`}>
-                <div className="h-24 overflow-hidden relative flex items-center justify-center bg-[#F9FAFB]">
+                <div className="h-24 overflow-hidden relative flex items-center justify-center bg-porcelana-2">
                   {isPdf ? (
                     <PdfThumb src={pending.file} />
                   ) : isImage && pending.thumbnail ? (
                     <img src={pending.thumbnail} alt={pending.file.name} className="w-full h-full object-cover" />
                   ) : isImage ? (
                     /* while thumbnail is being generated */
-                    <div className="w-4 h-4 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Icon className="w-8 h-8 text-[#9CA3AF]" />
+                    <Icon className="w-8 h-8 text-tinta-4" />
                   )}
 
                   {/* Upload progress overlay */}
@@ -400,8 +400,8 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
                   )}
                 </div>
                 <div className="p-2">
-                  <p className="text-xs font-medium text-[#111827] truncate">{pending.file.name}</p>
-                  <p className={`text-xs mt-0.5 truncate ${isError ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
+                  <p className="text-xs font-medium text-tinta truncate">{pending.file.name}</p>
+                  <p className={`text-xs mt-0.5 truncate ${isError ? 'text-red-500' : 'text-tinta-4'}`}>
                     {isError ? pending.errorMsg : formatBytes(pending.file.size)}
                   </p>
                 </div>
@@ -416,38 +416,38 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
             const Icon    = getFileIcon(doc.file_type)
             const url     = links[documentPath(doc.file_url)]
             return (
-              <div key={doc.id} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden group">
+              <div key={doc.id} className="bg-white rounded-xl border border-linha overflow-hidden group">
                 <div
-                  className="h-24 overflow-hidden flex items-center justify-center cursor-pointer relative bg-[#F9FAFB]"
+                  className="h-24 overflow-hidden flex items-center justify-center cursor-pointer relative bg-porcelana-2"
                   onClick={() => setPreview(doc)}>
                   {!url && (isPdf || isImage) ? (
-                    <AlertCircle className="w-6 h-6 text-[#9CA3AF]" />
+                    <AlertCircle className="w-6 h-6 text-tinta-4" />
                   ) : isPdf ? (
                     <PdfThumb src={url} />
                   ) : isImage ? (
                     <img src={url} alt={doc.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Icon className="w-8 h-8 text-[#9CA3AF]" />
+                    <Icon className="w-8 h-8 text-tinta-4" />
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                 </div>
                 <div className="p-2">
-                  <p className="text-xs font-medium text-[#111827] truncate">{doc.name}</p>
-                  <p className="text-xs text-[#9CA3AF] mt-0.5 truncate">
+                  <p className="text-xs font-medium text-tinta truncate">{doc.name}</p>
+                  <p className="text-xs text-tinta-4 mt-0.5 truncate">
                     {format(parseISO(doc.created_at), 'd MMM yyyy', { locale: ptBR })}
                     {doc.size_bytes ? ` · ${formatBytes(doc.size_bytes)}` : ''}
                   </p>
                   <div className="flex items-center gap-1 mt-1.5">
                     {url ? (
                       <a href={url} target="_blank" rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-1 h-6 rounded-md border border-[#E5E7EB] text-xs text-[#374151] hover:bg-[#F3F4F6] transition-colors">
+                        className="flex-1 flex items-center justify-center gap-1 h-6 rounded-md border border-linha text-xs text-tinta-2 hover:bg-porcelana transition-colors">
                         <Download className="w-3 h-3" /> Baixar
                       </a>
                     ) : (
                       <span className="flex-1 text-center text-xs text-red-500 truncate">Não foi possível abrir o arquivo</span>
                     )}
                     <button onClick={() => handleDelete(doc)} disabled={deletingId === doc.id}
-                      className="p-1.5 rounded-md text-[#9CA3AF] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
+                      className="p-1.5 rounded-md text-tinta-4 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
@@ -459,7 +459,7 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
           {/* Add more */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="bg-white rounded-xl border border-dashed border-[#E5E7EB] flex flex-col items-center justify-center gap-1.5 min-h-[108px] hover:border-[#3B82F6] hover:text-[#3B82F6] text-[#D1D5DB] transition-colors">
+            className="bg-white rounded-xl border border-dashed border-linha flex flex-col items-center justify-center gap-1.5 min-h-[108px] hover:border-petroleo hover:text-petroleo text-linha-forte transition-colors">
             <Plus className="w-5 h-5" />
             <span className="text-xs font-medium">Adicionar</span>
           </button>
@@ -491,10 +491,10 @@ export function TabDocumentos({ patientId, clinicId }: Props) {
           ) : (
             <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-4"
               onClick={e => e.stopPropagation()}>
-              <FileText className="w-16 h-16 text-[#6B7280]" />
-              <p className="text-sm font-medium text-[#111827]">{preview.name}</p>
+              <FileText className="w-16 h-16 text-tinta-3" />
+              <p className="text-sm font-medium text-tinta">{preview.name}</p>
               <a href={links[documentPath(preview.file_url)]} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 h-10 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:bg-[#2563EB]">
+                className="flex items-center gap-2 px-4 h-10 bg-petroleo text-white text-sm font-medium rounded-lg hover:bg-petroleo-escuro">
                 <Download className="w-4 h-4" /> Abrir arquivo
               </a>
             </div>
