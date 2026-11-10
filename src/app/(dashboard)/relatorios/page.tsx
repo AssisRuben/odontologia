@@ -1,129 +1,154 @@
 'use client'
 
-import { useState } from 'react'
-import { BarChart3, CheckCircle, XCircle, Users, TrendingUp, Clock } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useClinicStore } from '@/store/clinicStore'
+import { mesAnterior, mesDe, rotuloMes } from '@/lib/comissoes/periodo'
+import { todayYmd } from '@/lib/messaging/time'
+import type { Painel } from '@/lib/indicadores/painel'
+import { brl } from '@/components/financeiro/formatoComissao'
+import CartaoIndicador, { pctInteiro } from '@/components/relatorios/CartaoIndicador'
+import MiniGrafico from '@/components/relatorios/MiniGrafico'
+import BlocoAgenda from '@/components/relatorios/BlocoAgenda'
+import BlocoFinanceiro from '@/components/relatorios/BlocoFinanceiro'
+import BlocoOrcamentos from '@/components/relatorios/BlocoOrcamentos'
 
-const sidebarItems = [
-  { id: 'geral', label: 'Visão geral' },
-  { id: 'orcamentos', label: 'Análise de Orçamentos', parent: 'Prontuário' },
-  { id: 'tratamentos', label: 'Análise de Tratamentos', parent: 'Prontuário' },
-  { id: 'consultas', label: 'Análise de Consultas', parent: 'Agenda' },
-  { id: 'sem-consultas', label: 'Pacientes sem Consultas', parent: 'Agenda' },
-  { id: 'cadastros', label: 'Análise de Cadastros', parent: 'Pacientes' },
-  { id: 'assinaturas', label: 'Assinaturas digitais' },
-]
+function proximoMes(mes: string): string {
+  const [y, m] = mes.split('-').map(Number)
+  const d = new Date(Date.UTC(y, m, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
 
-const kpiCards = [
-  { label: 'Comparecimento', value: '87%', icon: CheckCircle, color: '#10B981', meta: 'Meta: >85%', ok: true },
-  { label: 'Agendadas', value: '142', icon: BarChart3, color: '#3B82F6' },
-  { label: 'Canceladas', value: '18', icon: XCircle, color: '#EF4444' },
-  { label: 'Novos pacientes', value: '23', icon: Users, color: '#8B5CF6' },
-  { label: 'Maior atendimento', value: 'Dr. Carlos', icon: TrendingUp, color: '#F59E0B' },
-  { label: 'Tempo médio espera', value: '12 min', icon: Clock, color: '#06B6D4' },
-]
+const GERAL = 'geral da clínica'
+const num = (n: number) => String(n)
 
 export default function RelatoriosPage() {
-  const [activeItem, setActiveItem] = useState('geral')
-  const currentSection = sidebarItems.find((i) => i.id === activeItem)
+  const { clinicId } = useClinicStore()
+  const [mes, setMes] = useState(() => mesDe(todayYmd(new Date(), 'America/Sao_Paulo')))
+  const [dentista, setDentista] = useState('')
+  const [profissionais, setProfissionais] = useState<{ id: string; name: string }[]>([])
+  const [dados, setDados] = useState<Painel | null>(null)
+  const [erro, setErro] = useState('')
+  const seq = useRef(0)
+
+  useEffect(() => {
+    if (!clinicId) return
+    let ativo = true
+    createClient()
+      .from('professionals')
+      .select('id, name')
+      .eq('clinic_id', clinicId)
+      .order('name')
+      .then(({ data }) => {
+        if (ativo) setProfissionais(data ?? [])
+      })
+    return () => {
+      ativo = false
+    }
+  }, [clinicId])
+
+  const carregar = useCallback(async (m: string, d: string) => {
+    const mine = ++seq.current
+    try {
+      const qs = new URLSearchParams({ mes: m })
+      if (d) qs.set('dentista', d)
+      const res = await fetch(`/api/indicadores?${qs}`, { cache: 'no-store' })
+      const json = await res.json().catch(() => ({}))
+      if (mine !== seq.current) return
+      if (!res.ok) {
+        setErro(json.error || 'Não foi possível carregar os indicadores')
+        return
+      }
+      setErro('')
+      setDados(json as Painel)
+    } catch {
+      if (mine === seq.current) setErro('Não foi possível carregar os indicadores. Verifique a conexão.')
+    }
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDados(null)
+    setErro('')
+    carregar(mes, dentista)
+  }, [mes, dentista, carregar])
+
+  const filtrado = !!dados?.dentista
+  const c = dados?.cartoes
 
   return (
-    <div className="flex h-[calc(100vh-56px)]">
-      {/* Sidebar */}
-      <aside className="w-56 bg-white border-r border-[#E5E7EB] overflow-y-auto p-3">
-        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide px-2 mb-2">Relatórios</p>
-        {['', 'Prontuário', 'Agenda', 'Pacientes'].map((section) => {
-          const items = sidebarItems.filter((i) => (i.parent || '') === section)
-          if (!items.length) return null
-          return (
-            <div key={section} className="mb-3">
-              {section && <p className="text-xs font-medium text-[#9CA3AF] px-2 mb-1">{section}</p>}
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveItem(item.id)}
-                  className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                    activeItem === item.id
-                      ? 'bg-[#EFF6FF] text-[#3B82F6] font-medium'
-                      : 'text-[#374151] hover:bg-[#F3F4F6]'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          )
-        })}
-      </aside>
+    <div className="p-6 space-y-6 max-w-6xl">
+      <h1 className="text-xl font-semibold text-[#111827]">Visão geral</h1>
 
-      {/* Conteúdo */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold text-[#111827]">
-            {currentSection?.label || 'Relatórios'}
-          </h1>
-          <select className="h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]">
-            <option>Todo período</option>
-            <option>Este mês</option>
-            <option>Último mês</option>
-            <option>Últimos 3 meses</option>
-          </select>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setMes(mesAnterior(mes))} aria-label="Mês anterior"
+            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-base font-semibold text-[#111827] w-28 text-center">{rotuloMes(mes)}</span>
+          <button onClick={() => setMes(proximoMes(mes))} aria-label="Próximo mês"
+            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
-
-        {activeItem === 'geral' && (
-          <div className="space-y-6">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-3 gap-4">
-              {kpiCards.map((kpi) => (
-                <div key={kpi.label} className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-[#6B7280]">{kpi.label}</span>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: kpi.color + '20' }}>
-                      <kpi.icon className="w-4 h-4" style={{ color: kpi.color }} />
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-[#111827]">{kpi.value}</div>
-                  {kpi.meta && (
-                    <div className={`text-xs mt-1 ${kpi.ok ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                      {kpi.meta}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Gráfico placeholder */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] p-6">
-              <h2 className="text-base font-semibold text-[#111827] mb-4">Gráfico de Comparecimento</h2>
-              <div className="h-48 flex items-end gap-3 px-4">
-                {['Jan', 'Fev', 'Mar', 'Abr', 'Mai'].map((month, i) => {
-                  const heights = [72, 85, 68, 90, 87]
-                  const h = heights[i]
-                  return (
-                    <div key={month} className="flex-1 flex flex-col items-center gap-1">
-                      <span className="text-xs text-[#6B7280]">{h}%</span>
-                      <div
-                        className="w-full rounded-t-md"
-                        style={{ height: `${h * 1.5}px`, backgroundColor: h >= 85 ? '#10B981' : '#3B82F6' }}
-                      />
-                      <span className="text-xs text-[#9CA3AF]">{month}</span>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="flex items-center gap-4 mt-4 text-xs text-[#6B7280]">
-                <div className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#10B981]" /> Acima da meta</div>
-                <div className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#3B82F6]" /> Abaixo da meta</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeItem !== 'geral' && (
-          <div className="flex items-center justify-center h-48 text-[#9CA3AF] text-sm">
-            Em desenvolvimento...
-          </div>
-        )}
+        <select
+          value={dentista}
+          onChange={(e) => setDentista(e.target.value)}
+          aria-label="Dentista"
+          className="h-9 px-3 rounded-lg border border-[#E5E7EB] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+        >
+          <option value="">Todos os dentistas</option>
+          {profissionais.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
+
+      {dados?.parcial && (
+        <p className="text-sm text-[#92400E] bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Mês em andamento: valores parciais
+        </p>
+      )}
+      {erro && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>}
+
+      {!dados && !erro && (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {dados && c && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CartaoIndicador titulo="Comparecimento" valor={pctInteiro(c.comparecimento.valor)} variacao={c.comparecimento.variacao} />
+            <CartaoIndicador titulo="Faltas" valor={num(c.faltas.valor ?? 0)} variacao={c.faltas.variacao} altaEhRuim />
+            <CartaoIndicador titulo="Recebido" valor={brl(c.recebido.valor ?? 0)} variacao={c.recebido.variacao} nota={filtrado ? GERAL : undefined} />
+            <CartaoIndicador titulo="Ticket médio" valor={c.ticket.valor === null ? '—' : brl(c.ticket.valor)} variacao={c.ticket.variacao} nota={filtrado ? GERAL : undefined} />
+            <CartaoIndicador titulo="Aprovação de orçamentos" valor={pctInteiro(c.aprovacao.valor)} variacao={c.aprovacao.variacao} />
+            <CartaoIndicador titulo="Pacientes novos" valor={num(c.novos.valor ?? 0)} variacao={c.novos.variacao} nota={filtrado ? GERAL : undefined} />
+          </div>
+          <p className="text-xs text-[#6B7280] -mt-3">
+            {dados.novos.whatsapp} {dados.novos.whatsapp === 1 ? 'paciente novo veio' : 'pacientes novos vieram'} pelo WhatsApp.
+          </p>
+
+          <BlocoAgenda agenda={dados.agenda} />
+          <BlocoFinanceiro financeiro={dados.financeiro} />
+          <BlocoOrcamentos orcamentos={dados.orcamentos} />
+
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-[#111827]">Tendência (6 meses)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <MiniGrafico titulo="Comparecimento" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.comparecimento }))} formato={pctInteiro} />
+              <MiniGrafico titulo="Recebido" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.recebidoCentavos }))} formato={brl} />
+              <MiniGrafico titulo="Ticket médio" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.ticketCentavos }))} formato={brl} />
+              <MiniGrafico titulo="Aprovação de orçamentos" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.aprovacao }))} formato={pctInteiro} />
+              <MiniGrafico titulo="Pacientes novos" pontos={dados.tendencia.map((t) => ({ mes: t.mes, valor: t.novos }))} formato={num} />
+            </div>
+          </section>
+        </>
+      )}
     </div>
   )
 }
