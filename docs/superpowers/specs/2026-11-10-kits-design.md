@@ -89,7 +89,7 @@ Um tratamento `baixado` que é reconcluído continua `baixado`, sem nova baixa.
 
 **`treatment_material_return(p_clinic_id, p_user_id, p_treatment_id) RETURNS JSONB`**
 - Trava o tratamento. Se não existir, `TRATAMENTO_NAO_ENCONTRADO`. Se `material_status` não for `baixado`, `MATERIAL_NAO_BAIXADO`.
-- Para cada saída `type='out'` com esse `treatment_id`:
+- Para cada saída `type='out'` com esse `treatment_id` e ainda não devolvida (isto é, criada depois da última devolução desse tratamento):
   - trava o produto;
   - se o produto controla validade e o lote original ainda existe, soma a quantidade nesse lote;
   - se o lote não existe mais e o produto controla validade, cria um lote "Devolução" sem código e sem validade;
