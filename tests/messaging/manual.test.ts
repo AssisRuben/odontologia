@@ -26,9 +26,15 @@ describe('sendManual', () => {
       { instance: 'i', token: 't', status: 'connected' },
       {
         clinic_id: 'c1', patient_id: 'p1', type: 'manual', direction: 'out',
-        phone: '5511987654321', body: 'Olá', dedupe_key: null, budget_id: null,
+        phone: '5511987654321', body: 'Olá', dedupe_key: null, budget_id: null, payment_id: null,
       },
     )
+  })
+
+  it('paymentId informado vai para payment_id da linha', async () => {
+    const d = makeDeps()
+    await sendManual(input({ paymentId: 'pay1' }), d)
+    expect(d.deliver.mock.calls[0][1].payment_id).toBe('pay1')
   })
 
   it('usa o telefone quando não há WhatsApp', async () => {
