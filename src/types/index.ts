@@ -230,19 +230,45 @@ export interface HealthReceipt {
 
 export type ProstheticStatus = 'requested' | 'sent_to_lab' | 'returned' | 'installed'
 
+export interface Laboratory {
+  id: string
+  clinic_id: string
+  name: string
+  phone?: string | null
+  notes?: string | null
+  active: boolean
+}
+
+export interface ProstheticEvent {
+  id: string
+  prosthetic_id: string
+  from_status: ProstheticStatus | null
+  to_status: ProstheticStatus
+  note: string | null
+  created_at: string
+}
+
 export interface Prosthetic {
   id: string
   clinic_id: string
   patient_id: string
   professional_id?: string
   laboratory?: string
+  laboratory_id?: string | null
+  tooth_region?: string | null
+  lab_cost?: number | null
+  expense_id?: string | null
+  expense_generated?: boolean
   type?: string
   status: ProstheticStatus
   requested_at: string
   expected_at?: string
   notes?: string
+  updated_at?: string
   patient?: Patient
   professional?: Professional
+  lab?: Laboratory | null
+  events?: ProstheticEvent[]
 }
 
 export interface InventoryItem {
