@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, Settings,
+  Menu, X, Settings, HelpCircle,
   Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,7 @@ const navLinks = [
   { label: 'Estoque',       href: '/estoque',       icon: Package },
   { label: 'Relatórios',    href: '/relatorios',    icon: FileText },
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
+  { label: 'Ajuda',         href: '/ajuda',         icon: HelpCircle },
 ]
 
 // Computador: menu lateral em dois grupos (dia a dia / apoio).

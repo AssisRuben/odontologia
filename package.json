@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "manual": "node --env-file=.env.local scripts/manual/gerar.mjs",
+    "demo": "node --env-file=.env.local scripts/demo/rodar.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
@@ -41,6 +43,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.76.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.4.3",
@@ -53,6 +57,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "playwright": "^1.65.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.12"
