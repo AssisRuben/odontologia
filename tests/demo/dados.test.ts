@@ -73,7 +73,7 @@ describe('montarDados', () => {
     }
   })
 
-  it('tem consultas de todos os status, de segunda passada a sábado que vem, sem domingo', () => {
+  it('tem consultas de todos os status, de segunda passada a sábado que vem, sem domingo (exceto hoje)', () => {
     const consultas = tabela('appointments')
     expect(new Set(consultas.map(c => c.status))).toEqual(
       new Set(['scheduled', 'confirmed', 'waiting', 'in_progress', 'completed', 'cancelled', 'no_show']))
@@ -81,6 +81,14 @@ describe('montarDados', () => {
       const dia = (c.start_time as string).slice(0, 10)
       expect(dia >= '2026-11-02' && dia <= '2026-11-21', dia).toBe(true)
       expect(new Date(`${dia}T12:00:00Z`).getUTCDay(), dia).not.toBe(0)
+    }
+  })
+
+  it('tem todos os status de consulta e alguém na sala de espera hoje, em qualquer dia da semana', () => {
+    for (const hoje of ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-12', '2026-11-13', '2026-11-14']) {
+      const consultas = montarDados({ ...ctx, hoje }).insercoes.find(([t]: [string]) => t === 'appointments')[1] as Linha[]
+      expect(new Set(consultas.map(c => c.status)).size, hoje).toBe(7)
+      expect(consultas.some(c => (c.start_time as string).startsWith(hoje) && c.status === 'waiting'), hoje).toBe(true)
     }
   })
 

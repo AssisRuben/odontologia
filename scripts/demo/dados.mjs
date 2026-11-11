@@ -166,8 +166,9 @@ export function montarDados(ctx) {
   let n = 0
   for (let dia = addDias(segunda, -7); dia <= addDias(segunda, 12); dia = addDias(dia, 1)) {
     const dow = diaSemana(dia)
-    if (dow === 0) continue
-    const slots = dow === 6 ? HORARIOS.slice(0, 2) : HORARIOS
+    // Hoje sempre tem os 5 horários (sala de espera, em atendimento...), mesmo no sábado ou domingo
+    if (dow === 0 && dia !== hoje) continue
+    const slots = dow === 6 && dia !== hoje ? HORARIOS.slice(0, 2) : HORARIOS
     slots.forEach(([ini, fim], s) => {
       let status
       if (dia < hoje) status = n % 11 === 4 ? 'no_show' : n % 13 === 6 ? 'cancelled' : 'completed'
