@@ -568,3 +568,30 @@ Os arquivos `seed.sql` e `scripts/*.sql` são histórico do banco original e **n
 | `npm run start` | roda a versão de produção |
 | `npm run lint` | verifica o código |
 | `npm test` | roda os testes automáticos |
+| `npm run manual` | refaz as capturas e o PDF do manual (veja abaixo) |
+
+## Manual do sistema
+
+O manual fica em **Ajuda** no menu (`/ajuda`) e também em PDF (`public/ajuda/manual.pdf`).
+
+- **Textos:** um arquivo por capítulo em `src/content/ajuda/` (ex.: `agenda.md`). A ordem e os títulos ficam em `src/content/ajuda/indice.ts`.
+- **Capturas:** a lista fica em `scripts/manual/capturas.mjs`; as imagens vão para `public/ajuda/img/`.
+- O `npm test` confere se toda imagem citada existe e se todo capítulo do índice tem arquivo.
+
+### Refazer capturas e PDF
+
+Uma vez só:
+
+1. Crie uma conta de demonstração em `/register` (sem chaves reais de OpenAI, Asaas ou WhatsApp).
+2. Preencha essa conta com os dados de teste: `CLINIC_ID=<id da clínica demo> node --env-file=.env.local scripts/seed.mjs`.
+3. No `.env.local`, coloque `MANUAL_EMAIL` e `MANUAL_SENHA` dessa conta (e `MANUAL_URL`, se o app não estiver em `http://localhost:3000`).
+4. Instale o navegador usado pelo script: `npx playwright install chromium`.
+
+Depois, sempre que uma tela mudar:
+
+```bash
+npm run dev          # em um terminal
+npm run manual       # em outro
+```
+
+O script entra com a conta demo, fotografa cada tela (com o relógio do navegador em 26/05/2026, a data dos dados de teste — ajuste `DATA_DEMO` em `scripts/manual/capturas.mjs` se o seed mudar) e gera o PDF. Se alguma captura falhar, ele lista quais e não gera o PDF.
