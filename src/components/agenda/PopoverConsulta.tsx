@@ -166,13 +166,13 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
         {/* Ações */}
         <div className="mt-4 pt-3 border-t border-porcelana space-y-2">
 
-          {/* Confirmar consulta */}
+          {/* Confirmar consulta (só para agendada) */}
           {confirmed ? (
             <div className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-[#DCFCE7] text-[#16A34A] text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
               Consulta confirmada
             </div>
-          ) : (
+          ) : apt.status === 'scheduled' ? (
             <button
               onClick={handleConfirm}
               disabled={confirming}
@@ -181,7 +181,7 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               <CheckCircle2 className="w-3.5 h-3.5" />
               {confirming ? 'Confirmando...' : 'Confirmar consulta'}
             </button>
-          )}
+          ) : null}
 
           <button
             onClick={() => { onClose(); onAddEvolucao() }}

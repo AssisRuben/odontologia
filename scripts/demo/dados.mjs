@@ -84,6 +84,13 @@ const PACIENTES = [
   ['Larissa Moreira Freitas', 'F', '1997-03-31', null],
 ]
 
+// Vieram há 7–9 meses e não marcaram de novo: aparecem em Pacientes → Retornos semestrais
+const PACIENTES_RETORNO = [
+  ['Gustavo Henrique Prado', 'M', '1982-01-20', null],
+  ['Vanessa Oliveira Brito', 'F', '1991-06-14', null],
+  ['Eduardo Santos Viana', 'M', '1975-08-02', null],
+]
+
 export function montarDados(ctx) {
   const { hoje, clinicId, donoId, userId, uid, perguntas, templateId } = ctx
   // Usa a tabela TUSS do banco e completa com a lista padrão até ter 5 procedimentos
@@ -141,7 +148,7 @@ export function montarDados(ctx) {
   const procPlano = (planoId, i) => tabelaPlanos.filter((r) => r.insurance_plan_id === planoId)[i]
 
   // ── Pacientes ────────────────────────────────────────────────────────
-  const pacientes = add('patients', PACIENTES.map(([name, gender, birthdate, notes], i) => {
+  const pacientes = add('patients', [...PACIENTES, ...PACIENTES_RETORNO].map(([name, gender, birthdate, notes], i) => {
     const conv = i >= 4 && i <= 8 ? planos[i % 3] : null
     const fone = `119${String(87654321 - i * 1111).padStart(8, '0')}`
     return {
@@ -155,7 +162,8 @@ export function montarDados(ctx) {
       insurance_card_valid_until: conv ? addDias(hoje, 300) : null,
     }
   }))
-  const P = pacientes
+  const P = pacientes.slice(0, PACIENTES.length)
+  const semRetorno = pacientes.slice(PACIENTES.length)
 
   // ── Agenda: semana passada, esta e a próxima (segunda a sábado) ─────────
   const segunda = addDias(hoje, -((diaSemana(hoje) + 6) % 7))
@@ -190,7 +198,17 @@ export function montarDados(ctx) {
   const futuras = consultas.filter((c) => c.start_time.slice(0, 10) > hoje)
   futuras[2].source = 'whatsapp'
   futuras[2].notes = 'Marcada pelo WhatsApp'
-  add('appointments', consultas)
+  // Última visita dos pacientes sem retorno: 7, 8 e 9 meses atrás
+  // (lista à parte: não entram nos tratamentos e pagamentos gerados abaixo)
+  const visitasAntigas = semRetorno.map((p, i) => {
+    const dia = addDias(hoje, -(212 + i * 30))
+    return {
+      id: uid(), ...C, patient_id: p.id, professional_id: profs[i % 3],
+      start_time: ts(dia, '09:00'), end_time: ts(dia, '10:00'), status: 'completed', procedure: 'Limpeza e profilaxia',
+      notes: null, source: null,
+    }
+  })
+  add('appointments', [...consultas, ...visitasAntigas])
 
   // ── Anamnese, tratamentos (odontograma) e evoluções ─────────────────────
   if (templateId && perguntas?.length) {

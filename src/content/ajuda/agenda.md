@@ -45,7 +45,7 @@ Passe o mouse sobre o ícone para ver o nome dele.
 
 Clique em uma consulta da agenda para ver os detalhes. Na janela que abre, você pode:
 
-- **Confirmar consulta**, quando o paciente confirmou por telefone ou pessoalmente;
+- **Confirmar consulta**, quando o paciente confirmou por telefone ou pessoalmente (o botão só aparece em consulta agendada; depois de confirmar, aparece **Consulta confirmada**);
 - **Adicionar evolução**, para registrar o que foi feito no atendimento (veja [Pacientes](#pacientes));
 - **Prontuário**, para abrir a ficha do paciente;
 - **Editar**, para mudar a consulta.
