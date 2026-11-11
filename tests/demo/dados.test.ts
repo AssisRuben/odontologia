@@ -104,10 +104,28 @@ describe('montarDados', () => {
     for (const p of proteses) expect(tabela('prosthetic_events').some(e => e.prosthetic_id === p.id)).toBe(true)
   })
 
-  it('convênios respeitam os limites do banco (fechamento 1–28 ou vazio)', () => {
+  it('convênios respeitam os limites do banco (fechamento 1–28)', () => {
     for (const p of tabela('insurance_plans')) {
-      if (p.closing_day != null) expect(p.closing_day as number).toBeLessThanOrEqual(28)
+      expect(p.closing_day as number).toBeGreaterThanOrEqual(1)
+      expect(p.closing_day as number).toBeLessThanOrEqual(28)
     }
+  })
+
+  it('o lote cobre o período do dia de fechamento que contém a execução', () => {
+    const [lote] = tabela('insurance_batches')
+    const plano = tabela('insurance_plans').find(p => p.id === lote.insurance_plan_id)!
+    expect(Number((lote.period_end as string).slice(8))).toBe(plano.closing_day)
+    const itens = tabela('insurance_guide_items').filter(i => demo.lote.itemIds.includes(i.id))
+    for (const i of itens) {
+      expect(i.executed_at as string >= (lote.period_start as string) && i.executed_at as string <= (lote.period_end as string)).toBe(true)
+    }
+  })
+
+  it('a desmarcação pelo WhatsApp é de uma consulta futura, e hoje ainda há alguém para confirmar', () => {
+    const desmarcou = tabela('messages').find(m => m.reply_action === 'cancelled')!
+    const c = tabela('appointments').find(a => a.id === desmarcou.appointment_id)!
+    expect((c.start_time as string).slice(0, 10) > ctx.hoje).toBe(true)
+    expect(tabela('appointments').some(a => (a.start_time as string).startsWith(ctx.hoje) && a.status === 'scheduled')).toBe(true)
   })
 
   it('o lote de convênio paga todos os itens dele, com uma glosa', () => {

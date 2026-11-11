@@ -13,8 +13,9 @@
 // Paciente usado nas capturas da ficha.
 export const PACIENTE_DEMO = 'Maria Silva Santos'
 
+// Abre uma consulta futura (as passadas mostram botões que não fazem sentido no exemplo)
 const abrirPrimeiraConsulta = async (page) => {
-  await page.locator('.fc-event').first().click()
+  await page.locator('.fc-event.fc-event-future').first().click()
   await page.getByRole('button', { name: 'Editar' }).waitFor()
 }
 

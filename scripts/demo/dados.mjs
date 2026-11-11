@@ -11,7 +11,14 @@ const ts = (ymd, hm) => `${ymd}T${hm}:00-03:00`
 const mesInicio = (ymd, delta = 0) => {
   const d = utc(ymd); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + delta); return ymdDe(d)
 }
-const mesFim = (ymd, delta = 0) => addDias(mesInicio(ymd, delta + 1), -1)
+// Mesmo cálculo do app (src/lib/convenios/periodo.ts): fim = primeiro dia de fechamento >= data.
+const periodoDe = (data, dia) => {
+  const [y, m, d] = data.split('-').map(Number)
+  const mesFim = d <= dia ? m - 1 : m
+  const end = ymdDe(new Date(Date.UTC(y, mesFim, dia, 12)))
+  const start = addDias(ymdDe(new Date(Date.UTC(y, mesFim - 1, dia, 12))), 1)
+  return { start, end }
+}
 
 // ── CPF com dígitos verificadores ─────────────────────────────────────────
 export function cpfValido(base9) {
@@ -101,7 +108,7 @@ export function montarDados(ctx) {
   const planos = add('insurance_plans', [
     { id: uid(), ...C, name: 'Odonto Saúde', ans_registry: '412345', closing_day: 25, submission_days: 10, payment_days: 30 },
     { id: uid(), ...C, name: 'Sorria Mais', ans_registry: '398765', closing_day: 20, submission_days: 5, payment_days: 45 },
-    { id: uid(), ...C, name: 'Dental Vida', ans_registry: '356789', closing_day: null, submission_days: 10, payment_days: 30 },
+    { id: uid(), ...C, name: 'Dental Vida', ans_registry: '356789', closing_day: 28, submission_days: 10, payment_days: 30 },
   ])
   const valoresTabela = [60, 90, 140, 120, 380]
   const tabelaPlanos = add('insurance_plan_procedures', planos.flatMap((p, ip) =>
@@ -374,8 +381,9 @@ export function montarDados(ctx) {
   ])
   const planoLote = P[5].insurance_plan_id
   const plano = planos.find((p) => p.id === planoLote)
-  const periodoFim = mesFim(hoje, -1)
-  const loteBatch = { id: uid(), ...C, insurance_plan_id: planoLote, period_start: mesInicio(hoje, -1), period_end: periodoFim, due_date: addDias(periodoFim, plano.submission_days), status: 'aberto' }
+  const periodo = periodoDe(itensGuia[1].executed_at, plano.closing_day)
+  const periodoFim = periodo.end
+  const loteBatch = { id: uid(), ...C, insurance_plan_id: planoLote, period_start: periodo.start, period_end: periodoFim, due_date: addDias(periodoFim, plano.submission_days), status: 'aberto' }
   add('insurance_batches', [loteBatch])
   const noLote = [itensGuia[1], itensGuia[2]]
   const lote = {
@@ -406,7 +414,9 @@ export function montarDados(ctx) {
   })
   const amanha = consultas.filter((c) => c.start_time.slice(0, 10) === addDias(hoje, 1) && c.status === 'scheduled')
   const confirmada = futuras.find((c) => c.status === 'confirmed')
-  const desmarcada = passadas.length ? consultas.find((c) => c.start_time.slice(0, 10) >= hoje && c.status === 'scheduled' && !amanha.includes(c)) : null
+  // De preferência nesta semana, para o aviso aparecer na agenda aberta hoje
+  const candidatas = consultas.filter((c) => c.start_time.slice(0, 10) > hoje && c.status === 'scheduled' && !amanha.includes(c))
+  const desmarcada = candidatas.find((c) => c.start_time.slice(0, 10) <= addDias(segunda, 5)) ?? candidatas[0]
   if (desmarcada) desmarcada.status = 'cancelled'
   const mensagens = [
     msg(conversas[0], 'in', 'incoming', 'Bom dia! Queria saber o valor do clareamento.', ts(hoje, '09:30')),
