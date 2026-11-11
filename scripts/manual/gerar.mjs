@@ -104,7 +104,8 @@ async function main() {
   try { await fetch(amb.url) } catch { falhar(`O app não respondeu em ${amb.url} — rode npm run dev`) }
 
   fs.mkdirSync(DIR_IMG, { recursive: true })
-  const browser = await chromium.launch()
+  // --lang deixa os campos de data e hora do navegador em português (24 h)
+  const browser = await chromium.launch({ args: ['--lang=pt-BR'] })
   try {
     let sessao
     try { sessao = await entrar(browser, amb) } catch (e) { falhar(e.message) }

@@ -89,12 +89,17 @@ export function montarDados(ctx) {
   const add = (tabela, linhas) => { insercoes.push([tabela, linhas]); return linhas }
 
   // ── Profissionais (o dono vem do cadastro e só é atualizado) ─────────────
-  const dono = { name: 'Dra. Ana Beatriz Costa', cro: 'CRO-SP 98765', specialty: 'Clínica geral', color: '#173B47' }
+  // Horários que o agente do WhatsApp pode oferecer (formato de professionals.working_hours)
+  const semanaUtil = Object.fromEntries(['1', '2', '3', '4', '5'].map((d) => [d, [['08:00', '12:00'], ['14:00', '18:00']]]))
+  const dono = { name: 'Dra. Ana Beatriz Costa', cro: 'CRO-SP 98765', specialty: 'Clínica geral', color: '#173B47',
+    whatsapp_booking: true, working_hours: { ...semanaUtil, 6: [['08:00', '10:00']] } }
   const [carlos, juliana] = add('professionals', [
     { id: uid(), ...C, name: 'Dr. Carlos Mendes', cro: 'CRO-SP 54321', specialty: 'Ortodontia', color: '#E0607E',
-      commission_rate: 40, commission_rate_insurance: 30, commission_start: mesInicio(hoje, -3) },
+      commission_rate: 40, commission_rate_insurance: 30, commission_start: mesInicio(hoje, -3),
+      whatsapp_booking: true, working_hours: semanaUtil },
     { id: uid(), ...C, name: 'Dra. Juliana Rocha', cro: 'CRO-SP 67890', specialty: 'Endodontia', color: '#8B5CF6',
-      commission_rate: 35, commission_rate_insurance: 25, commission_start: mesInicio(hoje, -3) },
+      commission_rate: 35, commission_rate_insurance: 25, commission_start: mesInicio(hoje, -3),
+      whatsapp_booking: false, working_hours: null },
   ])
   const profs = [donoId, carlos.id, juliana.id]
 
@@ -102,6 +107,18 @@ export function montarDados(ctx) {
     cnpj: '12.345.678/0001-90', phone: '(11) 3456-7890',
     address: 'Av. Paulista, 1000, sala 42, Bela Vista, São Paulo — SP',
     card_rates: { debito: 1.99, credito_vista: 3.49, credito_2a6: 4.99, credito_7a12: 6.99 },
+    // Agente desligado (a demo não tem WhatsApp nem OpenAI), mas já configurado
+    agent_config: {
+      enabled: false,
+      hours: { 1: ['08:00', '18:00'], 2: ['08:00', '18:00'], 3: ['08:00', '18:00'], 4: ['08:00', '18:00'], 5: ['08:00', '18:00'], 6: ['08:00', '12:00'] },
+      info: 'Estacionamento conveniado no prédio (1ª hora grátis). Aceitamos Pix, cartão em até 10x e os convênios Odonto Saúde, Sorria Mais e Dental Vida. Avaliação inicial gratuita.',
+      tipos: [
+        { id: 'avaliacao', nome: 'Avaliação', duracao_min: 30, profissionais: null, ativo: true },
+        { id: 'retorno', nome: 'Retorno', duracao_min: 30, profissionais: null, ativo: true },
+        { id: 'limpeza', nome: 'Limpeza', duracao_min: 60, profissionais: null, ativo: true },
+      ],
+      agendamento: { antecedencia_h: 2, dias_a_frente: 30, intervalo_min: 30 },
+    },
   }
 
   // ── Convênios e tabela ────────────────────────────────────────────────
@@ -244,18 +261,19 @@ export function montarDados(ctx) {
 
   // ── Pagamentos ───────────────────────────────────────────────────────
   const metodo = ['pix', 'cartao_credito', 'dinheiro', 'cartao_debito']
+  const SEM_PARCELA = { budget_id: null, charge_group_id: null, installment_number: null, installment_count: null, appointment_id: null }
   const pagamentos = []
   concluidas.forEach((c, i) => {
     const pac = P.find((p) => p.id === c.patient_id)
     if (pac.insurance_plan_id) return
     const dia = c.start_time.slice(0, 10)
     pagamentos.push({
-      id: uid(), ...C, patient_id: c.patient_id, appointment_id: c.id, amount: [180, 250, 320, 150][i % 4],
+      id: uid(), ...C, ...SEM_PARCELA, patient_id: c.patient_id, appointment_id: c.id, amount: [180, 250, 320, 150][i % 4],
       payment_method: metodo[i % 4], status: 'paid', due_date: dia, paid_at: ts(dia, '18:00'), description: c.procedure,
     })
   })
   const parcelas = [-25, 5, 35].map((d, k) => ({
-    id: uid(), ...C, patient_id: P[0].id, amount: reais(ORC[0].budget.total / 3), payment_method: 'boleto',
+    id: uid(), ...C, ...SEM_PARCELA, patient_id: P[0].id, amount: reais(ORC[0].budget.total / 3), payment_method: 'boleto',
     status: d < 0 ? 'paid' : 'pending', due_date: addDias(hoje, d), paid_at: d < 0 ? ts(addDias(hoje, d), '10:00') : null,
     description: `Orçamento — parcela ${k + 1}/3`, budget_id: ORC[0].budget.id,
     charge_group_id: null, installment_number: k + 1, installment_count: 3,
@@ -264,9 +282,9 @@ export function montarDados(ctx) {
   parcelas.forEach((p) => { p.charge_group_id = grupo })
   pagamentos.push(...parcelas)
   pagamentos.push(
-    { id: uid(), ...C, patient_id: P[7].id, amount: 450, payment_method: 'pix', status: 'pending', due_date: addDias(hoje, -12), paid_at: null, description: 'Restauração (2 dentes)' },
-    { id: uid(), ...C, patient_id: P[10].id, amount: 300, payment_method: 'boleto', status: 'pending', due_date: addDias(hoje, -4), paid_at: null, description: 'Avaliação e limpeza' },
-    { id: uid(), ...C, patient_id: P[12].id, amount: 600, payment_method: 'cartao_credito', status: 'pending', due_date: addDias(hoje, 10), paid_at: null, description: 'Manutenção ortodôntica' },
+    { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[7].id, amount: 450, payment_method: 'pix', status: 'pending', due_date: addDias(hoje, -12), paid_at: null, description: 'Restauração (2 dentes)' },
+    { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[10].id, amount: 300, payment_method: 'boleto', status: 'pending', due_date: addDias(hoje, -4), paid_at: null, description: 'Avaliação e limpeza' },
+    { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[12].id, amount: 600, payment_method: 'cartao_credito', status: 'pending', due_date: addDias(hoje, 10), paid_at: null, description: 'Manutenção ortodôntica' },
   )
   add('payments', pagamentos)
   add('health_receipts', pagamentos.filter((p) => p.status === 'paid').slice(0, 2).map((p) => ({ payment_id: p.id, ...C, issued_by: userId })))
@@ -358,7 +376,8 @@ export function montarDados(ctx) {
   // ── Convênios: guias e lote ─────────────────────────────────────────────
   const guia = (pi, profId, status, extra) => ({
     id: uid(), ...C, patient_id: P[pi].id, insurance_plan_id: P[pi].insurance_plan_id, professional_id: profId,
-    status, insurance_card: P[pi].insurance_card, requested_at: addDias(hoje, -2), ...extra,
+    status, insurance_card: P[pi].insurance_card, requested_at: addDias(hoje, -2),
+    guide_number: null, password: null, password_valid_until: null, responded_at: null, ...extra,
   })
   const guias = add('insurance_guides', [
     guia(4, donoId, 'aguardando', {}),
@@ -404,13 +423,14 @@ export function montarDados(ctx) {
   const fone = (p) => `55${p.whatsapp}`
   const conversas = add('conversations', [
     { id: uid(), ...C, phone: fone(P[7]), patient_id: P[7].id, contact_name: P[7].name, handler: 'human', handoff_reason: 'Paciente pediu para falar com a recepção', unread: true, last_message_at: ts(hoje, '09:42') },
-    { id: uid(), ...C, phone: '5511912340000', patient_id: null, contact_name: 'Renata (novo contato)', handler: 'agent', unread: false, last_message_at: ts(hoje, '08:15') },
-    { id: uid(), ...C, phone: fone(P[3]), patient_id: P[3].id, contact_name: P[3].name, handler: 'agent', unread: false, last_message_at: ts(addDias(hoje, -1), '17:05') },
+    { id: uid(), ...C, phone: '5511912340000', patient_id: null, contact_name: 'Renata (novo contato)', handler: 'agent', handoff_reason: null, unread: false, last_message_at: ts(hoje, '08:15') },
+    { id: uid(), ...C, phone: fone(P[3]), patient_id: P[3].id, contact_name: P[3].name, handler: 'agent', handoff_reason: null, unread: false, last_message_at: ts(addDias(hoje, -1), '17:05') },
   ])
   const msg = (conversa, direction, type, body, quando, extra = {}) => ({
     id: uid(), ...C, conversation_id: conversa?.id ?? null, patient_id: conversa?.patient_id ?? null,
     direction, type, body, phone: conversa?.phone, status: direction === 'in' ? 'received' : 'sent',
-    scheduled_for: quando, sent_at: direction === 'out' ? quando : null, created_at: quando, ...extra,
+    scheduled_for: quando, sent_at: direction === 'out' ? quando : null, created_at: quando,
+    appointment_id: null, reply_action: null, ...extra,
   })
   const amanha = consultas.filter((c) => c.start_time.slice(0, 10) === addDias(hoje, 1) && c.status === 'scheduled')
   const confirmada = futuras.find((c) => c.status === 'confirmed')

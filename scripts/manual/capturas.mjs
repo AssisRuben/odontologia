@@ -61,4 +61,40 @@ export const CAPTURAS = [
       await page.getByRole('button', { name: 'Excluir consulta' }).waitFor()
     },
   },
+
+  // Configuração inicial
+  { arquivo: 'profissionais-lista', url: '/configuracoes/profissionais' },
+  {
+    arquivo: 'profissionais-editar', url: '/configuracoes/profissionais',
+    passos: async (page) => {
+      await page.locator('button:has(svg.lucide-pencil)').first().click() // Dr. Carlos Mendes (com comissão)
+      await page.getByText('% comissão particular').waitFor()
+    },
+  },
+  { arquivo: 'config-convenios-lista', url: '/configuracoes/convenios' },
+  {
+    arquivo: 'config-convenios-tabela', url: '/configuracoes/convenios',
+    passos: async (page) => {
+      await page.getByRole('button', { name: /Odonto Saúde/ }).first().click()
+      await page.getByText('Tabela de procedimentos').waitFor()
+      await page.waitForTimeout(800)
+    },
+  },
+  { arquivo: 'taxas', url: '/configuracoes/taxas' },
+  {
+    arquivo: 'pagamentos-conexao', url: '/configuracoes/pagamentos',
+    falsos: { 'input[placeholder="Cole aqui a chave de API do Asaas"]': 'demo-0000000000' },
+  },
+  { arquivo: 'config-mensagens-conexao', url: '/configuracoes/mensagens' },
+  {
+    arquivo: 'config-mensagens-automaticas', url: '/mensagens',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Automáticas' }).click()
+      await page.getByText('Confirmação de consulta').first().waitFor()
+    },
+  },
+  { arquivo: 'ia', url: '/configuracoes/ia', falsos: { '#ia-chave': 'sk-demo-0000000000000000' } },
+  { arquivo: 'agente', url: '/configuracoes/agente' },
+  { arquivo: 'anamnese', url: '/configuracoes/anamnese' },
+  { arquivo: 'laboratorios', url: '/configuracoes/laboratorios' },
 ]

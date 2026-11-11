@@ -54,6 +54,13 @@ describe('montarDados', () => {
     }
   })
 
+  it('linhas da mesma tabela têm as mesmas colunas (inserção em lote preenche as faltantes com vazio)', () => {
+    for (const [nome, linhas] of demo.insercoes as [string, Linha[]][]) {
+      const chaves = (l: Linha) => Object.keys(l).sort().join(',')
+      for (const l of linhas) expect(chaves(l), nome).toBe(chaves(linhas[0]))
+    }
+  })
+
   it('grava tudo na clínica demo', () => {
     for (const [nome, linhas] of demo.insercoes as [string, Linha[]][]) {
       for (const l of linhas) if ('clinic_id' in l) expect(l.clinic_id, nome).toBe(ctx.clinicId)
