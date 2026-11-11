@@ -33,6 +33,14 @@ const abrirFicha = (aba, esperar, paciente = PACIENTE_DEMO) => async (page) => {
   if (esperar) await esperar(page)
 }
 
+// Abre uma aba do Financeiro
+const abaFinanceiro = (aba, esperarTexto) => async (page) => {
+  await page.getByRole('button', { name: aba, exact: true }).click()
+  if (esperarTexto) await page.getByText(esperarTexto).first().waitFor()
+  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForTimeout(1200)
+}
+
 export const CAPTURAS = [
   // Acesso
   { arquivo: 'acesso-cadastro', url: '/register', semLogin: true },
@@ -191,4 +199,22 @@ export const CAPTURAS = [
       await page.getByRole('button', { name: 'Copiar texto' }).waitFor()
     },
   },
+
+  // Financeiro
+  { arquivo: 'financeiro-painel', url: '/financeiro' },
+  {
+    arquivo: 'financeiro-cobranca', url: '/pacientes',
+    passos: abrirFicha('Pagamentos', async (p) => {
+      await p.getByRole('button', { name: 'Nova cobrança' }).click()
+      await p.getByText('Valor total (R$)').waitFor()
+    }),
+  },
+  { arquivo: 'financeiro-receber', url: '/financeiro', passos: abaFinanceiro('A receber') },
+  { arquivo: 'financeiro-despesas', url: '/financeiro', passos: abaFinanceiro('Despesas') },
+  { arquivo: 'financeiro-fluxo', url: '/financeiro', passos: abaFinanceiro('Fluxo de caixa', 'Saldo hoje') },
+  { arquivo: 'financeiro-comissoes', url: '/financeiro', passos: abaFinanceiro('Comissões', 'Ver extrato') },
+  { arquivo: 'financeiro-livro', url: '/financeiro', passos: abaFinanceiro('Livro-caixa', 'Resultado do mês') },
+
+  // Relatórios
+  { arquivo: 'relatorios', url: '/relatorios' },
 ]

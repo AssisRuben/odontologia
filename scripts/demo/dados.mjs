@@ -226,6 +226,9 @@ export function montarDados(ctx) {
     tr(5, donoId, procPlano(P[5].insurance_plan_id, 2).name, procPlano(P[5].insurance_plan_id, 2).value, 'completed', -35, conv(5, 2)),
     tr(5, donoId, procPlano(P[5].insurance_plan_id, 1).name, procPlano(P[5].insurance_plan_id, 1).value, 'completed', -35, conv(5, 1)),
     tr(6, juliana.id, procPlano(P[6].insurance_plan_id, 4).name, procPlano(P[6].insurance_plan_id, 4).value, 'completed', -3, conv(6, 4)),
+    // Concluídos e pagos no mês passado: dão comissão ao Dr. Carlos e à Dra. Juliana
+    tr(1, carlos.id, 'Instalação do aparelho ortodôntico', 1200, 'completed', -30),
+    tr(9, juliana.id, 'Tratamento de canal', 950, 'completed', -27),
   ])
   add('treatment_teeth', [
     [0, 36, ['O', 'D']], [1, 26, []], [2, 46, []], [4, 11, []], [6, 15, ['O']], [7, 24, ['M', 'O']], [9, 21, []],
@@ -292,6 +295,8 @@ export function montarDados(ctx) {
   parcelas.forEach((p) => { p.charge_group_id = grupo })
   pagamentos.push(...parcelas)
   pagamentos.push(
+    { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[1].id, amount: 1200, payment_method: 'cartao_credito', status: 'paid', due_date: addDias(hoje, -29), paid_at: ts(addDias(hoje, -29), '11:00'), description: 'Instalação do aparelho' },
+    { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[9].id, amount: 950, payment_method: 'pix', status: 'paid', due_date: addDias(hoje, -26), paid_at: ts(addDias(hoje, -26), '15:00'), description: 'Tratamento de canal' },
     { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[7].id, amount: 450, payment_method: 'pix', status: 'pending', due_date: addDias(hoje, -12), paid_at: null, description: 'Restauração (2 dentes)' },
     { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[10].id, amount: 300, payment_method: 'boleto', status: 'pending', due_date: addDias(hoje, -4), paid_at: null, description: 'Avaliação e limpeza' },
     { id: uid(), ...C, ...SEM_PARCELA, patient_id: P[12].id, amount: 600, payment_method: 'cartao_credito', status: 'pending', due_date: addDias(hoje, 10), paid_at: null, description: 'Manutenção ortodôntica' },
@@ -474,7 +479,7 @@ export function montarDados(ctx) {
   add('messages', mensagens)
 
   // ── Fluxo de caixa ───────────────────────────────────────────────────
-  add('cash_balances', [{ id: uid(), ...C, balance_date: addDias(hoje, -1), amount: 18450.3, created_by: userId }])
+  add('cash_balances', [{ id: uid(), ...C, balance_date: addDias(hoje, -1), amount: 45450.3, created_by: userId }])
   const recorrencias = [
     { description: 'Aluguel da sala', amount: 3500, category: 'aluguel', deduction_group: 'custeio', payment_method: 'boleto', day_of_month: 5, start_month: mesInicio(hoje, -1), end_month: null },
     { description: 'Internet e telefone', amount: 149.9, category: 'contas', deduction_group: 'custeio', payment_method: 'pix', day_of_month: 10, start_month: mesInicio(hoje, -1), end_month: null },
