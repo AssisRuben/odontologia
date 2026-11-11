@@ -24,7 +24,7 @@ const componentes: Components = {
     <figure className="my-5 break-inside-avoid">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} loading="lazy"
-        className="w-full max-w-3xl rounded-lg border border-linha shadow-sm bg-white" />
+        className="max-w-full h-auto rounded-lg border border-linha shadow-sm bg-white" />
       {alt && <figcaption className="mt-2 text-xs text-tinta-3">{alt}</figcaption>}
     </figure>
   ),

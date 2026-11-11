@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomBytes, randomUUID, createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { montarDados, snapshotAprovacao } from './dados.mjs'
+import { montarDados, snapshotAprovacao, novoToken } from './dados.mjs'
 import { atualizarEnv } from './env.mjs'
 
 const EMAIL = 'demo@manual.local'
@@ -110,13 +110,18 @@ async function main() {
 
   // Orçamentos: o status só muda pelas funções do banco
   const nomes = Object.fromEntries((await ok(db.from('professionals').select('id, name').eq('clinic_id', clinicId), 'ler profissionais')).map((p) => [p.id, p.name]))
+  let tokenExemplo = ''
   for (const o of demo.orcamentos) {
     if (o.acao === 'rascunho') continue
-    const token = randomBytes(24).toString('base64url')
+    const token = novoToken()
+    if (o.acao === 'enviar') tokenExemplo = token
     const r = await rpc('send_budget', { p_budget_id: o.id, p_token: token, p_validity_days: 30, p_actor: userId })
     if (r !== 'ok') falhar(`enviar orçamento: ${r}`)
     if (o.acao === 'ver') {
-      await ok(db.from('budgets').update({ viewed_at: new Date().toISOString() }).eq('id', o.id), 'marcar orçamento como visto')
+      // Enviado há 4 dias e visto há 3: cai em "Para ligar" (visto há 2 dias ou mais, sem resposta)
+      const dias = (n) => new Date(Date.now() - n * 86400000).toISOString()
+      await ok(db.from('budgets').update({ sent_at: dias(4), viewed_at: dias(3) }).eq('id', o.id), 'marcar orçamento como visto')
+      await ok(db.from('budget_links').update({ created_at: dias(4) }).eq('budget_id', o.id).is('revoked_at', null), 'datar o link')
       await ok(db.from('budget_links').update({ view_count: 2 }).eq('budget_id', o.id).is('revoked_at', null), 'contar visualização')
       await ok(db.from('budget_events').insert({ budget_id: o.id, clinic_id: clinicId, type: 'viewed' }), 'registrar visualização')
     }
@@ -157,7 +162,8 @@ async function main() {
   if (foraDepois !== foraAntes) falhar(`Pacientes de outras clínicas mudaram (${foraAntes} → ${foraDepois}). Verifique!`)
 
   const texto = fs.existsSync(ARQ_ENV) ? fs.readFileSync(ARQ_ENV, 'utf8') : ''
-  fs.writeFileSync(ARQ_ENV, atualizarEnv(texto, { MANUAL_EMAIL: EMAIL, MANUAL_SENHA: senha }))
+  // MANUAL_ORCAMENTO_TOKEN: link de um orçamento enviado, para a captura da página do paciente
+  fs.writeFileSync(ARQ_ENV, atualizarEnv(texto, { MANUAL_EMAIL: EMAIL, MANUAL_SENHA: senha, MANUAL_ORCAMENTO_TOKEN: tokenExemplo }))
 
   const total = demo.insercoes.reduce((s, [, l]) => s + l.length, 0)
   console.log(`\n✓ Clínica demo pronta: ${total} registros (dados em volta de ${hoje}).`)

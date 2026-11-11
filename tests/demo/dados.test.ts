@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
-import { montarDados, cpfValido } from '../../scripts/demo/dados.mjs'
+import { montarDados, cpfValido, novoToken } from '../../scripts/demo/dados.mjs'
 
 type Linha = Record<string, unknown>
 
@@ -34,6 +34,12 @@ function digitosCpf(cpf: string) {
 describe('cpfValido', () => {
   it('calcula os dígitos verificadores', () => {
     expect(cpfValido('529982247')).toBe('529.982.247-25')
+  })
+})
+
+describe('novoToken', () => {
+  it('tem o formato que o app aceita no link do orçamento', () => {
+    expect(novoToken()).toMatch(/^[A-Za-z0-9_-]{43}$/)
   })
 })
 

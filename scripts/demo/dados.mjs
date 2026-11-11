@@ -2,6 +2,8 @@
 // recebe a data de hoje e um gerador de IDs e devolve as linhas de cada tabela,
 // na ordem em que devem ser inseridas, mais as ações feitas pelas funções do banco.
 
+import { randomBytes } from 'node:crypto'
+
 // ── Datas (fuso de São Paulo, sem horário de verão) ────────────────────────
 const utc = (ymd) => new Date(`${ymd}T12:00:00Z`)
 const ymdDe = (d) => d.toISOString().slice(0, 10)
@@ -19,6 +21,9 @@ const periodoDe = (data, dia) => {
   const start = addDias(ymdDe(new Date(Date.UTC(y, mesFim - 1, dia, 12))), 1)
   return { start, end }
 }
+
+// Código do link do orçamento: mesmo formato do app (src/lib/orcamentos/links.ts, 43 caracteres)
+export const novoToken = () => randomBytes(32).toString('base64url')
 
 // ── CPF com dígitos verificadores ─────────────────────────────────────────
 export function cpfValido(base9) {
@@ -190,9 +195,14 @@ export function montarDados(ctx) {
   if (templateId && perguntas?.length) {
     add('anamneses', [0, 1, 2, 5].map((i) => ({
       id: uid(), ...C, patient_id: P[i].id, template_id: templateId,
-      answers: Object.fromEntries(perguntas.map((q) =>
-        [q.id, q.type === 'yesno' ? (i === 5 && q === perguntas[0] ? 'Sim' : 'Não') : i === 0 ? 'Penicilina' : ''])),
-      notes: null,
+      // Maria (0) tem alergia a penicilina; Roberto (5) está em tratamento médico (diabetes)
+      answers: Object.fromEntries(perguntas.map((q) => {
+        const t = q.text ?? ''
+        if (q.type !== 'yesno') return [q.id, '']
+        const sim = (i === 0 && /alergia/i.test(t)) || (i === 5 && /(diabet|tratamento médico)/i.test(t))
+        return [q.id, sim ? 'Sim' : 'Não']
+      })),
+      notes: i === 0 ? 'Alérgica a penicilina.' : i === 5 ? 'Diabético, em uso de metformina.' : null,
     })))
   }
 

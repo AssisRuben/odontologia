@@ -45,11 +45,14 @@ async function entrar(browser, { url, email, senha }) {
 }
 
 async function capturar(browser, url, sessao, c) {
-  const ctx = await browser.newContext({ ...CONTEXTO, ...(c.semLogin ? {} : { storageState: sessao }) })
+  const ctx = await browser.newContext({
+    ...CONTEXTO, ...(c.viewport ? { viewport: c.viewport, isMobile: true, hasTouch: true, deviceScaleFactor: 1 } : {}),
+    ...(c.semLogin ? {} : { storageState: sessao }),
+  })
   ctx.setDefaultTimeout(ESPERA)
   const page = await ctx.newPage()
   try {
-    await page.goto(`${url}${c.url}`)
+    await page.goto(`${url}${typeof c.url === 'function' ? c.url() : c.url}`)
     await page.waitForLoadState('networkidle', { timeout: ESPERA }).catch(() => {})
     if (c.passos) await c.passos(page)
     for (const [seletor, valor] of Object.entries(c.falsos ?? {})) await page.locator(seletor).fill(valor)
