@@ -13,6 +13,17 @@ Para achar um paciente, digite nome, telefone ou CPF na busca da lista, ou use *
 
 ![Lista de pacientes](/ajuda/img/pacientes-lista.png)
 
+## Aniversariantes e retornos
+
+Na lista de pacientes há duas abas para chamar o paciente de volta:
+
+- **Aniversariantes**: quem faz aniversário no mês, em ordem de dia. O número ao lado da aba mostra quantos são.
+- **Retornos semestrais**: quem veio pela última vez há 6 meses ou mais e não tem consulta marcada. Aparece a data da última consulta, dos mais antigos para os mais novos. Abra a ficha e use **Enviar WhatsApp** com o modelo de retorno, ou ligue e marque na [Agenda](#agenda).
+
+A busca também funciona dentro das duas abas.
+
+![Retornos semestrais](/ajuda/img/pacientes-retornos.png)
+
 ## Completar o cadastro
 
 Na ficha, clique em **Editar**. A janela tem:

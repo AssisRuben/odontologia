@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { montarDados, cpfValido, novoToken } from '../../scripts/demo/dados.mjs'
+import { aniversariantesDoMes, retornosPendentes } from '@/lib/pacientes/listas'
 
 type Linha = Record<string, unknown>
 
@@ -79,6 +80,7 @@ describe('montarDados', () => {
       new Set(['scheduled', 'confirmed', 'waiting', 'in_progress', 'completed', 'cancelled', 'no_show']))
     for (const c of consultas) {
       const dia = (c.start_time as string).slice(0, 10)
+      if (dia < '2026-06-01' && c.status === 'completed') continue // visitas antigas (retornos)
       expect(dia >= '2026-11-02' && dia <= '2026-11-21', dia).toBe(true)
       expect(new Date(`${dia}T12:00:00Z`).getUTCDay(), dia).not.toBe(0)
     }
@@ -95,6 +97,13 @@ describe('montarDados', () => {
   it('tem consultas hoje e um aniversariante hoje', () => {
     expect(tabela('appointments').some(c => (c.start_time as string).startsWith('2026-11-11'))).toBe(true)
     expect(tabela('patients').some(p => (p.birthdate as string)?.slice(5) === '11-11')).toBe(true)
+  })
+
+  it('tem aniversariantes no mês e pacientes para o retorno semestral', () => {
+    const pacientes = tabela('patients') as { id: string; birthdate: string | null }[]
+    const consultas = tabela('appointments') as { patient_id: string; start_time: string; status: string }[]
+    expect(aniversariantesDoMes(pacientes, '2026-11-11').length).toBeGreaterThanOrEqual(2)
+    expect(retornosPendentes(pacientes, consultas, new Date('2026-11-11T12:00:00-03:00')).length).toBeGreaterThanOrEqual(3)
   })
 
   it('CPFs dos pacientes são válidos', () => {

@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
-  ChevronLeft, Phone, Edit2, Tag, Plus, ClipboardList,
+  ChevronLeft, Phone, Edit2, Tag, Plus,
   Calendar, Clock, User2, MessageCircle,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
@@ -299,24 +299,6 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
             {/* Coluna esquerda */}
             <div className="lg:w-80 xl:w-96 shrink-0 space-y-4">
 
-              {/* Card Tarefas */}
-              <div className="bg-white rounded-xl border border-linha p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <ClipboardList className="w-4 h-4 text-tinta-3" />
-                    <span className="text-sm font-semibold text-tinta">Tarefas</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button className="p-1 rounded text-petroleo hover:bg-petroleo-50 text-xs font-medium flex items-center gap-1">
-                      <Plus className="w-3 h-3" />
-                      Nova
-                    </button>
-                    <ChevronLeft className="w-4 h-4 text-tinta-4 rotate-180" />
-                  </div>
-                </div>
-                <p className="text-xs text-tinta-4">Nenhuma tarefa cadastrada</p>
-              </div>
-
               {/* Card Informações */}
               <div className="bg-white rounded-xl border border-linha p-4">
                 <h3 className="text-sm font-semibold text-tinta mb-4">Informações</h3>
@@ -363,27 +345,6 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
                 </div>
               </div>
 
-              {/* Card Serasa */}
-              <div className="bg-white rounded-xl border border-linha p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-tinta">Consulta no Serasa</h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana transition-colors">
-                    <ClipboardList className="w-3.5 h-3.5" />
-                    Consultar
-                  </button>
-                </div>
-                {/* Ilustração decorativa */}
-                <div className="flex items-center justify-center py-4">
-                  <svg width="80" height="60" viewBox="0 0 80 60" fill="none">
-                    <circle cx="25" cy="30" r="20" fill="#E4EFF2" stroke="#B7D0D7" strokeWidth="1.5" />
-                    <path d="M15 30 L25 20 L35 30 L25 40Z" fill="#173B47" opacity="0.6" />
-                    <circle cx="25" cy="30" r="6" fill="#173B47" />
-                    <rect x="52" y="15" width="24" height="30" rx="4" fill="#F0FDF4" stroke="#BBF7D0" strokeWidth="1.5" />
-                    <text x="64" y="34" textAnchor="middle" fill="#16A34A" fontSize="14" fontWeight="bold">$</text>
-                    <path d="M43 28 L48 28 M43 32 L48 32" stroke="#8A989E" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </div>
-              </div>
             </div>
 
             {/* Coluna direita */}

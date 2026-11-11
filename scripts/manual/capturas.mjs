@@ -122,6 +122,13 @@ export const CAPTURAS = [
 
   // Pacientes
   { arquivo: 'pacientes-lista', url: '/pacientes' },
+  {
+    arquivo: 'pacientes-retornos', url: '/pacientes',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Retornos semestrais' }).click()
+      await page.getByText('Última consulta:').first().waitFor()
+    },
+  },
   { arquivo: 'pacientes-ficha', url: '/pacientes', passos: abrirFicha() },
   { arquivo: 'pacientes-anamnese', url: '/pacientes', passos: abrirFicha('Anamneses', (p) => p.getByText('Anamnese Geral').first().click()) },
   { arquivo: 'pacientes-tratamentos', url: '/pacientes', passos: abrirFicha('Tratamentos') },

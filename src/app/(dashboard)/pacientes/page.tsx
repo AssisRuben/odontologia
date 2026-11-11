@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Search, Plus, Phone, Cake } from 'lucide-react'
-import { parseISO, isThisMonth } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
 import { getInitials, formatPhone } from '@/lib/utils'
+import { aniversariantesDoMes, retornosPendentes } from '@/lib/pacientes/listas'
 import type { Patient } from '@/types'
 
 const AVATAR_COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#84CC16','#F97316','#EC4899','#6366F1']
@@ -17,6 +18,26 @@ function getAvatarColor(name: string) {
 }
 
 type Tab = 'buscar' | 'aniversariantes' | 'retornos'
+type ConsultaResumo = { patient_id: string; start_time: string; status: string }
+
+const PAGINA = 1000
+
+async function carregarConsultas(clinicId: string): Promise<ConsultaResumo[]> {
+  const supabase = createClient()
+  const todas: ConsultaResumo[] = []
+  for (let de = 0; ; de += PAGINA) {
+    const r = await supabase.from('appointments').select('patient_id, start_time, status')
+      .eq('clinic_id', clinicId)
+      .in('status', ['completed', 'scheduled', 'confirmed', 'waiting', 'in_progress'])
+      .order('id')
+      .range(de, de + PAGINA - 1)
+    if (r.error) throw r.error
+    const linhas = (r.data as ConsultaResumo[]) || []
+    todas.push(...linhas)
+    if (linhas.length < PAGINA) break
+  }
+  return todas
+}
 
 export default function PacientesPage() {
   const { clinicId, loading: clinicLoading } = useClinicStore()
@@ -25,6 +46,8 @@ export default function PacientesPage() {
   const [activeTab, setActiveTab] = useState<Tab>('buscar')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [consultas, setConsultas] = useState<ConsultaResumo[] | null>(null)
+  const [erroConsultas, setErroConsultas] = useState(false)
 
   async function loadPatients(id: string) {
     const supabase = createClient()
@@ -41,21 +64,28 @@ export default function PacientesPage() {
     if (clinicId) loadPatients(clinicId)
   }, [clinicId])
 
-  const filtered = patients.filter((p) => {
-    if (activeTab === 'aniversariantes') {
-      if (!p.birthdate) return false
-      return isThisMonth(parseISO(p.birthdate))
-    }
-    if (!search) return true
-    const q = search.toLowerCase()
-    return p.name.toLowerCase().includes(q) || p.phone?.includes(q) || p.cpf?.includes(q)
-  })
+  useEffect(() => {
+    if (activeTab !== 'retornos' || !clinicId || consultas) return
+    carregarConsultas(clinicId).then(setConsultas, () => setErroConsultas(true))
+  }, [activeTab, clinicId, consultas])
 
-  const birthdayCount = patients.filter((p) => p.birthdate && isThisMonth(parseISO(p.birthdate))).length
+  const hoje = format(new Date(), 'yyyy-MM-dd')
+  const aniversariantes = aniversariantesDoMes(patients, hoje)
+  const retornos = consultas ? retornosPendentes(patients, consultas, new Date()) : []
+  const ultimaVisita = new Map(retornos.map((r) => [r.paciente.id, r.ultima]))
+
+  const q = search.toLowerCase()
+  const base = activeTab === 'aniversariantes' ? aniversariantes
+    : activeTab === 'retornos' ? retornos.map((r) => r.paciente)
+    : patients
+  const filtered = !q ? base : base.filter((p) =>
+    p.name.toLowerCase().includes(q) || p.phone?.includes(q) || p.cpf?.includes(q))
+  const aniversarianteIds = new Set(aniversariantes.map((p) => p.id))
+  const carregandoLista = loading || (activeTab === 'retornos' && !consultas && !erroConsultas)
 
   const tabs = [
     { id: 'buscar' as Tab, label: 'Buscar' },
-    { id: 'aniversariantes' as Tab, label: 'Aniversariantes', count: birthdayCount },
+    { id: 'aniversariantes' as Tab, label: 'Aniversariantes', count: aniversariantes.length },
     { id: 'retornos' as Tab, label: 'Retornos semestrais' },
   ]
 
@@ -113,7 +143,9 @@ export default function PacientesPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {activeTab === 'retornos' && erroConsultas ? (
+          <p className="p-6 text-sm text-red-600">Não consegui carregar as consultas. Recarregue a página.</p>
+        ) : carregandoLista ? (
           <div className="flex items-center justify-center h-48">
             <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
           </div>
@@ -123,10 +155,16 @@ export default function PacientesPage() {
               <circle cx="32" cy="32" r="30" fill="#EEF2F2" />
               <path d="M32 20a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 18c8.84 0 16 3.58 16 8v2H16v-2c0-4.42 7.16-8 16-8z" fill="#CBD5D8" />
             </svg>
-            <p className="text-sm text-tinta-3">Nenhum paciente encontrado</p>
-            <button onClick={() => setShowForm(true)} className="text-sm text-petroleo font-medium hover:underline">
-              Cadastrar primeiro paciente
-            </button>
+            <p className="text-sm text-tinta-3">
+              {activeTab === 'aniversariantes' ? 'Ninguém faz aniversário este mês'
+                : activeTab === 'retornos' ? 'Nenhum paciente com retorno pendente'
+                : 'Nenhum paciente encontrado'}
+            </p>
+            {activeTab === 'buscar' && !q && (
+              <button onClick={() => setShowForm(true)} className="text-sm text-petroleo font-medium hover:underline">
+                Cadastrar primeiro paciente
+              </button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-linha">
@@ -143,12 +181,16 @@ export default function PacientesPage() {
                     {patient.insurance_plan && (
                       <span className="hidden sm:inline text-xs text-tinta-3">({patient.insurance_plan.name})</span>
                     )}
-                    {patient.birthdate && isThisMonth(parseISO(patient.birthdate)) && (
+                    {aniversarianteIds.has(patient.id) && (
                       <Cake className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
                     )}
                   </div>
                   <div className="text-xs text-tinta-4 mt-0.5">
-                    {patient.phone ? formatPhone(patient.phone) : 'Última consulta: —'}
+                    {activeTab === 'aniversariantes' && patient.birthdate
+                      ? `Aniversário em ${format(parseISO(patient.birthdate), 'dd/MM')}`
+                      : activeTab === 'retornos' && ultimaVisita.has(patient.id)
+                      ? `Última consulta: ${format(parseISO(ultimaVisita.get(patient.id)!), 'dd/MM/yyyy')}`
+                      : patient.phone ? formatPhone(patient.phone) : 'Sem telefone'}
                   </div>
                 </div>
                 {patient.phone && (
