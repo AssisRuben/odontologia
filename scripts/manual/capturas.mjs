@@ -21,9 +21,9 @@ const abrirPrimeiraConsulta = async (page) => {
 }
 
 // Abre a ficha do paciente de exemplo e, se pedido, uma aba dela
-const abrirFicha = (aba, esperar) => async (page) => {
-  await page.getByPlaceholder('Buscar por nome, telefone ou CPF...').fill(PACIENTE_DEMO)
-  await page.getByText(PACIENTE_DEMO).first().click()
+const abrirFicha = (aba, esperar, paciente = PACIENTE_DEMO) => async (page) => {
+  await page.getByPlaceholder('Buscar por nome, telefone ou CPF...').fill(paciente)
+  await page.getByText(paciente).first().click()
   await page.getByText('Odontograma').first().waitFor()
   if (aba) {
     await page.getByRole('button', { name: aba, exact: true }).click()
@@ -132,6 +132,63 @@ export const CAPTURAS = [
     passos: async (page) => {
       await page.getByRole('button', { name: 'Registrar contato' }).first().click()
       await page.getByText('Vai pensar').waitFor()
+    },
+  },
+
+  // Mensagens
+  {
+    arquivo: 'mensagens-conversas', url: '/mensagens',
+    passos: async (page) => {
+      await page.getByText('Lucas Ferreira Gomes').first().click()
+      await page.getByPlaceholder('Escreva uma resposta…').waitFor()
+      await page.waitForTimeout(800)
+    },
+  },
+  {
+    arquivo: 'mensagens-historico', url: '/mensagens',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Histórico' }).click()
+      await page.getByLabel('Filtrar por tipo').waitFor()
+      await page.waitForTimeout(800)
+    },
+  },
+
+  // Convênios
+  {
+    arquivo: 'convenios-guias', url: '/pacientes',
+    passos: abrirFicha('Tratamentos', async (p) => {
+      await p.getByRole('button', { name: 'Criar guia' }).scrollIntoViewIfNeeded()
+      await p.waitForTimeout(500)
+    }, 'Roberto Almeida Nunes'),
+  },
+  { arquivo: 'convenios-pendencias', url: '/convenios' },
+  { arquivo: 'convenios-lotes', url: '/convenios?aba=lotes' },
+  { arquivo: 'convenios-pagamentos', url: '/convenios?aba=pagamentos' },
+
+  // Prótese
+  { arquivo: 'protese-quadro', url: '/protese' },
+
+  // Estoque
+  { arquivo: 'estoque-produtos', url: '/estoque' },
+  {
+    arquivo: 'estoque-entrada', url: '/estoque',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Entrada', exact: true }).first().click() // produto com validade
+      await page.getByText('Quantidade *').waitFor()
+    },
+  },
+  {
+    arquivo: 'estoque-kits', url: '/estoque',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Kits', exact: true }).click()
+      await page.getByText('Kit restauração').waitFor()
+    },
+  },
+  {
+    arquivo: 'estoque-compras', url: '/estoque',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Lista de compras' }).click()
+      await page.getByRole('button', { name: 'Copiar texto' }).waitFor()
     },
   },
 ]

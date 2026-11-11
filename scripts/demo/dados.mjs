@@ -390,9 +390,9 @@ export function montarDados(ctx) {
     guide_number: null, password: null, password_valid_until: null, responded_at: null, ...extra,
   })
   const guias = add('insurance_guides', [
-    guia(4, donoId, 'aguardando', {}),
+    guia(4, donoId, 'aguardando', { requested_at: addDias(hoje, -9) }), // vira pendência (mais de 7 dias)
     guia(5, donoId, 'liberada', { guide_number: '20260001', password: 'A7K2P9', password_valid_until: addDias(hoje, 30), requested_at: addDias(hoje, -40), responded_at: ts(addDias(hoje, -39), '15:00') }),
-    guia(6, juliana.id, 'liberada', { guide_number: '20260002', password: 'B3M8Q1', password_valid_until: addDias(hoje, 25), requested_at: addDias(hoje, -6), responded_at: ts(addDias(hoje, -5), '10:00') }),
+    guia(6, juliana.id, 'liberada', { guide_number: '20260002', password: 'B3M8Q1', password_valid_until: addDias(hoje, 3), requested_at: addDias(hoje, -6), responded_at: ts(addDias(hoje, -5), '10:00') }),
   ])
   const itemGuia = (g, t, authorization, executed_at) => {
     const tt = tratamentos[t]
