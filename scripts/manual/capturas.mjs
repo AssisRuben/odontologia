@@ -9,10 +9,55 @@
 //   fullPage  (opcional) fotografa a página inteira, não só a parte visível
 //   semLogin  (opcional) fotografa sem estar logado (ex.: tela de login)
 
-// Data que o navegador "vê" nas capturas: dentro do período dos dados do scripts/seed.mjs.
-export const DATA_DEMO = '2026-05-26T10:00:00-03:00'
+// Os dados vêm do `npm run demo` (datas em volta de hoje).
+// Paciente usado nas capturas da ficha.
+export const PACIENTE_DEMO = 'Maria Silva Santos'
 
-// Paciente do seed usado nas capturas da ficha (Maria Silva Santos).
-export const PACIENTE_DEMO = 'cc000001-0000-4000-8000-000000000001'
+const abrirPrimeiraConsulta = async (page) => {
+  await page.locator('.fc-event').first().click()
+  await page.getByRole('button', { name: 'Editar' }).waitFor()
+}
 
-export const CAPTURAS = []
+export const CAPTURAS = [
+  // Acesso
+  { arquivo: 'acesso-cadastro', url: '/register', semLogin: true },
+  { arquivo: 'acesso-login', url: '/login', semLogin: true },
+  {
+    arquivo: 'acesso-busca', url: '/agenda',
+    passos: async (page) => {
+      await page.locator('button[title="Buscar paciente (Ctrl+K)"]:visible').first().click()
+      await page.getByPlaceholder('Nome, telefone ou CPF do paciente').fill('Ma')
+      await page.waitForTimeout(1200)
+    },
+  },
+  {
+    arquivo: 'acesso-pendencias', url: '/agenda',
+    passos: async (page) => {
+      await page.locator('button[title="Pendências"]').click()
+      await page.waitForTimeout(800)
+    },
+  },
+
+  // Dados da clínica
+  { arquivo: 'clinica-configuracoes', url: '/configuracoes' },
+  { arquivo: 'clinica-dados', url: '/configuracoes/clinica' },
+
+  // Agenda
+  { arquivo: 'agenda-semana', url: '/agenda' },
+  {
+    arquivo: 'agenda-nova', url: '/agenda',
+    passos: async (page) => {
+      await page.getByRole('button', { name: 'Nova consulta' }).click()
+      await page.getByRole('button', { name: 'Salvar consulta' }).waitFor()
+    },
+  },
+  { arquivo: 'agenda-detalhes', url: '/agenda', passos: abrirPrimeiraConsulta },
+  {
+    arquivo: 'agenda-editar', url: '/agenda',
+    passos: async (page) => {
+      await abrirPrimeiraConsulta(page)
+      await page.getByRole('button', { name: 'Editar' }).click()
+      await page.getByRole('button', { name: 'Excluir consulta' }).waitFor()
+    },
+  },
+]

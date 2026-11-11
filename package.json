@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "manual": "node --env-file=.env.local scripts/manual/gerar.mjs"
+    "manual": "node --env-file=.env.local scripts/manual/gerar.mjs",
+    "demo": "node --env-file=.env.local scripts/demo/rodar.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

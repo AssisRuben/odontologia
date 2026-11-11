@@ -554,7 +554,9 @@ src/
   types/               tipos das tabelas
   proxy.ts             redireciona para /login quem não está logado
 supabase/schema.sql    estrutura completa do banco — use este para criar um banco novo
-scripts/seed.mjs       dados de teste
+scripts/seed.mjs       dados de teste (antigos)
+scripts/demo/          npm run demo: conta e dados de demonstração completos
+scripts/manual/        npm run manual: capturas e PDF do manual
 ```
 
 Os arquivos `seed.sql` e `scripts/*.sql` são histórico do banco original e **não** são necessários num banco novo: tudo o que eles fazem já está em `supabase/schema.sql`.
@@ -568,6 +570,7 @@ Os arquivos `seed.sql` e `scripts/*.sql` são histórico do banco original e **n
 | `npm run start` | roda a versão de produção |
 | `npm run lint` | verifica o código |
 | `npm test` | roda os testes automáticos |
+| `npm run demo` | cria a conta de demonstração com dados completos (veja abaixo) |
 | `npm run manual` | refaz as capturas e o PDF do manual (veja abaixo) |
 
 ## Manual do sistema
@@ -580,18 +583,16 @@ O manual fica em **Ajuda** no menu (`/ajuda`) e também em PDF (`public/ajuda/ma
 
 ### Refazer capturas e PDF
 
-Uma vez só:
+Uma vez só: `npx playwright install chromium` (navegador usado pelo script).
 
-1. Crie uma conta de demonstração em `/register` (sem chaves reais de OpenAI, Asaas ou WhatsApp).
-2. Preencha essa conta com os dados de teste: `CLINIC_ID=<id da clínica demo> node --env-file=.env.local scripts/seed.mjs`.
-3. No `.env.local`, coloque `MANUAL_EMAIL` e `MANUAL_SENHA` dessa conta (e `MANUAL_URL`, se o app não estiver em `http://localhost:3000`).
-4. Instale o navegador usado pelo script: `npx playwright install chromium`.
-
-Depois, sempre que uma tela mudar:
+Sempre que uma tela mudar:
 
 ```bash
+npm run demo         # recria a conta e os dados de demonstração
 npm run dev          # em um terminal
 npm run manual       # em outro
 ```
 
-O script entra com a conta demo, fotografa cada tela (com o relógio do navegador em 26/05/2026, a data dos dados de teste — ajuste `DATA_DEMO` em `scripts/manual/capturas.mjs` se o seed mudar) e gera o PDF. Se alguma captura falhar, ele lista quais e não gera o PDF.
+- `npm run demo` cria (ou atualiza) o login `demo@manual.local` com a "Clínica Demonstração" e recria **só os dados dessa clínica**, com datas em volta de hoje. A senha é gerada a cada execução e gravada em `MANUAL_EMAIL`/`MANUAL_SENHA` no `.env.local`. Também serve para testar o sistema com dados completos: entre com esse login.
+- `npm run manual` entra com essa conta, fotografa cada tela e gera o PDF. Se alguma captura falhar, ele lista quais e não gera o PDF.
+- Nas capturas, campos de chave (OpenAI, Asaas, WhatsApp) aparecem com valores falsos, e nada é salvo.

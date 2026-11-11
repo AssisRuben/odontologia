@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import { lerAmbiente, verificarLogin, resumir } from './util.mjs'
-import { CAPTURAS, DATA_DEMO } from './capturas.mjs'
+import { CAPTURAS } from './capturas.mjs'
 
 const RAIZ = path.resolve(import.meta.dirname, '../..')
 const DIR_AJUDA = path.join(RAIZ, 'public/ajuda')
@@ -49,8 +49,6 @@ async function capturar(browser, url, sessao, c) {
   ctx.setDefaultTimeout(ESPERA)
   const page = await ctx.newPage()
   try {
-    // Login já foi feito com o relógio real; daqui em diante o navegador "vê" a data do seed.
-    await page.clock.setFixedTime(new Date(DATA_DEMO))
     await page.goto(`${url}${c.url}`)
     await page.waitForLoadState('networkidle', { timeout: ESPERA }).catch(() => {})
     if (c.passos) await c.passos(page)
