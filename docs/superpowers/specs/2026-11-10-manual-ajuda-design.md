@@ -113,6 +113,19 @@ Regras de escrita:
 
 Dependências novas: `react-markdown`, `remark-gfm` (dependências normais); `playwright` (só desenvolvimento).
 
+## Dados de demonstração — `npm run demo`
+
+Acrescentado em 2026-11-11, a pedido do usuário: o `scripts/seed.mjs` cobre só 9 das 46 tabelas e grava com IDs fixos (rodá-lo para outra clínica move os dados). O `seed.mjs` não muda.
+
+- `package.json`: `"demo": "node --env-file=.env.local scripts/demo/rodar.mjs"` (usa `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`).
+- **Conta:** login `demo@manual.local`, senha gerada a cada execução (`crypto.randomBytes`), criada pela API admin do Supabase com `clinic_name: 'Clínica Demonstração'`; se já existe, só troca a senha. Grava `MANUAL_EMAIL`/`MANUAL_SENHA` no `.env.local`, mantendo as outras linhas.
+- **Isolamento:** a clínica é a do profissional ligado a esse login. Se o nome dela não for `Clínica Demonstração`, para sem apagar nada. Cada execução apaga os dados **só dessa clínica** e recria, com IDs novos (`randomUUID`).
+- **Datas em volta de hoje** (fuso de São Paulo): consultas na semana passada, atual e seguinte; pagamentos vencidos e a vencer; um paciente faz aniversário hoje. Sem relógio congelado nas capturas.
+- **Cobertura:** profissionais com comissão; 3 convênios com tabela; taxas de cartão; ~15 pacientes (anamnese, tratamentos com dentes, evoluções); consultas em todos os status, uma marcada pelo WhatsApp, lembretes enviados, uma confirmação e uma desmarcação respondidas; orçamentos em rascunho, enviado, visto, aprovado (assinatura pela recepção) e perdido; 3 conversas; guias aguardando e liberadas, um lote enviado e pago com uma glosa; 2 laboratórios e uma prótese em cada etapa; estoque com lotes (um vencido), item abaixo do mínimo, kits e movimentos; pagamentos pagos/pendentes/vencidos, recibos de saúde, despesas pagas e a pagar, 2 recorrências, saldo de caixa.
+- **Fora:** conexões reais (IA, Asaas, WhatsApp), arquivos/documentos, comissão fechada.
+- Onde o banco tem travas, usa as funções do próprio banco: `send_budget`, `approve_budget`, `reject_budget`, `create_expense_recurrence`/`generate_recurring_expenses`, `assign_batch_items`, `send_insurance_batch`, `register_batch_payment`, `treatment_material_skip`.
+- **Testes** (`tests/demo/`): montagem dos dados é função pura — todo vínculo aponta para registro criado, datas em volta de hoje, um de cada status de consulta, CPFs válidos; atualização do `.env.local` preserva as outras linhas.
+
 ## Página `/ajuda`
 
 - Dentro do grupo `(dashboard)`: exige login e usa o layout atual (menu, cores).
@@ -121,7 +134,7 @@ Dependências novas: `react-markdown`, `remark-gfm` (dependências normais); `pl
 - Imagens: `loading="lazy"`, largura máxima da coluna de texto, borda e sombra leves, legenda do `alt` abaixo.
 - Links `#slug` navegam dentro da página.
 - **Índice**: no computador (`md:` em diante), coluna fixa à esquerda do conteúdo, com as 4 partes e os capítulos, destacando o capítulo visível (IntersectionObserver — componente de cliente). No celular, botão "Índice" no topo que abre a lista e fecha ao escolher.
-- Topo: título "Manual do sistema", data da última geração (lida de `public/ajuda/gerado.json`, `{ "data": "2026-11-10" }`, escrito pelo script com a data real do computador — não a `DATA_DEMO`; se o arquivo não existir, omitida) e botão **"Baixar PDF"** → `/ajuda/manual.pdf` (abre em nova aba). Se o PDF não existir, o botão não aparece.
+- Topo: título "Manual do sistema", data da última geração (lida de `public/ajuda/gerado.json`, `{ "data": "2026-11-10" }`, escrito pelo script com a data do dia; se o arquivo não existir, omitida) e botão **"Baixar PDF"** → `/ajuda/manual.pdf` (abre em nova aba). Se o PDF não existir, o botão não aparece.
 - Arquivo `.md` ausente para um slug do índice: a página mostra "Capítulo em preparação." no lugar do texto (não quebra); o teste acusa antes disso chegar à main.
 
 ## Item no menu
@@ -136,9 +149,8 @@ Dependências novas: `react-markdown`, `remark-gfm` (dependências normais); `pl
 ### Pré-requisitos (documentados no README)
 
 1. App rodando (`npm run dev`) — endereço em `MANUAL_URL`, padrão `http://localhost:3000`.
-2. Conta de demonstração criada em `/register` e preenchida com `scripts/seed.mjs` (`CLINIC_ID` dessa clínica). Sem chaves reais de OpenAI, Asaas ou WhatsApp.
-3. `.env.local` com `MANUAL_EMAIL` e `MANUAL_SENHA` dessa conta.
-4. `npx playwright install chromium` (uma vez).
+2. `npm run demo` rodado (cria a conta demo, os dados e grava `MANUAL_EMAIL`/`MANUAL_SENHA` no `.env.local`).
+3. `npx playwright install chromium` (uma vez).
 
 Se `MANUAL_EMAIL`/`MANUAL_SENHA` faltarem ou o app não responder em `MANUAL_URL`, o script para na hora com mensagem clara do que falta.
 
@@ -152,8 +164,8 @@ Se `MANUAL_EMAIL`/`MANUAL_SENHA` faltarem ou o app não responder em `MANUAL_URL
 
 - `passos`: ações antes da foto (clicar numa aba, abrir um formulário, rolar até um bloco).
 - `falsos`: seletor → valor de exemplo preenchido só para a captura (ex.: campo da chave OpenAI → `sk-demo-0000…`), para nenhuma chave real aparecer e os campos não saírem vazios. Nada é salvo: o script nunca clica em "Salvar" nessas telas.
-- O ID do paciente usado nas capturas da ficha vem do seed (fixo: `PA(1)` do `seed.mjs`).
-- **Relógio do navegador congelado** numa data dentro do período do seed (`page.clock.setFixedTime`, valor em `DATA_DEMO` no topo de `capturas.mjs`, inicialmente `2026-05-26T10:00:00-03:00`): os dados do `seed.mjs` têm datas fixas em maio/2026, e sem isso Agenda, Financeiro e Relatórios sairiam vazios. Ao atualizar o seed, ajusta-se só `DATA_DEMO`.
+- O paciente das capturas da ficha é encontrado pelo nome (`Maria Silva Santos`, criado pelo `npm run demo`).
+- Relógio real: os dados vêm do `npm run demo` com datas em volta de hoje (ver "Dados de demonstração").
 - Janela 1280×800, tema claro, fuso `America/Sao_Paulo`, idioma `pt-BR`. Antes da foto, espera a rede ficar ociosa e esconde o cursor/caret.
 - Saída: `public/ajuda/img/<arquivo>.png` (só a área visível; `fullPage` apenas quando a entrada pedir).
 - Login uma vez, reaproveitando a sessão em todas as capturas.
@@ -167,7 +179,7 @@ Se `MANUAL_EMAIL`/`MANUAL_SENHA` faltarem ou o app não responder em `MANUAL_URL
 ### PDF
 
 - Depois das capturas, abre `/ajuda` logado, espera todas as imagens carregarem (força o carregamento das `lazy`) e chama `page.pdf({ format: 'A4', printBackground: true, margin: 15 mm })`, numerando as páginas no rodapé.
-- Antes de abrir a página, grava `public/ajuda/gerado.json` com a data de hoje (a capa e o topo usam essa data). A página do PDF **não** usa o relógio congelado.
+- Antes de abrir a página, grava `public/ajuda/gerado.json` com a data de hoje (a capa e o topo usam essa data).
 - Grava em `public/ajuda/manual.pdf`.
 - CSS de impressão (`print:` do Tailwind) na página `/ajuda`:
   - some o menu do app, o banner do WhatsApp, o índice lateral e o botão "Baixar PDF";

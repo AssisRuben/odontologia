@@ -18,7 +18,7 @@
 - Capítulo começa em `##`; o título (`#`) vem do `indice.ts`. Modelo: "Para que serve" → "Antes de começar" (se houver) → uma seção por tarefa com passos numerados e imagem → "Dúvidas comuns" (se houver).
 - Slugs: só `[a-z0-9-]`. Imagens: `/ajuda/img/<slug>-<tarefa>.png`.
 - Cores só por tokens (`tinta*`, `linha*`, `porcelana*`, `petroleo*`, `gengiva*`).
-- Capturas: 1280×800, `pt-BR`, fuso `America/Sao_Paulo`, relógio congelado em `DATA_DEMO = '2026-05-26T10:00:00-03:00'`, paciente da ficha = `cc000001-0000-4000-8000-000000000001` (`PA(1)`, Maria Silva Santos). Timeout por captura 15 s. Nunca clicar em "Salvar"/"Excluir"/"Enviar" nos `passos`.
+- Capturas: 1280×800, `pt-BR`, fuso `America/Sao_Paulo`, relógio real (dados do `npm run demo` em volta de hoje); paciente da ficha = `Maria Silva Santos`. Timeout por captura 15 s. Nunca clicar em "Salvar"/"Excluir"/"Enviar" nos `passos`.
 - Valores falsos de chave: OpenAI `sk-demo-0000000000000000`; demais chaves `demo-0000000000`.
 - Env do script: `MANUAL_URL` (padrão `http://localhost:3000`), `MANUAL_EMAIL`, `MANUAL_SENHA`.
 - Commits terminam com `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. vitest no Windows: rodar a partir de `C:\Workspace\odontologia` (C maiúsculo).
@@ -121,6 +121,26 @@
 - [ ] **Step 5:** Atualizar `.env.example` e `README.md`.
 - [ ] **Step 6: Verificar:** com `MANUAL_SENHA` errada → para com a mensagem de login; sem o app rodando → para com a mensagem de app; com tudo certo e `CAPTURAS` vazia → "0 capturas ok, 0 falharam", gera `gerado.json` e `manual.pdf` (capa + sumário + 21 capítulos "Em preparação.").
 - [ ] **Step 7: Commit** `feat(ajuda): script npm run manual com capturas e PDF`
+
+### Task 3b: Dados de demonstração (`npm run demo`)
+
+Acrescentada em 2026-11-11 (spec, seção "Dados de demonstração").
+
+**Files:**
+- Create: `scripts/demo/env.mjs` — `atualizarEnv(texto: string, valores: Record<string,string>): string` (troca a linha `CHAVE=` existente, comentada ou não, ou acrescenta no fim; preserva as demais e o fim de linha)
+- Create: `scripts/demo/dados.mjs` — `montarDados(ctx): Demo` puro; `ctx = { hoje: 'YYYY-MM-DD', clinicId, donoId (professional do login), userId, uid: () => string, tuss: {code,name}[], glosa: string | null, perguntas: {id,type}[] }`; `Demo` = `{ insercoes: [tabela, linhas[]][] (em ordem de dependência), clinica: patch, dono: patch, orcamentos: {id, acao: 'rascunho'|'enviar'|'ver'|'aprovar'|'perder', ...}[], recorrencias: p_data[], lote: {id, itemIds, protocolo, enviadoEm, pagoEm, deposito, itens: p_items}, pularMaterial: treatmentId[] }`; também `cpfValido(base9: string): string`
+- Create: `scripts/demo/rodar.mjs` — conta, trava da clínica, limpeza, inserções, RPCs, `.env.local`
+- Modify: `package.json` (`"demo"`), `README.md` (seção Manual: `npm run demo` no lugar da conta de teste)
+- Modify: `scripts/manual/capturas.mjs`, `scripts/manual/gerar.mjs` (sem `DATA_DEMO`/relógio; `PACIENTE_DEMO` vira o nome `'Maria Silva Santos'`)
+- Test: `tests/demo/env.test.ts`, `tests/demo/dados.test.ts`
+
+- [ ] **Step 1:** testes falhando: `atualizarEnv` (troca, acrescenta, preserva outras linhas e `
+`); `cpfValido` (dígitos verificadores corretos); `montarDados` com `hoje='2026-11-11'` — toda FK (`patient_id`, `professional_id`, `appointment_id`, `insurance_plan_id`, `guide_id`, `item_id`, `kit_id`, `laboratory_id`, `prosthetic_id`, `conversation_id`, `budget_id`, `treatment_id`) aponta para id criado antes na ordem de `insercoes` (ou `donoId`); 7 status de consulta presentes; consultas entre segunda da semana passada e sábado da próxima, nenhuma no domingo; um paciente com aniversário em `11-11`; tudo com `clinic_id` da clínica (onde a coluna existe); `quantity` de item com validade = soma dos lotes.
+- [ ] **Step 2:** `npx vitest run tests/demo` → FAIL.
+- [ ] **Step 3:** implementar `env.mjs` e `dados.mjs` → PASS.
+- [ ] **Step 4:** implementar `rodar.mjs`; ajustar capturas/gerar/README/package.json.
+- [ ] **Step 5:** `npm run demo` duas vezes seguidas → as duas terminam sem erro; `.env.local` com `MANUAL_EMAIL=demo@manual.local`; nenhuma outra clínica alterada (contagem de `patients` fora da clínica demo igual antes/depois).
+- [ ] **Step 6: Commit** `feat(demo): npm run demo com dados de demonstração completos`
 
 ### Task 4: Capítulos-piloto (acesso, clinica, agenda) — validar o visual com o usuário
 
