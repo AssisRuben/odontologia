@@ -21,13 +21,23 @@ export default function LoginPage() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    let error: { message: string } | null
+    try {
+      ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
+    } catch {
+      // Sem conexão com o servidor (internet ou DNS fora do ar).
+      setError('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.')
+      setLoading(false)
+      return
+    }
 
     if (error) {
       if (error.message.toLowerCase().includes('email not confirmed')) {
         setError('E-mail não confirmado. Verifique sua caixa de entrada e clique no link de confirmação.')
       } else if (error.message.toLowerCase().includes('invalid login credentials')) {
         setError('E-mail ou senha incorretos.')
+      } else if (error.message.toLowerCase().includes('failed to fetch')) {
+        setError('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.')
       } else {
         setError(error.message)
       }
