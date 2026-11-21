@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+.claude
+.superpowers
+.vercel
+coverage
+tests
+docs
+scripts
+*.tsbuildinfo
+docker-compose*.yml
+Dockerfile
+.dockerignore
