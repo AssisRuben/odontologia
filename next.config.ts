@@ -6,6 +6,15 @@ const publicHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  // Gera .next/standalone (servidor mínimo + node_modules necessários) para a imagem Docker do Coolify.
+  output: 'standalone',
+
+  // O manual de ajuda é lido do disco em tempo de execução (src/lib/ajuda/manual.ts);
+  // sem isto os capítulos não entram no pacote standalone.
+  outputFileTracingIncludes: {
+    '/ajuda': ['src/content/ajuda/**/*'],
+  },
+
   // Só no `npm run dev`: deixa o celular abrir o app pelo túnel do Cloudflare
   // (sem isso o Next bloqueia os arquivos de desenvolvimento e a página não funciona).
   allowedDevOrigins: ['*.trycloudflare.com'],
