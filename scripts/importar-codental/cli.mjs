@@ -15,6 +15,7 @@ import {
   planejarArquivos,
   simularArquivos,
 } from './arquivos.mjs'
+import { anonimizarPasta } from './anonimizar.mjs'
 import { gravarPlano } from './gravar.mjs'
 import { lerBackup } from './ler.mjs'
 import { mapearBackup } from './mapear.mjs'
@@ -43,7 +44,7 @@ const normalizar = (p) => (process.platform === 'win32' ? p.toLowerCase() : p)
 
 export function dentroDoRepositorio(saida, raiz = RAIZ_REPO) {
   const rel = path.relative(normalizar(caminhoReal(raiz)), normalizar(caminhoReal(saida)))
-  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel))
 }
 
 const SSLMODES_VERIFICAVEIS = new Set(['require', 'verify-ca', 'verify-full'])
@@ -251,6 +252,7 @@ export async function principal(argv, deps = {}) {
     gravarPlano: gravar = gravarPlano,
     criarStorage = storagePadrao,
     lerZip = lerEntradasZip,
+    rng,
   } = deps
   try {
     const { values: v } = parseArgs({
@@ -262,9 +264,23 @@ export async function principal(argv, deps = {}) {
         'permitir-existentes': { type: 'boolean', default: false },
         'permitir-novos': { type: 'boolean', default: false },
         arquivos: { type: 'string' },
+        anonimizar: { type: 'boolean', default: false },
       },
       strict: true,
     })
+    if (v.anonimizar) {
+      for (const o of ['gravar', 'arquivos', 'confirmar-clinica', 'permitir-existentes', 'permitir-novos']) {
+        if (v[o]) throw new Error(`--anonimizar não pode ser combinado com --${o}`)
+      }
+      for (const o of ['backup', 'saida']) {
+        if (!v[o]) throw new Error(`Opção obrigatória ausente: --${o}`)
+      }
+      if (dentroDoRepositorio(v.saida)) throw new Error('--saida não pode ficar dentro do repositório')
+      if (dentroDoRepositorio(v.saida, v.backup)) throw new Error('--saida não pode ser igual a --backup nem ficar dentro dele')
+      return await anonimizarPasta({
+        backup: path.resolve(v.backup), saida: path.resolve(v.saida), agora, rng, ler, mapear, out,
+      })
+    }
     for (const o of ['backup', 'clinica', 'profissional', 'saida']) {
       if (!v[o]) throw new Error(`Opção obrigatória ausente: --${o}`)
     }
