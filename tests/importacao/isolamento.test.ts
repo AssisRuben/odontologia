@@ -5,6 +5,7 @@ import { createComissoesRepo } from '@/lib/comissoes/repo'
 import { entradaPainel } from '@/lib/indicadores/repo'
 import { loadFunnelSources } from '@/lib/orcamentos/repo'
 import { loadPlanInput } from '@/lib/messaging/cycleData'
+import { contarAprovadosNaoVistos } from '@/lib/orcamentos/aprovadosNaoVistos'
 import { createConveniosRepo } from '@/lib/convenios/repo'
 
 const CLINIC = '00000000-0000-4000-8000-0000000000c1'
@@ -77,5 +78,12 @@ describe('isolamento do histórico importado', () => {
     const t = daTabela(queries, 'treatments').filter((q) => q.calls.some((c) => c[0] === 'limit'))
     expect(t).toHaveLength(1)
     expect(t.every(filtraHistorico)).toBe(true)
+  })
+
+  it('selo de orçamentos aprovados não vistos ignora o importado', async () => {
+    const { admin, queries } = fakeAdmin(() => ({ count: 2, error: null }))
+    expect(await contarAprovadosNaoVistos(admin, CLINIC, new Date('2026-11-22T12:00:00Z'))).toBe(2)
+    expect(daTabela(queries, 'budgets')).toHaveLength(1)
+    expect(daTabela(queries, 'budgets').every(filtraHistorico)).toBe(true)
   })
 })
