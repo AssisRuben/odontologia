@@ -52,7 +52,7 @@ describe('buildFicha', () => {
   })
 })
 
-function fakeAdmin(patientRows: unknown[], orders: [string, string][] = []) {
+function fakeAdmin(patientRows: unknown[], orders: [string, string][] = [], nulos: [string, string][] = []) {
   const result = (t: string, data: unknown[]) => {
     const q: Record<string, unknown> = {}
     const chain = () => q
@@ -61,6 +61,7 @@ function fakeAdmin(patientRows: unknown[], orders: [string, string][] = []) {
       orders.push([t, opts?.referencedTable ? `${opts.referencedTable}.${col}` : col])
       return q
     }
+    q.is = (col: string, v: unknown) => { if (v === null) nulos.push([t, col]); return q }
     q.maybeSingle = () => Promise.resolve({ data: data[0] ?? null, error: null })
     q.then = (res: (v: unknown) => unknown) => Promise.resolve({ data, error: null }).then(res)
     return q
@@ -78,6 +79,11 @@ describe('loadFichaInput', () => {
     await loadFichaInput(fakeAdmin([{ id: 'pat-1' }], orders) as never, 'clinic-1', 'pat-1')
     expect(orders).toContainEqual(['budget_items', 'budgets(created_at)'])
     expect(orders.some(([t, c]) => t === 'budget_items' && c.startsWith('budgets.'))).toBe(false)
+  })
+  it('ignora itens de orçamentos importados', async () => {
+    const nulos: [string, string][] = []
+    await loadFichaInput(fakeAdmin([{ id: 'pat-1' }], [], nulos) as never, 'clinic-1', 'pat-1')
+    expect(nulos).toContainEqual(['budget_items', 'budgets.imported_from'])
   })
   it('ficha vazia para paciente da clínica sem itens', async () => {
     const r = await loadFichaInput(fakeAdmin([{ id: 'pat-1' }]) as never, 'clinic-1', 'pat-1')

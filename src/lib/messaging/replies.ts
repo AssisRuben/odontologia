@@ -36,6 +36,11 @@ function isValid(c: SentConfirmation, now: Date): boolean {
   return !isNaN(keyDate.getTime()) && keyDate.toISOString() === start.toISOString()
 }
 
+/** Quantas consultas diferentes ainda podem ser respondidas com "1"/"2". */
+export function countOpenConfirmations(candidates: SentConfirmation[], now: Date): number {
+  return new Set(candidates.filter((c) => isValid(c, now)).map((c) => c.appointment_id)).size
+}
+
 export function pickConfirmationTarget(candidates: SentConfirmation[], now: Date): SentConfirmation | null {
   let best: SentConfirmation | null = null
   for (const c of candidates) {

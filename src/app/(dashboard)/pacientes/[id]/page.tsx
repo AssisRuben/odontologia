@@ -21,6 +21,7 @@ import { ModalCategoria, CATEGORIA_COLORS } from '@/components/paciente/ModalCat
 import { ModalEditarPaciente } from '@/components/paciente/ModalEditarPaciente'
 import { TabAnamneses } from '@/components/paciente/TabAnamneses'
 import { TabOrcamentos } from '@/components/paciente/TabOrcamentos'
+import { HistoricoAnterior } from '@/components/paciente/HistoricoAnterior'
 import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
 import { TabProteses } from '@/components/paciente/TabProteses'
@@ -400,6 +401,7 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
 
         {/* ── Pagamentos ──────────────────────────────────────────────────── */}
         {activeTab === 'pagamentos' && (
+          <>
           <div className="bg-white rounded-xl border border-linha overflow-hidden">
             <div className="px-5 py-4 border-b border-linha flex items-center justify-between">
               <h3 className="text-sm font-semibold text-tinta">Pagamentos</h3>
@@ -423,6 +425,8 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
               </div>
             )}
           </div>
+          <HistoricoAnterior patientId={patient.id} />
+          </>
         )}
 
         {/* ── Evoluções ───────────────────────────────────────────────────── */}

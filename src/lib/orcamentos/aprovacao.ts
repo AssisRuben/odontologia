@@ -6,6 +6,7 @@ import { buildSnapshot, hashSnapshot, type Snapshot } from './assinatura'
 export const BUDGET_TZ = 'America/Sao_Paulo'
 const ALREADY_DECIDED = 'Este orçamento já foi respondido.'
 const NOT_FOUND = 'Orçamento não encontrado'
+export const IMPORTED_READ_ONLY = 'Orçamento importado é somente leitura.'
 
 export type Result = { ok: true } | { ok: false; status: number; error: string }
 type RpcResult = 'ok' | 'already_decided' | 'not_found'
@@ -16,6 +17,8 @@ export interface ApprovalContext {
   patientName: string
   professionalName: string | null
   items: { id: string; procedure: string; tooth: string | null; quantity: number; unit_price: number }[]
+  /** Origem da importação; orçamento importado não pode ser decidido. */
+  importedFrom?: string | null
 }
 
 export interface SignaturePayload {
@@ -68,6 +71,7 @@ export async function approveBudget(
 
   const ctx = await deps.loadForApproval(input.budgetId, input.clinicId)
   if (!ctx) return fail(404, NOT_FOUND)
+  if (ctx.importedFrom) return fail(422, IMPORTED_READ_ONLY)
   const known = new Set(ctx.items.map((i) => i.id))
   if (ids.some((id) => !known.has(id))) return fail(422, 'Item inválido para este orçamento')
 
@@ -116,6 +120,8 @@ export async function rejectBudget(
   deps: ApprovalDeps,
 ): Promise<Result> {
   if (input.linkId === null && input.status === 'rejected' && !input.reason) return fail(422, 'Escolha o motivo')
+  const ctx = await deps.loadForApproval(input.budgetId, input.clinicId)
+  if (ctx?.importedFrom) return fail(422, IMPORTED_READ_ONLY)
   return mapRpc(await deps.rpcReject(input.budgetId, input.linkId, input.reason, input.note, input.actorId, input.status))
 }
 

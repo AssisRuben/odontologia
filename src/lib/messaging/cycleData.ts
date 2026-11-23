@@ -79,6 +79,7 @@ export async function loadPlanInput(
         .eq('clinic_id', clinicId)
         .eq('status', 'completed')
         .lte('start_time', nowIso)
+        .is('imported_from', null)
         .order('start_time')
         .order('id')
         .range(a, b),
