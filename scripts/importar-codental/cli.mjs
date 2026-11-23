@@ -5,6 +5,16 @@ import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import {
+  BUCKET,
+  ErroArquivos,
+  enviarArquivos,
+  lerEntradasZip,
+  numerosUnicos,
+  pacientesVinculados,
+  planejarArquivos,
+  simularArquivos,
+} from './arquivos.mjs'
 import { gravarPlano } from './gravar.mjs'
 import { lerBackup } from './ler.mjs'
 import { mapearBackup } from './mapear.mjs'
@@ -118,6 +128,111 @@ async function executarGravacao(v, plano, cfg, { criarCliente, gravar, out }) {
   }
 }
 
+/** Só a origem https do projeto. Os erros nunca citam o valor. */
+function urlSupabase(valor) {
+  let u
+  try {
+    u = new URL(valor)
+  } catch {
+    throw new Error('IMPORT_SUPABASE_URL inválida')
+  }
+  if (u.protocol !== 'https:' || u.username || u.password || u.pathname !== '/' || u.search || u.hash) {
+    throw new Error('IMPORT_SUPABASE_URL deve ser apenas a origem https do projeto')
+  }
+  return u.origin
+}
+
+async function storagePadrao({ url, chave }) {
+  const { createClient } = await import('@supabase/supabase-js')
+  const bucket = createClient(url, chave, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  }).storage.from(BUCKET)
+  return { upload: (caminho, corpo, opcoes) => bucket.upload(caminho, corpo, opcoes) }
+}
+
+function resumoSimulacaoArquivos(r) {
+  return [
+    'Simulação de arquivos (nada foi enviado)',
+    `Total: ${r.total}`,
+    'Por categoria:',
+    ...Object.entries(r.porCategoria).map(([k, n]) => `  ${k}: ${n}`),
+    `Categoria desconhecida (vão para outros): ${r.categoriaDesconhecida}`,
+    `Duplicados: ${r.duplicados}`,
+    `Recusados: ${r.recusados}`,
+    `Sem paciente: ${r.semPaciente}`,
+    `Tipo desconhecido: ${r.tipoDesconhecido}`,
+    `Ilegíveis: ${r.ilegiveis}`,
+  ].join('\n')
+}
+
+function resumoEnvioArquivos(r) {
+  return [
+    'Envio de arquivos concluído',
+    `Total: ${r.total} | Enviados: ${r.enviados} | Cópias: ${r.copias} | Já registrados: ${r.jaRegistrados}`,
+    `Recusados: ${r.recusados} | Falhas: ${r.falhas}`,
+    `Motivos: ${Object.entries(r.motivos).map(([k, n]) => `${k} ${n}`).join(', ')}`,
+  ].join('\n')
+}
+
+async function simularEtapaArquivos(v, plano, { lerZip, out }) {
+  const zip = await lerZip(path.resolve(v.arquivos))
+  try {
+    const planejados = planejarArquivos(zip.entradas, numerosUnicos(plano.pacientes))
+    out(resumoSimulacaoArquivos(await simularArquivos(planejados)))
+    return 0
+  } finally {
+    await zip.fechar()
+  }
+}
+
+/** Só a etapa de arquivos: os pacientes já precisam ter sido gravados em outra execução. */
+async function gravarEtapaArquivos(v, plano, pasta, cfg, { criarCliente, criarStorage, lerZip, out, err }) {
+  await mkdir(pasta, { recursive: true })
+  const cliente = await criarCliente(cfg.conexao)
+  cliente.on?.('error', () => {})
+  try {
+    try {
+      await cliente.connect()
+    } catch (e) {
+      throw erroConexao(e)
+    }
+    const clinica = await cliente.query('SELECT id FROM clinics WHERE id = $1', [v.clinica])
+    if (!clinica.rows.length) throw new ErroArquivos('Envio recusado. Clínica não encontrada.')
+    const pacientes = await pacientesVinculados(cliente, v.clinica, plano.pacientes)
+    if (!pacientes.size) throw new ErroArquivos('Envio recusado. Nenhum dos pacientes do backup está vinculado: grave os pacientes antes.')
+
+    const storage = await criarStorage(cfg.storage)
+    const zip = await lerZip(path.resolve(v.arquivos))
+    let resultado
+    try {
+      resultado = await enviarArquivos({ cliente, storage }, planejarArquivos(zip.entradas, pacientes), { clinicId: v.clinica })
+    } finally {
+      await zip.fechar()
+    }
+    out(resumoEnvioArquivos(resultado))
+    try {
+      await writeFile(path.join(pasta, 'resultado-arquivos.json'), JSON.stringify(resultado, null, 2) + '\n', 'utf8')
+    } catch {
+      err('O envio foi concluído, mas o arquivo de resultado não pôde ser salvo.')
+      return 1
+    }
+    return resultado.falhas > 0 ? 1 : 0
+  } finally {
+    await cliente.end().catch(() => {})
+  }
+}
+
+/** Erros de banco, Storage ou ZIP podem citar caminhos: só passam mensagens já seguras. */
+async function comErroSeguro(fn) {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof ErroArquivos || /^Falha na conexão com o banco/.test(e?.message ?? '')) throw e
+    const codigo = typeof e?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(e.code) ? e.code : 'sem código'
+    throw new ErroArquivos(`Falha na etapa de arquivos (código: ${codigo})`)
+  }
+}
+
 export async function principal(argv, deps = {}) {
   const {
     lerBackup: ler = lerBackup,
@@ -128,6 +243,8 @@ export async function principal(argv, deps = {}) {
     env = process.env,
     criarCliente = clientePadrao,
     gravarPlano: gravar = gravarPlano,
+    criarStorage = storagePadrao,
+    lerZip = lerEntradasZip,
   } = deps
   try {
     const { values: v } = parseArgs({
@@ -138,6 +255,7 @@ export async function principal(argv, deps = {}) {
         'confirmar-clinica': { type: 'string' },
         'permitir-existentes': { type: 'boolean', default: false },
         'permitir-novos': { type: 'boolean', default: false },
+        arquivos: { type: 'string' },
       },
       strict: true,
     })
@@ -153,10 +271,24 @@ export async function principal(argv, deps = {}) {
       if (!env.IMPORT_DATABASE_URL) throw new Error('--gravar exige a variável de ambiente IMPORT_DATABASE_URL')
       cfgConexao = configConexao(env.IMPORT_DATABASE_URL)
     }
+    let cfgStorage = null
+    if (v.gravar && v.arquivos) {
+      if (!env.IMPORT_SUPABASE_URL) throw new Error('--gravar --arquivos exige a variável de ambiente IMPORT_SUPABASE_URL')
+      if (!env.IMPORT_SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error('--gravar --arquivos exige a variável de ambiente IMPORT_SUPABASE_SERVICE_ROLE_KEY')
+      }
+      cfgStorage = { url: urlSupabase(env.IMPORT_SUPABASE_URL), chave: env.IMPORT_SUPABASE_SERVICE_ROLE_KEY }
+    }
 
     const backup = await ler(path.resolve(v.backup))
     const plano = mapear(backup, { clinicId: v.clinica, professionalId: v.profissional, agora })
     const pasta = path.resolve(v.saida)
+
+    if (v.arquivos) {
+      return await comErroSeguro(() => (v.gravar
+        ? gravarEtapaArquivos(v, plano, pasta, { conexao: cfgConexao, storage: cfgStorage }, { criarCliente, criarStorage, lerZip, out, err })
+        : simularEtapaArquivos(v, plano, { lerZip, out })))
+    }
 
     if (v.gravar) {
       await mkdir(pasta, { recursive: true })
