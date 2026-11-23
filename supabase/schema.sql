@@ -3644,6 +3644,7 @@ BEGIN
     NEW.material_kit_id := OLD.material_kit_id;
 
     IF NEW.status = 'completed' AND OLD.status IS DISTINCT FROM 'completed'
+       AND NEW.imported_from IS NULL
        AND NEW.material_status IS NULL THEN
       NEW.material_status := 'pendente';
     END IF;

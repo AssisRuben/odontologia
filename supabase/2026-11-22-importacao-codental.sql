@@ -4,7 +4,7 @@
 -- as tabelas import_links (vínculo id de origem -> id aqui; só service role) e
 -- legacy_payments (histórico financeiro importado; leitura pela clínica) e uma nova
 -- versão do gatilho treatments_material_status: tratamento importado e concluído não
--- fica com material "pendente" (só o ramo INSERT muda).
+-- fica com material "pendente", nem ao ser criado nem ao ser concluído de novo.
 -- Rode depois de supabase/2026-11-10-kits.sql.
 --
 -- Como aplicar: Supabase Dashboard > SQL Editor > New query >
@@ -21,8 +21,8 @@ ALTER TABLE treatments ADD COLUMN IF NOT EXISTS imported_from TEXT;
 ALTER TABLE budgets ADD COLUMN IF NOT EXISTS imported_from TEXT;
 
 -- ── Gatilho: situação do material do tratamento ─────────────
--- Igual ao de 2026-11-10-kits.sql, exceto no INSERT: tratamento importado
--- (imported_from preenchido) não vira 'pendente'.
+-- Igual ao de 2026-11-10-kits.sql, exceto que tratamento importado
+-- (imported_from preenchido) não vira 'pendente', no INSERT e no UPDATE.
 
 CREATE OR REPLACE FUNCTION public.treatments_material_status()
 RETURNS TRIGGER
@@ -46,6 +46,7 @@ BEGIN
     NEW.material_kit_id := OLD.material_kit_id;
 
     IF NEW.status = 'completed' AND OLD.status IS DISTINCT FROM 'completed'
+       AND NEW.imported_from IS NULL
        AND NEW.material_status IS NULL THEN
       NEW.material_status := 'pendente';
     END IF;

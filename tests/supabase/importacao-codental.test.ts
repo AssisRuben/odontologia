@@ -23,6 +23,10 @@ describe.each(['2026-11-22-importacao-codental.sql', 'schema.sql'])('%s', (file)
     expect(sql).toContain("IF NEW.status = 'completed' AND NEW.imported_from IS NULL")
   })
 
+  it('tratamento importado reaberto e concluído de novo não fica pendente', () => {
+    expect(sql).toMatch(/NEW\.status = 'completed' AND OLD\.status IS DISTINCT FROM 'completed'\s+AND NEW\.imported_from IS NULL\s+AND NEW\.material_status IS NULL/)
+  })
+
   it('legacy_payments só tem policy de leitura', () => {
     expect(sql).not.toMatch(/CREATE POLICY[^;]*ON legacy_payments FOR (INSERT|UPDATE|DELETE|ALL)/)
     expect(sql).toMatch(/CREATE POLICY[^;]*ON legacy_payments FOR SELECT/)
