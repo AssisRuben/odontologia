@@ -164,15 +164,64 @@ function conferirDonosDosOrcamentos(plano, problemas) {
   }
 }
 
-/** Orçamento já importado não recebe item novo: os itens divergiriam do total original. */
-function conferirItensDeOrcamentosVinculados(plano, vinculos, problemas) {
+async function lerPorIds(cliente, sql, clinicId, ids) {
+  const unicos = [...new Set(ids)]
+  const linhas = []
+  for (let i = 0; i < unicos.length; i += MAX_LINHAS) {
+    const { rows } = await cliente.query(sql, [clinicId, unicos.slice(i, i + MAX_LINHAS)])
+    linhas.push(...rows)
+  }
+  return linhas
+}
+
+/**
+ * Compara o plano com orçamentos e itens já gravados. Vínculos nunca são atualizados,
+ * então troca de paciente, item novo em orçamento importado e item movido abortam.
+ * Registro vinculado que a clínica apagou depois não é recriado nem bloqueia,
+ * salvo se uma linha nova dependeria dele.
+ */
+async function conferirOrcamentosVinculados(cliente, plano, vinculos, clinicId, problemas) {
   const orcamentos = vinculos.de('orcamento')
   const itens = vinculos.de('item_orcamento')
+  const pacientes = vinculos.de('paciente')
+  const historico = vinculos.de('historico')
+
+  const alvosOrcamento = plano.orcamentos.map((o) => orcamentos.get(o.sourceId)).filter(Boolean)
+  const alvosItem = plano.orcamentos.flatMap((o) => o.itens).map((i) => itens.get(i.sourceId)).filter(Boolean)
+  const donos = new Map((await lerPorIds(
+    cliente,
+    'SELECT id, patient_id FROM budgets WHERE clinic_id = $1 AND id = ANY($2::uuid[])',
+    clinicId,
+    alvosOrcamento,
+  )).map((r) => [r.id, r.patient_id]))
+  const atuais = new Map((await lerPorIds(
+    cliente,
+    `SELECT bi.id, bi.budget_id FROM budget_items bi
+     JOIN budgets b ON b.id = bi.budget_id
+     WHERE b.clinic_id = $1 AND bi.id = ANY($2::uuid[])`,
+    clinicId,
+    alvosItem,
+  )).map((r) => [r.id, r.budget_id]))
+
   for (const o of plano.orcamentos) {
-    if (!orcamentos.has(o.sourceId)) continue
-    for (const i of o.itens) {
-      if (!itens.has(i.sourceId)) problemas.add('item_orcamento', 'novo em orçamento já importado')
+    const alvo = orcamentos.get(o.sourceId)
+    if (alvo && donos.has(alvo) && donos.get(alvo) !== pacientes.get(o.pacienteSourceId)) {
+      problemas.add('orcamento', 'paciente diferente do já importado')
     }
+    for (const i of o.itens) {
+      const item = itens.get(i.sourceId)
+      if (!item) {
+        if (alvo) problemas.add('item_orcamento', 'novo em orçamento já importado')
+      } else if (!alvo || (atuais.has(item) && atuais.get(item) !== alvo)) {
+        problemas.add('item_orcamento', 'vinculado a outro orçamento')
+      }
+    }
+  }
+
+  for (const h of plano.historico) {
+    if (historico.has(h.sourceId)) continue
+    const alvo = orcamentos.get(h.orcamentoSourceId)
+    if (alvo && !donos.has(alvo)) problemas.add('historico', 'orçamento vinculado não encontrado na clínica')
   }
 }
 
@@ -466,7 +515,7 @@ export async function gravarPlano(cliente, plano, opts) {
       convenio: resolverConvenios(plano, vinculos, planosExistentes, ids, problemas),
     }
     resolvidos.procedimento = resolverProcedimentos(plano, vinculos, procsExistentes, ids, problemas)
-    conferirItensDeOrcamentosVinculados(plano, vinculos, problemas)
+    await conferirOrcamentosVinculados(cliente, plano, vinculos, clinicId, problemas)
     problemas.lancar()
 
     if (!permitirExistentes) {

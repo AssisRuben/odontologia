@@ -23,6 +23,8 @@ type Config = {
   semVinculo?: number
   planos?: { id: string; name: string }[]
   procedimentos?: { id: string; insurance_plan_id: string; code: string }[]
+  orcamentosBanco?: { id: string; patient_id: string }[]
+  itensBanco?: { id: string; budget_id: string }[]
   falharEm?: RegExp
   comandoCommit?: string
 }
@@ -42,6 +44,8 @@ class ClienteFalso {
     if (sql === 'COMMIT') return { command: c.comandoCommit ?? 'COMMIT', rows: [], rowCount: null }
     if (/^INSERT/.test(sql)) return { rows: [], rowCount: sql.split('),(').length }
     if (/^UPDATE message_settings/.test(sql)) return { rows: [], rowCount: 2 }
+    if (/FROM budget_items/.test(sql)) return { rows: (c.itensBanco ?? []).filter((r) => (params[1] as string[]).includes(r.id)) }
+    if (/FROM budgets/.test(sql)) return { rows: (c.orcamentosBanco ?? []).filter((r) => (params[1] as string[]).includes(r.id)) }
     if (/FROM clinics/.test(sql)) return { rows: c.clinica === false ? [] : [{ id: CLINICA }] }
     if (/FROM professionals/.test(sql)) return { rows: c.profissional === false ? [] : [{ id: PROF }] }
     if (/FROM patients/.test(sql)) return { rows: [{ n: String(c.semVinculo ?? 0) }] }
@@ -134,6 +138,23 @@ const linksDe = (p: ReturnType<typeof plano>): Link[] => {
   return pares.flatMap(([entity, linhas]) => linhas.map((l) => ({
     entity, source_id: l.sourceId, target_id: `aaaaaaaa-aaaa-4aaa-8aaa-${String(++n).padStart(12, '0')}`,
   })))
+}
+
+/** Banco coerente com os vínculos: orçamentos e itens onde a importação anterior os deixou. */
+const estadoDe = (p: ReturnType<typeof plano>, links: Link[] = linksDe(p)): Config => {
+  const mapa = new Map(links.map((l) => [`${l.entity}|${l.source_id}`, l.target_id]))
+  const orcamentosBanco: { id: string; patient_id: string }[] = []
+  const itensBanco: { id: string; budget_id: string }[] = []
+  for (const o of p.orcamentos) {
+    const id = mapa.get(`orcamento|${o.sourceId}`)
+    if (!id) continue
+    orcamentosBanco.push({ id, patient_id: mapa.get(`paciente|${o.pacienteSourceId}`)! })
+    for (const i of o.itens) {
+      const item = mapa.get(`item_orcamento|${i.sourceId}`)
+      if (item) itensBanco.push({ id: item, budget_id: id })
+    }
+  }
+  return { links, orcamentosBanco, itensBanco }
 }
 
 async function erroDe(f: () => Promise<unknown>): Promise<Error> {
@@ -301,7 +322,7 @@ describe('gravarPlano: colunas', () => {
 describe('gravarPlano: idempotência', () => {
   it('registro já vinculado não gera INSERT nem UPDATE', async () => {
     const p = plano()
-    const c = new ClienteFalso({ links: linksDe(p) })
+    const c = new ClienteFalso(estadoDe(p))
     const r = await gravarPlano(c, p, opts)
     expect(c.escritas).toEqual([])
     expect(r.inseridos.paciente).toBe(0)
@@ -320,7 +341,7 @@ describe('gravarPlano: idempotência', () => {
   it('reexecução com linhas novas não mexe em message_settings', async () => {
     const p = plano()
     const links = linksDe(p).filter((l) => l.entity !== 'evolucao')
-    const c = new ClienteFalso({ links })
+    const c = new ClienteFalso(estadoDe(p, links))
     const r = await gravarPlano(c, p, opts)
     expect(c.inseridas('evolutions')).toHaveLength(1)
     expect(c.sqls.some((s) => /message_settings/.test(s))).toBe(false)
@@ -335,7 +356,7 @@ describe('gravarPlano: idempotência', () => {
       imported_from: 'codental',
       itens: [{ sourceId: 'T3', procedure: 'Canal', tooth: null, quantity: 1, unit_price: 10, approved: null }],
     })
-    const c = new ClienteFalso({ links })
+    const c = new ClienteFalso(estadoDe(p, links))
     await gravarPlano(c, p, { ...opts, permitirNovos: true })
     expect(c.sqls.at(-1)).toBe('COMMIT')
     const [novo] = c.inseridas('budgets')
@@ -348,7 +369,7 @@ describe('gravarPlano: idempotência', () => {
     const p = plano()
     const links = linksDe(p).filter((l) => !(l.entity === 'evolucao'))
     const alvoPaciente = links.find((l) => l.entity === 'paciente' && l.source_id === 'P1')!.target_id
-    const c = new ClienteFalso({ links })
+    const c = new ClienteFalso(estadoDe(p, links))
     await gravarPlano(c, p, opts)
     expect(c.inseridas('patients')).toEqual([])
     expect(c.inseridas('evolutions')).toHaveLength(1)
@@ -358,7 +379,7 @@ describe('gravarPlano: idempotência', () => {
 
   it('não insere dentes de tratamento já vinculado', async () => {
     const p = plano()
-    const c = new ClienteFalso({ links: linksDe(p) })
+    const c = new ClienteFalso(estadoDe(p))
     await gravarPlano(c, p, opts)
     expect(c.inseridas('treatment_teeth')).toEqual([])
   })
@@ -444,12 +465,12 @@ describe('gravarPlano: verificações antes de gravar', () => {
 
   it('reimportação com consulta ou histórico novos aborta e conta', async () => {
     const base = linksDe(plano()).filter((l) => !(l.entity === 'consulta' && l.source_id === 'P2|d|0') && l.entity !== 'historico')
-    const e = await recusa({ links: base }, () => {}, /2/)
+    const e = await recusa(estadoDe(plano(), base), () => {}, /2/)
     expect(e.message).toMatch(/permitir-novos/)
   })
   it('--permitir-novos libera', async () => {
     const links = linksDe(plano()).filter((l) => l.entity !== 'historico')
-    const c = new ClienteFalso({ links })
+    const c = new ClienteFalso(estadoDe(plano(), links))
     await gravarPlano(c, plano(), { ...opts, permitirNovos: true })
     expect(c.inseridas('legacy_payments')).toHaveLength(1)
   })
@@ -475,10 +496,78 @@ describe('gravarPlano: verificações antes de gravar', () => {
     recusa({}, (p) => { p.tratamentos[0].convenioNome = null as never }, /tratamento.*1/i))
 
   it.each([false, true])('item novo em orçamento já vinculado aborta (permitirNovos: %s)', async (permitirNovos) => {
-    const links = linksDe(plano())
-    await recusa({ links }, (p) => {
+    await recusa(estadoDe(plano()), (p) => {
       p.orcamentos[0].itens.push({ sourceId: 'T9', procedure: 'Extra', tooth: '13', quantity: 1, unit_price: 5, approved: true })
     }, /item de orçamento.*\(1\)/i, { permitirNovos })
+  })
+
+  const novoOrcamento = (itens: ItemPlano[]) => ({
+    sourceId: 'O3', pacienteSourceId: 'P1', status: 'draft', total: 100.5, approved_total: null, notes: null, created_at: null,
+    imported_from: 'codental', itens,
+  })
+
+  it.each([false, true])('item vinculado movido para orçamento novo aborta (permitirNovos: %s)', async (permitirNovos) => {
+    await recusa(estadoDe(plano()), (p) => {
+      p.orcamentos.push(novoOrcamento(p.orcamentos[0].itens.splice(0)))
+    }, /item de orçamento.*outro orçamento.*\(1\)/i, { permitirNovos })
+  })
+
+  it('item vinculado e já apagado, movido para orçamento novo, aborta', async () => {
+    const estado = { ...estadoDe(plano()), itensBanco: [] }
+    await recusa(estado, (p) => {
+      p.orcamentos.push(novoOrcamento(p.orcamentos[0].itens.splice(0)))
+    }, /item de orçamento.*outro orçamento.*\(1\)/i)
+  })
+
+  it.each([false, true])('item movido entre orçamentos vinculados aborta (permitirNovos: %s)', async (permitirNovos) => {
+    await recusa(estadoDe(plano()), (p) => {
+      p.orcamentos[1].itens.push(...p.orcamentos[0].itens.splice(0))
+    }, /item de orçamento.*outro orçamento.*\(1\)/i, { permitirNovos })
+  })
+
+  it.each([false, true])('orçamento vinculado com outro paciente no banco aborta (permitirNovos: %s)', async (permitirNovos) => {
+    const links = linksDe(plano()).filter((l) => l.entity !== 'historico')
+    await recusa(estadoDe(plano(), links), (p) => {
+      p.orcamentos[0].pacienteSourceId = 'P2'
+      p.tratamentos[0].pacienteSourceId = 'P2'
+      p.historico[0].pacienteSourceId = 'P2'
+    }, /orçamento: paciente diferente.*\(1\)/i, { permitirNovos })
+  })
+
+  it('orçamento vinculado passado a paciente novo aborta', async () => {
+    await recusa(estadoDe(plano()), (p) => {
+      p.pacientes.push({ ...p.pacientes[1], sourceId: 'P3' })
+      p.orcamentos[0].pacienteSourceId = 'P3'
+      p.tratamentos[0].pacienteSourceId = 'P3'
+      p.historico[0].pacienteSourceId = 'P3'
+    }, /orçamento: paciente diferente.*\(1\)/i, { permitirNovos: true })
+  })
+
+  it('histórico novo em orçamento vinculado ausente da clínica aborta', async () => {
+    const links = linksDe(plano()).filter((l) => l.entity !== 'historico')
+    await recusa({ ...estadoDe(plano(), links), orcamentosBanco: [] }, () => {}, /histórico.*não encontrado.*\(1\)/i, { permitirNovos: true })
+  })
+
+  it('lê orçamentos e itens vinculados em lotes, limitados à clínica', async () => {
+    const p = plano()
+    const [o1] = p.orcamentos
+    p.orcamentos = Array.from({ length: 1200 }, (_, i) => ({
+      ...o1, sourceId: i === 0 ? 'O1' : `O${i + 10}`,
+      itens: [{ ...o1.itens[0], sourceId: i === 0 ? 'T1' : `I${i}` }],
+    }))
+    const c = new ClienteFalso(estadoDe(p))
+    await gravarPlano(c, p, opts)
+    for (const [re, escopo] of [[/FROM budgets/, /clinic_id = \$1/], [/FROM budget_items/, /b\.clinic_id = \$1/]] as const) {
+      const leituras = c.chamadas.filter((x) => /^SELECT/.test(x.sql) && re.test(x.sql))
+      expect(leituras.length).toBeGreaterThan(1)
+      expect(leituras.flatMap((x) => x.params[1] as string[])).toHaveLength(1200)
+      for (const l of leituras) {
+        expect(l.sql).toMatch(escopo)
+        expect(l.params[0]).toBe(CLINICA)
+        expect((l.params[1] as string[]).length).toBeLessThanOrEqual(1000)
+      }
+    }
+    expect(c.indice(/FROM budget_items/)).toBeLessThan(c.sqls.indexOf('COMMIT'))
   })
 
   it('tratamento em orçamento de outro paciente aborta', () =>
@@ -490,7 +579,7 @@ describe('gravarPlano: verificações antes de gravar', () => {
   it('linha já vinculada não é validada de novo', async () => {
     const p = plano()
     p.pacientes[0].insurance_card = 'X'.repeat(31)
-    const c = new ClienteFalso({ links: linksDe(p) })
+    const c = new ClienteFalso(estadoDe(p))
     await gravarPlano(c, p, opts)
     expect(c.sqls.at(-1)).toBe('COMMIT')
   })
