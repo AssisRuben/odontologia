@@ -232,6 +232,7 @@ export async function loadFunnelSources(admin: SupabaseClient, clinicId: string)
     )
     .eq('clinic_id', clinicId)
     .or('sent_at.not.is.null,decided_at.not.is.null')
+    .is('imported_from', null)
     .order('id')
     .range(a, b))
   type P = { id: string; name: string; phone: string | null; cpf: string | null; whatsapp_opt_out: boolean | null }
