@@ -31,13 +31,14 @@ export function resumoHistorico(
   return { pago: pago / 100, emAberto: emAberto / 100 }
 }
 
-/** Soma do histórico por orçamento (pagos e em aberto); linhas sem orçamento ficam de fora. */
+/** Soma do histórico por orçamento na situação pedida; linhas sem orçamento ficam de fora. */
 export function somarPorOrcamento(
-  linhas: Pick<LegacyPayment, 'amount' | 'budget_id'>[],
+  linhas: Pick<LegacyPayment, 'amount' | 'budget_id' | 'original_status'>[],
+  situacao: LegacyPayment['original_status'] = 'paid',
 ): Record<string, number> {
   const somas: Record<string, number> = {}
   for (const l of linhas) {
-    if (!l.budget_id) continue
+    if (!l.budget_id || l.original_status !== situacao) continue
     somas[l.budget_id] = (somas[l.budget_id] ?? 0) + centavos(l.amount)
   }
   for (const id of Object.keys(somas)) somas[id] /= 100

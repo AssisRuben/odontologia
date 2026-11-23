@@ -40,23 +40,34 @@ describe('resumoHistorico', () => {
 })
 
 describe('somarPorOrcamento', () => {
-  it('soma pagos e em aberto de cada orçamento', () => {
-    expect(somarPorOrcamento([
-      linha('a', 100, 'paid', 'o1'),
-      linha('b', 50, 'open', 'o1'),
-      linha('c', 30, 'paid', 'o2'),
-    ])).toEqual({ o1: 150, o2: 30 })
+  const orcamento = [linha('a', 400, 'paid', 'o1'), linha('b', 600, 'open', 'o1')]
+
+  it('por padrão soma só o que foi pago', () => {
+    expect(somarPorOrcamento(orcamento)).toEqual({ o1: 400 })
   })
 
-  it('soma sem erro de centavos', () => {
-    expect(somarPorOrcamento([linha('a', 0.1, 'paid', 'o1'), linha('b', 0.2, 'open', 'o1')]).o1).toBe(0.3)
+  it('separa pago e em aberto do mesmo orçamento', () => {
+    expect(somarPorOrcamento(orcamento, 'paid')).toEqual({ o1: 400 })
+    expect(somarPorOrcamento(orcamento, 'open')).toEqual({ o1: 600 })
+  })
+
+  it('orçamento sem linhas na situação pedida fica de fora', () => {
+    expect(somarPorOrcamento([linha('a', 10, 'open', 'o1')], 'paid')).toEqual({})
+    expect(somarPorOrcamento([linha('a', 10, 'paid', 'o1')], 'open')).toEqual({})
+  })
+
+  it('soma sem erro de centavos nas duas situações', () => {
+    expect(somarPorOrcamento([linha('a', 0.1, 'paid', 'o1'), linha('b', 0.2, 'paid', 'o1')]).o1).toBe(0.3)
+    expect(somarPorOrcamento([linha('a', 0.1, 'open', 'o1'), linha('b', 0.2, 'open', 'o1')], 'open').o1).toBe(0.3)
   })
 
   it('ignora linha sem orçamento', () => {
     expect(somarPorOrcamento([linha('a', 10, 'paid', null), linha('b', 5, 'paid', 'o1')])).toEqual({ o1: 5 })
+    expect(somarPorOrcamento([linha('a', 10, 'open', null), linha('b', 5, 'open', 'o1')], 'open')).toEqual({ o1: 5 })
   })
 
   it('lista vazia fica sem orçamentos', () => {
     expect(somarPorOrcamento([])).toEqual({})
+    expect(somarPorOrcamento([], 'open')).toEqual({})
   })
 })
