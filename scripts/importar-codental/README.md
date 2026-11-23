@@ -8,21 +8,37 @@ Sem `--gravar`, nada é gravado e nenhuma conexão é aberta.
 
 ## 1. Sequência obrigatória
 
-Não pule etapas. Cada uma depende da anterior.
+> **Portão de implantação: SQL antes do código.** Em **cada ambiente**, aplique `supabase/2026-11-22-importacao-codental.sql` e verifique as colunas **ANTES** de fazer merge ou deploy deste código. Sem elas, o ciclo de WhatsApp, as comissões, os indicadores, o funil e os convênios falham, mesmo sem nenhuma importação. O SQL é aditivo e seguro com o código antigo, então em produção ele pode ser aplicado antes do deploy.
+>
+> Verificação (deve retornar `4`):
+>
+> ```sql
+> SELECT count(*) FROM information_schema.columns
+> WHERE table_schema = 'public' AND column_name = 'imported_from'
+>   AND table_name IN ('patients', 'appointments', 'treatments', 'budgets');
+> ```
 
-1. **SQL fora de produção:** aplicar `supabase/2026-11-22-importacao-codental.sql` nos ambientes **descartável e de homologação**. Não aplique em produção nesta etapa.
+Não pule etapas. Cada uma depende da anterior. Aplicar o SQL não libera a importação: **gravar** em produção continua exigindo Supabase Pro, backup validado e autorização.
+
+1. **SQL fora de produção:** aplicar o arquivo e verificar as colunas nos ambientes **descartável e de homologação**.
 2. **Simulação:** rodar sobre o backup e revisar o relatório (seção 6).
 3. **Ensaio descartável:** gravar dados anonimizados em banco e Storage descartáveis (seção 4).
 4. **Homologação:** com dados anonimizados e **sem arquivos reais** (seção 5).
 5. **Critérios de aceite:** conferir todos na homologação (seção 8) e remover os dados de teste (seção 9).
-6. **Supabase Pro** ativo em produção.
-7. **Backup do banco de produção** validado, com restauração testada.
-8. **Autorização explícita** do responsável para alterar a produção.
-9. **SQL em produção:** aplicar o mesmo arquivo, só depois das etapas 7 e 8.
-10. **Export final** do Codental, depois que a clínica parar de usá-lo.
-11. **Simulação** sobre o export final, revisada e comparada com a anterior.
-12. **Gravação** em produção.
-13. **Arquivos** em produção, em execução separada.
+6. **SQL em produção:** com autorização do responsável para alterar a produção, aplicar o mesmo arquivo e verificar as colunas, **antes do merge ou deploy** deste código.
+7. **Merge e deploy** do código, só depois da etapa 6.
+8. **Supabase Pro** ativo em produção.
+9. **Backup do banco de produção** validado, com restauração testada.
+10. **Autorização explícita** do responsável para importar na produção.
+11. **Export final** do Codental, depois que a clínica parar de usá-lo.
+12. **Simulação** sobre o export final, revisada e comparada com a anterior.
+13. **Gravação** em produção, só com as etapas 8 a 12 concluídas.
+14. **Arquivos** em produção, em execução separada.
+
+### Limites desta versão
+
+- **Comissão:** não configure comissão em clínica importada antes de definir a regra de alocação. A comissão aloca os `payments` do paciente sobre tratamentos concluídos, e o histórico antigo não está em `payments`, então um tratamento vivo importado poderia gerar comissão errada. A gravação aborta se algum profissional da clínica tiver taxa de comissão, e nenhuma opção libera isso. O campo `tratamentosVivosComHistoricoPago` do relatório mostra quantos tratamentos estão nessa situação.
+- **Um único dentista:** tudo é atribuído a `--profissional`. Backup com mais de um dentista é recusado já na leitura do plano, inclusive pelo `--anonimizar`.
 
 ## 2. Variáveis de ambiente
 
@@ -128,6 +144,8 @@ A simulação grava `relatorio-simulacao.json` e imprime um resumo, só com cont
 - **consultas e tratamentos:** `importadas/importados` entram como histórico; `vivas/vivos` continuam ativos no sistema (consultas futuras e tratamentos planejados).
 - **historico:** quantidade e total pagos e em aberto, em centavos no JSON.
 - **Em orçamento de outro paciente:** deve ser 0. Qualquer outro valor aborta a gravação.
+- **tratamentosVivosComHistoricoPago:** tratamentos sem marca cujo orçamento tem linha paga no histórico. Não aborta, mas é o grupo afetado pela regra de comissão (seção 1).
+- **dentistasDistintos:** quantos dentistas cada planilha cita. Acima de 1, a simulação já é recusada.
 
 | Aviso | Significado |
 | --- | --- |
@@ -148,6 +166,9 @@ A gravação roda em uma única transação. Salvo indicação abaixo, um aborto
 | --- | --- | --- |
 | `Clínica não encontrada` | UUID errado ou ambiente errado. | Confira `--clinica` e as variáveis. |
 | `Profissional não pertence à clínica` | Profissional de outra clínica. | Confira `--profissional`. |
+| `profissional(is) com comissão configurada` | A comissão ainda não tem regra para clínica importada. Não há opção que libere. | Defina a regra de alocação antes de importar. |
+| `mais de um dentista` | O backup cita outro dentista e tudo seria atribuído a um só. | Não importe. A ferramenta atual não atende esse backup. |
+| `célula com erro do Excel` | Uma célula tem erro como `#N/A`. A mensagem traz planilha, coluna e linha. | Corrija o arquivo de origem e simule de novo. |
 | `A clínica tem N paciente(s) fora da importação` | Já existem cadastros que a importação não criou, e pode haver duplicidade. | Investigue. Só use `--permitir-existentes` se for esperado. |
 | `A clínica já foi importada e o plano traria N registro(s) novo(s) sem id estável` | Consultas e histórico não têm ID na planilha. Export diferente pode gerar registros que parecem novos e duplicar dados. | Compare os exports. Só use `--permitir-novos` se os novos forem reais. |
 | `orçamento de outro paciente`, `paciente diferente do já importado` | O vínculo cruzaria prontuários. | Não force. Corrija a origem. |
