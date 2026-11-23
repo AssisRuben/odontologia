@@ -145,3 +145,25 @@ describe('expireBudgets', () => {
     expect(await expireBudgets(new Date('2026-11-06T01:00:00Z'), d)).toBe(0)
   })
 })
+
+describe('orçamento importado', () => {
+  const importado = () => deps({
+    loadForApproval: vi.fn(async () => ({
+      budget: { id: 'b1', created_at: '2026-11-01T00:00:00Z', valid_until: null },
+      clinicName: 'Clínica', patientName: 'Maria', professionalName: 'Dr. A', items, importedFrom: 'codental',
+    })),
+  })
+
+  it('não pode ser aprovado', async () => {
+    const d = importado()
+    expect(await approveBudget(base, d)).toEqual({ ok: false, status: 422, error: 'Orçamento importado é somente leitura.' })
+    expect(d.rpcApprove).not.toHaveBeenCalled()
+  })
+
+  it('não pode ser recusado', async () => {
+    const d = importado()
+    const r = await rejectBudget({ budgetId: 'b1', clinicId: 'c1', linkId: null, reason: 'preco', note: null, actorId: 'u1', status: 'rejected' }, d)
+    expect(r).toEqual({ ok: false, status: 422, error: 'Orçamento importado é somente leitura.' })
+    expect(d.rpcReject).not.toHaveBeenCalled()
+  })
+})

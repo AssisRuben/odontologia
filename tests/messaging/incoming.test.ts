@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { handleIncoming, type IncomingDeps } from '@/lib/messaging/incoming'
+import { REASON_SHARED_PHONE } from '@/lib/agente/conversa'
 import type { SentConfirmation } from '@/lib/messaging/replies'
 import type { WebhookEvent } from '@/lib/whatsapp'
 
@@ -19,6 +20,7 @@ function makeDeps(over: Partial<IncomingDeps> = {}) {
   const base = {
     findClinicByInstance: vi.fn(async (i: string) => (i === 'inst' ? { clinicId: 'c1', token: 't', cfg } : null)),
     findPatientByPhone: vi.fn(async () => 'p1' as string | null),
+    phoneShared: vi.fn<IncomingDeps['phoneShared']>(async () => false),
     incomingExists: vi.fn(async () => false),
     saveIncoming: vi.fn<IncomingDeps['saveIncoming']>(async () => 'in1' as string | null),
     recentConfirmations: vi.fn(async () => [conf]),
@@ -195,6 +197,57 @@ describe('handleIncoming', () => {
     expect(d.saveIncoming.mock.calls[0][0].phone).toBe('123')
   })
 
+  describe('telefone compartilhado', () => {
+    const shared = () => vi.fn<IncomingDeps['phoneShared']>(async () => true)
+    const on = () => vi.fn(async () => true)
+
+    it('número compartilhado com agente ligado: sem paciente, vai para a recepção', async () => {
+      const d = makeDeps({ phoneShared: shared(), agentEnabled: on() })
+      const out = await handleIncoming(incoming('preciso de horário'), d, now)
+      expect(out).toEqual({ result: 'stored', agent: null })
+      expect(d.phoneShared).toHaveBeenCalledWith('c1', '5511987654321')
+      expect(d.upsertConversation).toHaveBeenCalledWith('c1', '5511987654321', null, now)
+      expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: null }))
+      expect(d.setHandler).toHaveBeenCalledWith('conv1', 'human', REASON_SHARED_PHONE)
+    })
+
+    it('número compartilhado com agente desligado: guarda, sem handoff', async () => {
+      const d = makeDeps({ phoneShared: shared() })
+      const out = await handleIncoming(incoming('preciso de horário'), d, now)
+      expect(out).toEqual({ result: 'stored', agent: null })
+      expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: null }))
+      expect(d.setHandler).not.toHaveBeenCalled()
+    })
+
+    it('número compartilhado responde "1": confirma a consulta alvo, sem handoff nem paciente', async () => {
+      const d = makeDeps({ phoneShared: shared(), agentEnabled: on() })
+      expect(await handleIncoming(incoming('1'), d, now)).toEqual({ result: 'confirmed', agent: null })
+      expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'confirmed')
+      expect(d.sendAutoReply.mock.calls[0][0].patientId).toBeNull()
+      expect(d.setHandler).not.toHaveBeenCalled()
+    })
+
+    it('número de um só paciente: inalterado', async () => {
+      const d = makeDeps({ agentEnabled: on() })
+      const out = await handleIncoming(incoming('oi'), d, now)
+      expect(out).toEqual({ result: 'stored', agent: { conversationId: 'conv1', messageId: 'in1' } })
+      expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: 'p1' }))
+      expect(d.setHandler).not.toHaveBeenCalled()
+    })
+
+    it('sem paciente cadastrado não consulta phoneShared', async () => {
+      const d = makeDeps({ findPatientByPhone: vi.fn(async () => null), agentEnabled: on() })
+      await handleIncoming(incoming('oi'), d, now)
+      expect(d.phoneShared).not.toHaveBeenCalled()
+    })
+
+    it('mensagem do celular da clínica para número compartilhado não vincula paciente', async () => {
+      const d = makeDeps({ phoneShared: shared(), agentEnabled: on() })
+      await handleIncoming({ kind: 'outgoing', instance: 'inst', to: '5511987654321', text: 'Olá', providerMessageId: 'out1', at: now }, d, now)
+      expect(d.upsertConversation).toHaveBeenCalledWith('c1', '5511987654321', null, now)
+    })
+  })
+
   describe('agente', () => {
     const audio = (seconds: number): WebhookEvent => ({ ...(incoming('') as Extract<WebhookEvent, { kind: 'incoming' }>), audio: { seconds, media: { key: { id: 'pm1' }, message: { audioMessage: {} } } } })
     const outgoing = (text = 'Olá, tudo bem?'): WebhookEvent => ({
@@ -345,5 +398,71 @@ describe('handleIncoming', () => {
       expect((await handleIncoming(outgoing(), d, now)).result).toBe('ignored')
       expect(d.saveHumanFromPhone).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('handleIncoming: número compartilhado com mais de uma consulta em aberto', () => {
+  const start2 = '2026-11-05T15:00:00Z'
+  const conf2: SentConfirmation = {
+    message_id: 'm2', appointment_id: 'a2', sent_at: '2026-11-03T12:30:00Z',
+    dedupe_key: `confirmation:a2:${start2}`, appointment: { start_time: start2, status: 'scheduled' },
+  }
+  const shared = () => vi.fn<IncomingDeps['phoneShared']>(async () => true)
+  const on = () => vi.fn(async () => true)
+
+  it.each(['1', '2'])('"%s" com duas abertas e agente desligado: guarda e passa para a recepção', async (texto) => {
+    const d = makeDeps({ phoneShared: shared(), recentConfirmations: vi.fn(async () => [conf, conf2]) })
+    expect(await handleIncoming(incoming(texto), d, now)).toEqual({ result: 'stored', agent: null })
+    expect(d.saveIncoming).toHaveBeenCalledTimes(1)
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+    expect(d.setReplyAction).not.toHaveBeenCalled()
+    expect(d.sendAutoReply).not.toHaveBeenCalled()
+    expect(d.setHandler).toHaveBeenCalledWith('conv1', 'human', REASON_SHARED_PHONE)
+  })
+
+  it.each(['1', '2'])('"%s" com duas abertas e agente ligado: mesma regra', async (texto) => {
+    const d = makeDeps({ phoneShared: shared(), agentEnabled: on(), recentConfirmations: vi.fn(async () => [conf, conf2]) })
+    expect(await handleIncoming(incoming(texto), d, now)).toEqual({ result: 'stored', agent: null })
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+    expect(d.sendAutoReply).not.toHaveBeenCalled()
+    expect(d.setHandler).toHaveBeenCalledWith('conv1', 'human', REASON_SHARED_PHONE)
+  })
+
+  it('uma aberta: mantém a confirmação', async () => {
+    const encerrada = { ...conf2, appointment: { start_time: start2, status: 'cancelled' } }
+    const d = makeDeps({ phoneShared: shared(), recentConfirmations: vi.fn(async () => [conf, encerrada]) })
+    expect((await handleIncoming(incoming('1'), d, now)).result).toBe('confirmed')
+    expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'confirmed')
+    expect(d.setHandler).not.toHaveBeenCalled()
+  })
+
+  it('dois envios da mesma consulta contam como uma', async () => {
+    const reenvio = { ...conf, message_id: 'm3', sent_at: '2026-11-03T12:40:00Z' }
+    const d = makeDeps({ phoneShared: shared(), recentConfirmations: vi.fn(async () => [conf, reenvio]) })
+    expect((await handleIncoming(incoming('1'), d, now)).result).toBe('confirmed')
+  })
+
+  it('nenhuma aberta: só guarda', async () => {
+    const d = makeDeps({ phoneShared: shared(), recentConfirmations: vi.fn(async () => []) })
+    expect(await handleIncoming(incoming('1'), d, now)).toEqual({ result: 'stored', agent: null })
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+    expect(d.setHandler).not.toHaveBeenCalled()
+  })
+
+  it('ofertas ativas: não olha as confirmações e vai para a recepção', async () => {
+    const d = makeDeps({
+      phoneShared: shared(), agentEnabled: on(), hasActiveOffers: vi.fn(async () => true),
+      recentConfirmations: vi.fn(async () => [conf, conf2]),
+    })
+    expect(await handleIncoming(incoming('1'), d, now)).toEqual({ result: 'stored', agent: null })
+    expect(d.recentConfirmations).not.toHaveBeenCalled()
+    expect(d.setAppointmentStatus).not.toHaveBeenCalled()
+    expect(d.setHandler).toHaveBeenCalledWith('conv1', 'human', REASON_SHARED_PHONE)
+  })
+
+  it('número de um só paciente com duas abertas: mantém o comportamento atual', async () => {
+    const d = makeDeps({ recentConfirmations: vi.fn(async () => [conf, conf2]) })
+    expect((await handleIncoming(incoming('1'), d, now)).result).toBe('confirmed')
+    expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a2', 'confirmed')
   })
 })

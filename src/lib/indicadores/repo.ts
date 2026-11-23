@@ -50,6 +50,7 @@ export async function entradaPainel(
         .eq('clinic_id', clinicId)
         .gte('start_time', deLocal)
         .lt('start_time', ateLocal)
+        .is('imported_from', null)
         .order('id')
         .range(de, ate),
     ),
@@ -72,6 +73,7 @@ export async function entradaPainel(
         .eq('status', 'completed')
         .gte('completed_at', primeiro)
         .lte('completed_at', ultimo)
+        .is('imported_from', null)
         .order('id')
         .range(de, ate),
     ),
@@ -82,6 +84,7 @@ export async function entradaPainel(
         .eq('clinic_id', clinicId)
         .gte('created_at', deLocal)
         .lt('created_at', ateLocal)
+        .is('imported_from', null)
         .order('id')
         .range(de, ate),
     ),

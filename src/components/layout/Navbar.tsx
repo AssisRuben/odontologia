@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useClinicStore } from '@/store/clinicStore'
+import { contarAprovadosNaoVistos } from '@/lib/orcamentos/aprovadosNaoVistos'
 import type { Pendencia } from '@/lib/convenios/pendencias'
 import { BuscaRapida } from './BuscaRapida'
 import { SinoPendencias } from './SinoPendencias'
@@ -49,12 +50,7 @@ export function Navbar() {
   // Orçamentos aprovados nos últimos 30 dias que a recepção ainda não viu.
   const refreshBadge = useCallback(async () => {
     if (!clinicId) return
-    const since = new Date(Date.now() - 30 * 86400000).toISOString()
-    const { count } = await createClient().from('budgets')
-      .select('id', { count: 'exact', head: true })
-      .eq('clinic_id', clinicId).eq('status', 'approved')
-      .is('approval_seen_at', null).gte('decided_at', since)
-    setApprovedBadge(count ?? 0)
+    setApprovedBadge(await contarAprovadosNaoVistos(createClient(), clinicId))
   }, [clinicId])
 
   useEffect(() => { refreshBadge() }, [refreshBadge, pathname])

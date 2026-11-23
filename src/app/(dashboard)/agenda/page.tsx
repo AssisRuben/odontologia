@@ -4,9 +4,10 @@ import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal, X, PanelRightClose, PanelRightOpen, MessageCircleOff } from 'lucide-react'
-import { format, addWeeks, subWeeks, addDays, subDays, startOfWeek, startOfDay } from 'date-fns'
+import { format, addWeeks, subWeeks, addDays, subDays, addMonths, subMonths, startOfWeek, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { lerTudo } from '@/lib/supabase/lerTudo'
 import { useClinicStore } from '@/store/clinicStore'
 import { MiniCalendario } from '@/components/agenda/MiniCalendario'
 import { CalendarioAgenda } from '@/components/agenda/CalendarioAgenda'
@@ -25,6 +26,76 @@ function dataInicial(raw: string | null): Date {
   if (!m) return new Date()
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   return d.getMonth() !== Number(m[2]) - 1 ? new Date() : d
+}
+
+type Janela = { de: Date; ate: Date }
+
+const SELECT_CONSULTA = '*, patient:patients(*, insurance_plan:insurance_plans(*)), professional:professionals(*)'
+const LOTE_IDS = 200
+
+/** Semana da data com um mês de folga para cada lado. */
+function janelaDe(data: Date): Janela {
+  const inicio = startOfWeek(data)
+  return { de: subMonths(inicio, 1), ate: addMonths(addDays(inicio, 7), 1) }
+}
+
+/** Consultas desmarcadas pelo WhatsApp nas últimas 24 h, em qualquer data. O aviso é opcional: falha vira lista vazia. */
+async function consultasDesmarcadasAgora(clinicId: string): Promise<Appointment[]> {
+  const supabase = createClient()
+  try {
+    const desde = new Date(Date.now() - 24 * 3_600_000).toISOString()
+    const mensagens = await lerTudo<{ appointment_id: string | null }>((de, ate) =>
+      supabase
+        .from('messages')
+        .select('appointment_id')
+        .eq('clinic_id', clinicId)
+        .eq('type', 'incoming')
+        .eq('reply_action', 'cancelled')
+        .gte('created_at', desde)
+        .order('id')
+        .range(de, ate),
+    )
+    const ids = [...new Set(mensagens.flatMap((m) => (m.appointment_id ? [m.appointment_id] : [])))]
+    const consultas: Appointment[] = []
+    for (let i = 0; i < ids.length; i += LOTE_IDS) {
+      const lote = ids.slice(i, i + LOTE_IDS)
+      const { data, error } = await supabase
+        .from('appointments')
+        .select(SELECT_CONSULTA)
+        .eq('clinic_id', clinicId)
+        .in('id', lote)
+      if (error) throw new Error(error.message)
+      consultas.push(...((data ?? []) as Appointment[]))
+    }
+    return consultas
+  } catch (e) {
+    console.error('[agenda] erro ao carregar desmarcações:', e)
+    return []
+  }
+}
+
+/** Janela visível + dias em torno de hoje (sala de espera, falta confirmar) + desmarcações recentes, sem repetir. */
+async function carregarConsultas(clinicId: string, janela: Janela): Promise<Appointment[]> {
+  const supabase = createClient()
+  const doPeriodo = (inicio: Date, fim: Date) =>
+    lerTudo<Appointment>((de, ate) =>
+      supabase
+        .from('appointments')
+        .select(SELECT_CONSULTA)
+        .eq('clinic_id', clinicId)
+        .gte('start_time', inicio.toISOString())
+        .lt('start_time', fim.toISOString())
+        .order('start_time')
+        .order('id')
+        .range(de, ate),
+    )
+  const agora = new Date()
+  const [daJanela, deHoje, desmarcadas] = await Promise.all([
+    doPeriodo(janela.de, janela.ate),
+    doPeriodo(subDays(agora, 2), addDays(agora, 2)),
+    consultasDesmarcadasAgora(clinicId),
+  ])
+  return [...new Map([...daJanela, ...deHoje, ...desmarcadas].map((a) => [a.id, a])).values()]
 }
 
 export default function AgendaPage() {
@@ -79,37 +150,63 @@ function AgendaConteudo() {
 
   const [reloadKey, setReloadKey] = useState(0)
   const [dismissedNoticeKey, setDismissedNoticeKey] = useState('')
+  const [janela, setJanela] = useState<Janela>(() => janelaDe(currentDate))
+  const [cargaConsultas, setCargaConsultas] = useState<{ chave: string; erro: boolean }>({ chave: '', erro: false })
 
   const openPopover = useCallback((apt: Appointment, rect: DOMRect) => {
     setPopover({ apt, rect })
   }, [])
 
-  const loadData = useCallback(async () => {
-    if (!clinicId) return
-    const supabase = createClient()
+  // Navegou além da folga: centraliza a janela na data atual (ajuste durante o render).
+  const inicioVisivel = startOfWeek(currentDate)
+  if (inicioVisivel < janela.de || addDays(inicioVisivel, 7) > janela.ate) {
+    setJanela(janelaDe(currentDate))
+  }
+  const chaveJanela = `${clinicId}|${janela.de.toISOString()}|${janela.ate.toISOString()}`
+  const carregandoConsultas = !!clinicId && cargaConsultas.chave !== chaveJanela
+  const erroConsultas = !carregandoConsultas && cargaConsultas.erro
 
-    const [profsRes, patientsRes, plansRes, aptsRes] = await Promise.all([
-      supabase.from('professionals').select('*').eq('clinic_id', clinicId),
-      supabase.from('patients').select('*, insurance_plan:insurance_plans(*)').eq('clinic_id', clinicId),
-      supabase.from('insurance_plans').select('*').eq('clinic_id', clinicId).order('name'),
-      supabase
-        .from('appointments')
-        .select('*, patient:patients(*, insurance_plan:insurance_plans(*)), professional:professionals(*)')
-        .eq('clinic_id', clinicId),
-    ])
-
-    if (profsRes.data) setProfessionals(profsRes.data)
-    if (patientsRes.data) setPatients(patientsRes.data)
-    if (plansRes.data) setInsurancePlans(plansRes.data)
-    if (aptsRes.error) console.error('[loadData] appointments error:', aptsRes.error)
-    if (aptsRes.data) {
-      setAgendaState(prev => ({ appointments: aptsRes.data!, version: prev.version + 1 }))
-    }
-  }, [clinicId])
-
+  // Cadastros de apoio: não dependem do período exibido.
   useEffect(() => {
-    if (clinicId) loadData()
+    if (!clinicId) return
+    let ativo = true
+    const supabase = createClient()
+    void (async () => {
+      const [profsRes, plansRes, listaPacientes] = await Promise.all([
+        supabase.from('professionals').select('*').eq('clinic_id', clinicId),
+        supabase.from('insurance_plans').select('*').eq('clinic_id', clinicId).order('name'),
+        lerTudo<Patient>((de, ate) =>
+          supabase.from('patients').select('*').eq('clinic_id', clinicId).order('name').order('id').range(de, ate),
+        ).catch((e) => {
+          console.error('[agenda] erro ao carregar pacientes:', e)
+          return null
+        }),
+      ])
+      if (!ativo) return
+      if (profsRes.data) setProfessionals(profsRes.data)
+      if (plansRes.data) setInsurancePlans(plansRes.data)
+      if (listaPacientes) setPatients(listaPacientes)
+    })()
+    return () => { ativo = false }
   }, [clinicId, reloadKey])
+
+  // Consultas da janela, mais as de hoje e as desmarcadas há pouco (painel e avisos).
+  useEffect(() => {
+    if (!clinicId) return
+    let ativo = true
+    carregarConsultas(clinicId, janela).then(
+      (lista) => {
+        if (!ativo) return
+        setAgendaState(prev => ({ appointments: lista, version: prev.version + 1 }))
+        setCargaConsultas({ chave: chaveJanela, erro: false })
+      },
+      (e) => {
+        console.error('[agenda] erro ao carregar consultas:', e)
+        if (ativo) setCargaConsultas({ chave: chaveJanela, erro: true })
+      },
+    )
+    return () => { ativo = false }
+  }, [clinicId, janela, chaveJanela, reloadKey])
 
   function navigate(dir: 'prev' | 'next') {
     if (view === 'timeGridWeek') {
@@ -404,7 +501,21 @@ function AgendaConteudo() {
           </div>
         )}
 
-        <div className="flex-1 min-h-0 mx-2 md:mx-6 mb-2 md:mb-5 bg-white rounded-xl ring-1 ring-linha overflow-hidden">
+        {erroConsultas && (
+          <div role="alert" className="mx-3 md:mx-6 mb-3 rounded-xl bg-red-50 ring-1 ring-red-200 px-3 py-2 flex items-center justify-between gap-2 text-sm text-red-700">
+            <span>Não foi possível carregar as consultas deste período.</span>
+            <button onClick={() => setReloadKey((k) => k + 1)} className="font-semibold underline underline-offset-2 shrink-0">
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        <div className="relative flex-1 min-h-0 mx-2 md:mx-6 mb-2 md:mb-5 bg-white rounded-xl ring-1 ring-linha overflow-hidden">
+          {carregandoConsultas && (
+            <div role="status" aria-label="Carregando consultas" className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
+              <div className="w-8 h-8 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           <CalendarioAgenda
             key={agendaState.version}
             view={view}

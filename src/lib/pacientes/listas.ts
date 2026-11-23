@@ -3,6 +3,18 @@ import { subMonths } from 'date-fns'
 type ComNascimento = { birthdate?: string | null }
 type Consulta = { patient_id: string; start_time: string; status: string }
 
+export type EstadoLista = 'erro-pacientes' | 'erro-consultas' | 'carregando' | 'vazia' | 'lista'
+
+/** O que a lista mostra. Falha ao carregar nunca aparece como clínica sem pacientes. */
+export function estadoDaLista(l: {
+  erroPacientes: boolean; erroConsultas: boolean; aba: string; carregando: boolean; quantidade: number
+}): EstadoLista {
+  if (l.erroPacientes) return 'erro-pacientes'
+  if (l.aba === 'retornos' && l.erroConsultas) return 'erro-consultas'
+  if (l.carregando) return 'carregando'
+  return l.quantidade === 0 ? 'vazia' : 'lista'
+}
+
 /** Quem faz aniversário no mês de `hoje` ('YYYY-MM-DD'), em ordem de dia. */
 export function aniversariantesDoMes<T extends ComNascimento>(pacientes: T[], hoje: string): T[] {
   const mes = hoje.slice(5, 7)

@@ -5,12 +5,14 @@ import { Plus, X, Trash2, FileText, CheckCircle2, XCircle, Clock, Send } from 'l
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { lerTudo } from '@/lib/supabase/lerTudo'
+import { somarPorOrcamento, type LegacyPayment } from '@/lib/pacientes/historicoAnterior'
 import { formatCurrency } from '@/lib/utils'
 import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
 import type { NovaCobrancaPatient } from '@/components/pagamentos/ModalNovaCobranca'
 import { ModalDecisao } from '@/components/orcamentos/ModalDecisao'
 import { STAGE_LABEL } from '@/lib/orcamentos/etapas'
-import { actionsFor, eventLabel } from '@/lib/orcamentos/aba'
+import { actionsFor, eventLabel, totalDoOrcamento } from '@/lib/orcamentos/aba'
 import type { Budget, BudgetEvent, BudgetItem, BudgetStatus } from '@/types'
 
 interface Props {
@@ -51,6 +53,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [charged, setCharged] = useState<Record<string, number>>({})
+  const [historico, setHistorico] = useState<{ pago: Record<string, number>; emAberto: Record<string, number> }>({ pago: {}, emAberto: {} })
   const [chargeBudget, setChargeBudget] = useState<{ id: string; total: number; label: string } | null>(null)
   const [decisao, setDecisao] = useState<{ budget: Budget; mode: 'approve' | 'lose' } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -75,21 +78,32 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
       setBudgets(data as Budget[])
       const ids = data.map((b: Budget) => b.id)
       if (ids.length > 0) {
-        const [{ data: pays }, { data: evs }] = await Promise.all([
+        const [{ data: pays }, { data: evs }, linhasHistorico] = await Promise.all([
           supabase.from('payments').select('budget_id, amount, status').in('budget_id', ids),
           supabase.from('budget_events').select('*').in('budget_id', ids).order('created_at', { ascending: true }),
+          // Histórico é opcional: se a leitura falhar, ficam só os valores atuais.
+          lerTudo<Pick<LegacyPayment, 'budget_id' | 'amount' | 'original_status'>>((de, ate) =>
+            supabase.from('legacy_payments').select('budget_id, amount, original_status').in('budget_id', ids).order('id').range(de, ate),
+          ).catch(() => []),
         ])
         const sums: Record<string, number> = {}
         for (const p of (pays ?? []) as { budget_id: string; amount: number; status: string }[]) {
           if (p.status === 'cancelled' || p.status === 'refunded') continue
           sums[p.budget_id] = (sums[p.budget_id] ?? 0) + Number(p.amount)
         }
+        // Só o que foi pago no sistema anterior conta como cobrado; o aberto segue cobrável.
+        const pagoAnterior = somarPorOrcamento(linhasHistorico, 'paid')
+        for (const [id, valor] of Object.entries(pagoAnterior)) {
+          sums[id] = (Math.round((sums[id] ?? 0) * 100) + Math.round(valor * 100)) / 100
+        }
         setCharged(sums)
+        setHistorico({ pago: pagoAnterior, emAberto: somarPorOrcamento(linhasHistorico, 'open') })
         const byBudget: Record<string, BudgetEvent[]> = {}
         for (const e of (evs ?? []) as BudgetEvent[]) (byBudget[e.budget_id] ??= []).push(e)
         setEvents(byBudget)
       } else {
         setCharged({})
+        setHistorico({ pago: {}, emAberto: {} })
         setEvents({})
       }
     }
@@ -216,11 +230,15 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
             const items = b.items || []
             const itemsTotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
             const won = b.status === 'approved' || b.status === 'completed'
-            const total = won ? Number(b.approved_total ?? itemsTotal) : itemsTotal
+            const total = totalDoOrcamento(b, itemsTotal)
             const remaining = total - (charged[b.id] ?? 0)
-            const act = actionsFor(b.status, remaining)
+            const act = actionsFor(b.status, remaining, Boolean(b.imported_from))
             const msg = msgs[b.id]
             const disabled = busy === b.id
+            const linhaHistorico = [
+              historico.pago[b.id] ? `Pago no sistema anterior ${formatCurrency(historico.pago[b.id])}` : null,
+              historico.emAberto[b.id] ? `Em aberto ${formatCurrency(historico.emAberto[b.id])}` : null,
+            ].filter(Boolean).join(' · ')
 
             return (
               <div key={b.id} className="bg-white rounded-xl border border-linha overflow-hidden">
@@ -245,6 +263,7 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                         Cobrado {formatCurrency(charged[b.id] ?? 0)} de {formatCurrency(total)}
                       </p>
                     )}
+                    {linhaHistorico && <p className="text-xs text-tinta-3 mt-0.5">{linhaHistorico}</p>}
                   </div>
                   <p className="text-base font-bold text-tinta shrink-0">{formatCurrency(total)}</p>
                 </button>
@@ -275,7 +294,8 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                           className="h-7 px-2 rounded-lg border border-linha text-xs bg-white disabled:bg-porcelana"
                         />
                       </label>
-                      {b.status === 'sent' && <span className="text-[11px] text-[#B45309]">{SENT_EDIT_NOTICE}</span>}
+                      {b.status === 'sent' && !b.imported_from && <span className="text-[11px] text-[#B45309]">{SENT_EDIT_NOTICE}</span>}
+                      {b.imported_from && <span className="text-[11px] text-tinta-3">Importado do sistema anterior: somente leitura.</span>}
                     </div>
 
                     <div className="divide-y divide-porcelana-2">
@@ -299,8 +319,9 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                             </div>
                             <select
                               value={item.status}
+                              disabled={!act.editItems}
                               onChange={e => updateItemStatus(b.id, item.id, e.target.value as BudgetItem['status'])}
-                              className="h-7 px-2 rounded-lg border border-linha text-xs bg-white focus:outline-none"
+                              className="h-7 px-2 rounded-lg border border-linha text-xs bg-white disabled:bg-porcelana focus:outline-none"
                               style={{ color: ist.color }}
                             >
                               {Object.entries(ITEM_STATUS).map(([v, c]) => (

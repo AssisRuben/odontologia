@@ -2,6 +2,7 @@ import type { BudgetStatus } from '@/types'
 import type { PatientRow } from '@/lib/messaging/types'
 import type { ManualResult } from '@/lib/messaging/manual'
 import { DEFAULT_TEMPLATES, buildContext, renderTemplate } from '@/lib/messaging/templates'
+import { IMPORTED_READ_ONLY } from './aprovacao'
 import { canSend } from './etapas'
 import { newToken, linkUrl } from './links'
 
@@ -17,7 +18,7 @@ export interface MessageContext {
 
 export interface SendDeps {
   loadBudget(budgetId: string, clinicId: string): Promise<
-    { id: string; patient_id: string; status: BudgetStatus; total: number; itemCount: number } | null
+    { id: string; patient_id: string; status: BudgetStatus; total: number; itemCount: number; imported_from?: string | null } | null
   >
   getValidityDays(clinicId: string): Promise<number>
   getActiveLink(budgetId: string, clinicId: string): Promise<{ id: string; token: string } | null>
@@ -52,6 +53,7 @@ export async function sendBudget(
   const { budgetId, clinicId, actorId } = input
   const budget = await deps.loadBudget(budgetId, clinicId)
   if (!budget) return fail(404, 'Orçamento não encontrado')
+  if (budget.imported_from) return fail(422, IMPORTED_READ_ONLY)
   const can = canSend(budget)
   if (!can.ok) return fail(422, can.error)
 

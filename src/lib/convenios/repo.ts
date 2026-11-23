@@ -181,6 +181,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
         )
         .eq('clinic_id', clinicId)
         .in('id', treatmentIds)
+        .is('imported_from', null)
       if (error) throw new Error(error.message)
       const linhas = (data ?? []) as unknown as LinhaTratamento[]
 
@@ -832,6 +833,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           .not('insurance_plan_id', 'is', null)
           .eq('status', 'completed')
           .gte('completed_at', corte)
+          .is('imported_from', null)
           .order('id')
           .range(de, ate),
       )
@@ -925,6 +927,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           .eq('clinic_id', clinicId)
           .eq('insurance_plan_id', o.id)
           .neq('status', 'cancelled')
+          .is('imported_from', null)
           .limit(1)
         if (error) throw new Error(error.message)
         if (data?.length) operadorasSemFechamento.push(o)
