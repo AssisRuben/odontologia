@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "importar:codental": "node scripts/importar-codental/cli.mjs",
     "manual": "node --env-file=.env.local scripts/manual/gerar.mjs",
     "demo": "node --env-file=.env.local scripts/demo/rodar.mjs"
   },
