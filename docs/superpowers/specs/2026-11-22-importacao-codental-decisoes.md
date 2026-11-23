@@ -2,9 +2,9 @@
 
 Complementa a especificação. Cada item traz a decisão e o custo se ela estiver errada.
 
-## Pendente de decisão do responsável
+## Decidido pelo responsável
 
-- **Comissões.** O histórico antigo não entra em `payments`, e a alocação de comissão depende dessa tabela. Enquanto a regra não for definida, o importador recusa clínica com comissão configurada. Nada impede configurar comissão depois da importação: só o README alerta.
+- **Comissões.** A clínica desta importação não paga comissão, então nenhuma regra de alocação é necessária agora. O histórico antigo continua fora de `payments`, e o importador continua recusando clínica com comissão configurada. Se a clínica passar a pagar comissão depois da importação, a regra precisa ser definida antes de configurar as taxas: só o README alerta sobre isso.
 
 ## Leitura e mapeamento
 
