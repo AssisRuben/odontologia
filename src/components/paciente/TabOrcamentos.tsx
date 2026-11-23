@@ -5,6 +5,8 @@ import { Plus, X, Trash2, FileText, CheckCircle2, XCircle, Clock, Send } from 'l
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { lerTudo } from '@/lib/supabase/lerTudo'
+import { somarPorOrcamento, type LegacyPayment } from '@/lib/pacientes/historicoAnterior'
 import { formatCurrency } from '@/lib/utils'
 import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
 import type { NovaCobrancaPatient } from '@/components/pagamentos/ModalNovaCobranca'
@@ -75,14 +77,21 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
       setBudgets(data as Budget[])
       const ids = data.map((b: Budget) => b.id)
       if (ids.length > 0) {
-        const [{ data: pays }, { data: evs }] = await Promise.all([
+        const [{ data: pays }, { data: evs }, historico] = await Promise.all([
           supabase.from('payments').select('budget_id, amount, status').in('budget_id', ids),
           supabase.from('budget_events').select('*').in('budget_id', ids).order('created_at', { ascending: true }),
+          // Histórico é opcional: se a leitura falhar, ficam só os valores atuais.
+          lerTudo<Pick<LegacyPayment, 'budget_id' | 'amount'>>((de, ate) =>
+            supabase.from('legacy_payments').select('budget_id, amount').in('budget_id', ids).order('id').range(de, ate),
+          ).catch(() => []),
         ])
         const sums: Record<string, number> = {}
         for (const p of (pays ?? []) as { budget_id: string; amount: number; status: string }[]) {
           if (p.status === 'cancelled' || p.status === 'refunded') continue
           sums[p.budget_id] = (sums[p.budget_id] ?? 0) + Number(p.amount)
+        }
+        for (const [id, valor] of Object.entries(somarPorOrcamento(historico))) {
+          sums[id] = (Math.round((sums[id] ?? 0) * 100) + Math.round(valor * 100)) / 100
         }
         setCharged(sums)
         const byBudget: Record<string, BudgetEvent[]> = {}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Search, Plus, Phone, Cake } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { lerTudo } from '@/lib/supabase/lerTudo'
 import { useClinicStore } from '@/store/clinicStore'
 import { getInitials, formatPhone } from '@/lib/utils'
 import { aniversariantesDoMes, retornosPendentes } from '@/lib/pacientes/listas'
@@ -51,12 +52,21 @@ export default function PacientesPage() {
 
   async function loadPatients(id: string) {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('patients')
-      .select('*, insurance_plan:insurance_plans(*)')
-      .eq('clinic_id', id)
-      .order('name')
-    setPatients(data || [])
+    try {
+      const lista = await lerTudo<Patient>((de, ate) =>
+        supabase
+          .from('patients')
+          .select('*, insurance_plan:insurance_plans(*)')
+          .eq('clinic_id', id)
+          .order('name')
+          .order('id')
+          .range(de, ate),
+      )
+      setPatients(lista)
+    } catch (e) {
+      console.error('[pacientes] erro ao carregar a lista:', e)
+      setPatients([])
+    }
     setLoading(false)
   }
 
