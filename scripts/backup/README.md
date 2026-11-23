@@ -2,8 +2,9 @@
 
 O `backup.sh` roda todo dia na VPS e:
 
-1. exporta o banco de produção (`pg_dump` dos schemas `public`, `auth` e `storage`):
-   cópia na VPS por 14 dias e no Google Drive por 60 dias;
+1. exporta o banco de produção (`pg_dump` dos schemas `public`, `auth` e `storage`) por TLS
+   verificado e lê o arquivo inteiro para confirmar que ele está íntegro: cópia na VPS por
+   3 dias (sem criptografia, em pasta só do root) e no Google Drive por 60 dias;
 2. copia os arquivos do Storage (buckets `anneOdonto` e `expense-receipts`) direto
    do Supabase para o Drive, sem nunca apagar nada no destino;
 3. envia tudo **criptografado** (rclone crypt): no Drive só aparecem nomes embaralhados.
@@ -18,10 +19,14 @@ O `backup.sh` roda todo dia na VPS e:
 ```bash
 ssh root@189.24.5.150
 mkdir -p /opt/backup/banco
-curl -fsSL -o /opt/backup/backup.sh https://raw.githubusercontent.com/fiusajr/odontologia/main/scripts/backup/backup.sh
-curl -fsSL -o /opt/backup/backup.env https://raw.githubusercontent.com/fiusajr/odontologia/main/scripts/backup/backup.env.example
-chmod 700 /opt/backup/backup.sh && chmod 600 /opt/backup/backup.env
+chmod 700 /opt/backup /opt/backup/banco
+BASE=https://raw.githubusercontent.com/fiusajr/odontologia/main/scripts/backup
+for f in backup.sh comum.sh conferir-restauracao.sh; do curl -fsSL -o "/opt/backup/$f" "$BASE/$f"; done
+curl -fsSL -o /opt/backup/backup.env "$BASE/backup.env.example"
+chmod 700 /opt/backup/*.sh && chmod 600 /opt/backup/backup.env
 ```
+
+Os arquivos só existem nesse endereço depois do merge em `main`.
 
 ### 2. Conexão do banco
 
@@ -30,6 +35,14 @@ chmod 700 /opt/backup/backup.sh && chmod 600 /opt/backup/backup.env
 3. `nano /opt/backup/backup.env`: cole a URI em `DB_URL` (com a senha do banco no lugar de
    `[YOUR-PASSWORD]`) e ajuste `PG_IMAGE` se a versão não for 17 (ex.: `postgres:15-alpine`).
    Salve com Ctrl+O, Enter, Ctrl+X.
+4. Em **Project Settings > Database > SSL Configuration**, clique em **Download certificate**.
+   No PowerShell do Windows, envie o arquivo para a VPS (ajuste o caminho do download):
+
+   ```powershell
+   scp "$HOME\Downloads\prod-ca-2021.crt" root@189.24.5.150:/opt/backup/supabase-ca.crt
+   ```
+
+   Na VPS: `chmod 600 /opt/backup/supabase-ca.crt`. Use o certificado da **produção**.
 
 ### 3. rclone e acesso ao Storage
 
@@ -114,6 +127,23 @@ Deve terminar com `Backup concluído.` A primeira cópia do Storage pode demorar
 muitos arquivos. No Google Drive aparece a pasta `sistemadental-backup` com nomes embaralhados
 (é a criptografia funcionando). Para ver o conteúdo decifrado: `rclone tree gdrive-cripto:`.
 
+Depois, prove que o backup pode ser recuperado:
+
+```bash
+/opt/backup/conferir-restauracao.sh
+```
+
+Ele baixa e decifra o último backup do Drive, restaura em um banco temporário sem rede, compara
+as linhas de cada tabela com a produção (somente leitura) e compara o conteúdo de cada arquivo
+do Storage. Só mostra contagens. O resultado esperado é `RESULTADO: backup restaurável e completo.`
+
+- **Código 2 (contagens diferentes):** a clínica pode ter lançado algo depois do backup. Rode
+  `backup.sh` e a conferência de novo, fora do horário de atendimento.
+- **Código 1:** o backup não é confiável. Não importe dados reais até resolver.
+
+Repita a conferência **antes da importação** e depois **uma vez por mês**. Ela baixa todos os
+arquivos do Storage, então evite o horário de atendimento.
+
 ### 6. Agendar (todo dia às 03:30 de Brasília)
 
 ```bash
@@ -155,14 +185,20 @@ Restaurar num projeto Supabase **novo e vazio**:
    tabelas internas de versão do Supabase (o projeto novo já tem as dele):
 
    ```bash
-   NOVO="postgresql://postgres.NOVO_REF:SENHA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
-   docker run --rm -v "$PWD/banco:/b" postgres:17-alpine sh -c \
-     "pg_restore -l /b/ARQUIVO.dump | grep -vE 'TABLE DATA (storage (buckets|migrations)|auth schema_migrations) ' > /b/lista && \
-      PGOPTIONS='-c session_replication_role=replica' pg_restore --data-only --no-owner \
-        -L /b/lista -d '$NOVO' /b/ARQUIVO.dump"
+   # ca-novo.crt: certificado do projeto novo (Project Settings > Database > SSL Configuration)
+   export NOVO="postgresql://postgres.NOVO_REF:SENHA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=verify-full&sslrootcert=/ca.crt"
+   docker run --rm -e NOVO -v "$PWD/banco:/b:ro" -v "$PWD/ca-novo.crt:/ca.crt:ro" postgres:17-alpine sh -c \
+     'pg_restore -l /b/ARQUIVO.dump | grep -vE "TABLE DATA (storage (buckets|migrations)|auth schema_migrations) " > /tmp/lista && \
+      pg_restore --data-only --no-owner -L /tmp/lista -f - /b/ARQUIVO.dump | \
+      psql "$NOVO" -q -v ON_ERROR_STOP=1 --single-transaction -c "SET session_replication_role = replica" -f -'
+   unset NOVO
    ```
+
+   A carga roda em uma única transação: se algo falhar, nada fica gravado.
 3. Envie os arquivos: configure um remote `s3` para o projeto novo (como no passo 3) e rode
    `rclone copy ./storage/ novo-s3:`.
 4. Rode `supabase/agendamentos.sql`, troque as chaves do Supabase no Coolify e faça Redeploy.
 
-Faça um ensaio desta restauração antes de precisar dela de verdade.
+O `conferir-restauracao.sh` prova que os dados e arquivos podem ser recuperados, mas não sobe
+um Supabase completo. Faça este roteiro uma vez em um projeto descartável antes de precisar dele
+de verdade, incluindo login, abertura de um documento e o apontamento do app.
