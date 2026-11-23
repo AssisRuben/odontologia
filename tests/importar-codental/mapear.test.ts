@@ -268,6 +268,34 @@ describe('tratamentos', () => {
     expect(() => mapear({ tratamentos: [tratamento({ Dente: '11', Faces: 'constructor' })] })).toThrow(/tratamentos.*Faces.*linha 2/)
   })
 
+  it.each(['99', '19', '56', '10', '09', '011', '99999999999', '11, 99', '1a', '11;12'])('dente fora do FDI (%s) é erro sem o valor', (Dente) => {
+    let msg = ''
+    try { mapear({ tratamentos: [tratamento({ Dente })] }) } catch (e) { msg = (e as Error).message }
+    expect(msg).toMatch(/tratamentos.*Dente.*linha 2.*dente inválido/)
+    expect(msg).not.toContain(Dente)
+  })
+
+  it.each(['18', '28', '38', '48', '51', '55', '65', '75', '81', '85'])('dente %s é aceito', (Dente) => {
+    const [t] = mapear({ tratamentos: [tratamento({ Dente })] }).tratamentos
+    expect(t.dentes).toEqual([{ tooth_number: Number(Dente), faces: [] }])
+  })
+
+  it('dente repetido gera uma linha e mantém a ordem', () => {
+    const [t] = mapear({ tratamentos: [tratamento({ Dente: '12, 11, 12, 11' })] }).tratamentos
+    expect(t.dentes.map((d: { tooth_number: number }) => d.tooth_number)).toEqual([12, 11])
+  })
+
+  it('item do orçamento usa os dentes já validados e sem repetição', () => {
+    const { orcamentos } = mapear({
+      orcamentos: [orcamento()],
+      tratamentos: [
+        tratamento({ 'ID orçamento': 'O1', Dente: '12,11, 12' }),
+        tratamento({ ID: 'T2', 'ID orçamento': 'O1', Dente: '---' }),
+      ],
+    })
+    expect(orcamentos[0].itens.map((i: { tooth: string | null }) => i.tooth)).toEqual(['12, 11', null])
+  })
+
   it('paciente ou orçamento inexistente é erro sem valores', () => {
     let msg = ''
     try { mapear({ tratamentos: [tratamento({ 'ID Paciente': 'SECRETO' })] }) } catch (e) { msg = (e as Error).message }

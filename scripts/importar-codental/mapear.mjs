@@ -20,6 +20,8 @@ const FORMAS = { Crédito: 'cartao_credito', Débito: 'cartao_debito', Dinheiro:
 const GENEROS = { Masculino: 'M', Feminino: 'F', Outro: 'O' }
 // Chaves do odontograma: O = Oclusal/Incisal, L = Lingual/Palatino.
 const FACES = { V: 'V', M: 'M', D: 'D', O: 'O', L: 'L', 'O/I': 'O', 'L/P': 'L' }
+// Dentes do odontograma (FDI): permanentes 11-18 a 41-48, decíduos 51-55 a 81-85.
+const RE_DENTE_FDI = /^(?:[1-4][1-8]|[5-8][1-5])$/
 
 // ── Auxiliares ─────────────────────────────────────────────────────────────
 const onde = (planilha, linha, coluna) => ({ planilha, coluna, linha: linha._linha })
@@ -231,8 +233,8 @@ function lerDentes(l) {
   const P = 'tratamentos'
   const bruto = texto(l.Dente)
   if (ausente(bruto)) return []
-  const numeros = bruto.split(',').map((d) => d.trim())
-  if (numeros.some((d) => !/^\d+$/.test(d))) throw erroCelula(onde(P, l, 'Dente'), 'dente inválido')
+  const numeros = [...new Set(bruto.split(',').map((d) => d.trim()))]
+  if (numeros.some((d) => !RE_DENTE_FDI.test(d))) throw erroCelula(onde(P, l, 'Dente'), 'dente inválido')
 
   const brutoFaces = texto(l.Faces)
   const faces = ausente(brutoFaces) ? [] : brutoFaces.split(',').map((f) => {
@@ -279,17 +281,17 @@ function informado(v) {
   return t
 }
 
-function mapearOrcamentos(linhas, refs, tratamentosLinhas, tratamentos) {
+function mapearOrcamentos(linhas, refs, tratamentos) {
   const P = 'orcamentos'
   const itensPorOrcamento = new Map()
-  tratamentos.forEach((t, i) => {
-    if (!t.orcamentoSourceId) return
-    const dente = texto(tratamentosLinhas[i].Dente)
+  for (const t of tratamentos) {
+    if (!t.orcamentoSourceId) continue
+    const tooth = t.dentes.map((d) => d.tooth_number).join(', ') || null
     if (!itensPorOrcamento.has(t.orcamentoSourceId)) itensPorOrcamento.set(t.orcamentoSourceId, [])
     itensPorOrcamento.get(t.orcamentoSourceId).push({
-      sourceId: t.sourceId, procedure: t.procedure, tooth: ausente(dente) ? null : dente, quantity: 1, unit_price: t.value,
+      sourceId: t.sourceId, procedure: t.procedure, tooth, quantity: 1, unit_price: t.value,
     })
-  })
+  }
 
   return linhas.map((l) => {
     const sourceId = texto(l.ID)
@@ -375,7 +377,7 @@ export function mapearBackup(backup, opts) {
   const consultas = mapearConsultas(backup.consultas, refs, agora, avisos)
   const evolucoes = mapearEvolucoes(backup.evolucoes, refs, avisos)
   const tratamentos = mapearTratamentos(backup.tratamentos, refs, tabela, avisos)
-  const orcamentos = mapearOrcamentos(backup.orcamentos, refs, backup.tratamentos, tratamentos)
+  const orcamentos = mapearOrcamentos(backup.orcamentos, refs, tratamentos)
   const historico = mapearHistorico(backup.pagamentos, refs, avisos)
 
   avisos.gruposNomeNascimento = contarRepetidos(
