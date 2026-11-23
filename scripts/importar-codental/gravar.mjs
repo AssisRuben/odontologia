@@ -152,6 +152,30 @@ function conferirConvenios(plano, problemas) {
   }
 }
 
+/** Tratamento ou pagamento não pode apontar para orçamento de outro paciente. */
+function conferirDonosDosOrcamentos(plano, problemas) {
+  const donos = new Map(plano.orcamentos.map((o) => [o.sourceId, o.pacienteSourceId]))
+  for (const [entidade, linhas] of [['tratamento', plano.tratamentos], ['historico', plano.historico]]) {
+    for (const l of linhas) {
+      if (l.orcamentoSourceId === null || l.orcamentoSourceId === undefined) continue
+      const dono = donos.get(l.orcamentoSourceId)
+      if (dono !== undefined && dono !== l.pacienteSourceId) problemas.add(entidade, 'orçamento de outro paciente')
+    }
+  }
+}
+
+/** Orçamento já importado não recebe item novo: os itens divergiriam do total original. */
+function conferirItensDeOrcamentosVinculados(plano, vinculos, problemas) {
+  const orcamentos = vinculos.de('orcamento')
+  const itens = vinculos.de('item_orcamento')
+  for (const o of plano.orcamentos) {
+    if (!orcamentos.has(o.sourceId)) continue
+    for (const i of o.itens) {
+      if (!itens.has(i.sourceId)) problemas.add('item_orcamento', 'novo em orçamento já importado')
+    }
+  }
+}
+
 function conferirIdsUnicos(fontes, problemas) {
   for (const [entidade, linhas] of Object.entries(fontes)) {
     const vistos = new Set()
@@ -423,6 +447,7 @@ export async function gravarPlano(cliente, plano, opts) {
     const problemas = criarProblemas()
     conferirIdsUnicos(fontes, problemas)
     conferirConvenios(plano, problemas)
+    conferirDonosDosOrcamentos(plano, problemas)
     problemas.lancar()
 
     const { rows: rowsVinculos } = await cliente.query(
@@ -441,6 +466,7 @@ export async function gravarPlano(cliente, plano, opts) {
       convenio: resolverConvenios(plano, vinculos, planosExistentes, ids, problemas),
     }
     resolvidos.procedimento = resolverProcedimentos(plano, vinculos, procsExistentes, ids, problemas)
+    conferirItensDeOrcamentosVinculados(plano, vinculos, problemas)
     problemas.lancar()
 
     if (!permitirExistentes) {
@@ -490,11 +516,14 @@ export async function gravarPlano(cliente, plano, opts) {
       await inserir(cliente, entidade, linhas[entidade])
     }
 
+    // Só na primeira importação: uma nova execução não desfaz o que a clínica escolheu depois.
     etapa = 'mensagem'
-    const mensagens = await cliente.query(
-      'UPDATE message_settings SET enabled = false WHERE clinic_id = $1 AND type = ANY($2::text[]) AND enabled',
-      [clinicId, ['recall', 'birthday']],
-    )
+    const mensagens = vinculos.total === 0
+      ? await cliente.query(
+        'UPDATE message_settings SET enabled = false WHERE clinic_id = $1 AND type = ANY($2::text[]) AND enabled',
+        [clinicId, ['recall', 'birthday']],
+      )
+      : { rowCount: 0 }
 
     etapa = 'commit'
     const fim = await cliente.query('COMMIT')

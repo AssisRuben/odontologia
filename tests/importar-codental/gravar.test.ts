@@ -15,6 +15,7 @@ const opts = { clinicId: CLINICA, professionalId: PROF }
 
 type Linha = Record<string, unknown>
 type Link = { entity: string; source_id: string; target_id: string }
+type ItemPlano = { sourceId: string; procedure: string; tooth: string | null; quantity: number; unit_price: number; approved: boolean | null }
 type Config = {
   clinica?: boolean
   profissional?: boolean
@@ -98,9 +99,9 @@ const plano = () => ({
     {
       sourceId: 'O1', pacienteSourceId: 'P1', status: 'approved', total: 100.5, approved_total: 100.5, notes: null,
       created_at: '2023-01-01T03:00:00.000Z', imported_from: 'codental',
-      itens: [{ sourceId: 'T1', procedure: 'Limpeza', tooth: '11, 12', quantity: 1, unit_price: 100.5, approved: true }],
+      itens: [{ sourceId: 'T1', procedure: 'Limpeza', tooth: '11, 12', quantity: 1, unit_price: 100.5, approved: true }] as ItemPlano[],
     },
-    { sourceId: 'O2', pacienteSourceId: 'P2', status: 'draft', total: 0, approved_total: null, notes: null, created_at: null, imported_from: 'codental', itens: [] },
+    { sourceId: 'O2', pacienteSourceId: 'P2', status: 'draft', total: 0, approved_total: null, notes: null, created_at: null, imported_from: 'codental', itens: [] as ItemPlano[] },
   ],
   tratamentos: [
     {
@@ -302,9 +303,45 @@ describe('gravarPlano: idempotência', () => {
     const p = plano()
     const c = new ClienteFalso({ links: linksDe(p) })
     const r = await gravarPlano(c, p, opts)
-    expect(c.escritas.filter((s) => !/^UPDATE message_settings/.test(s))).toEqual([])
+    expect(c.escritas).toEqual([])
     expect(r.inseridos.paciente).toBe(0)
     expect(r.jaVinculados.paciente).toBe(2)
+  })
+
+  it('primeira importação desliga recall e birthday e informa a contagem', async () => {
+    const c = new ClienteFalso()
+    const r = await gravarPlano(c, plano(), opts)
+    const u = c.chamadas.filter((x) => /^UPDATE message_settings/.test(x.sql))
+    expect(u).toHaveLength(1)
+    expect(u[0].params).toEqual([CLINICA, ['recall', 'birthday']])
+    expect(r.mensagensDesativadas).toBe(2)
+  })
+
+  it('reexecução com linhas novas não mexe em message_settings', async () => {
+    const p = plano()
+    const links = linksDe(p).filter((l) => l.entity !== 'evolucao')
+    const c = new ClienteFalso({ links })
+    const r = await gravarPlano(c, p, opts)
+    expect(c.inseridas('evolutions')).toHaveLength(1)
+    expect(c.sqls.some((s) => /message_settings/.test(s))).toBe(false)
+    expect(r.mensagensDesativadas).toBe(0)
+  })
+
+  it('aceita orçamento novo com itens novos em reexecução com permitirNovos', async () => {
+    const p = plano()
+    const links = linksDe(p)
+    p.orcamentos.push({
+      sourceId: 'O3', pacienteSourceId: 'P2', status: 'draft', total: 10, approved_total: null, notes: null, created_at: null,
+      imported_from: 'codental',
+      itens: [{ sourceId: 'T3', procedure: 'Canal', tooth: null, quantity: 1, unit_price: 10, approved: null }],
+    })
+    const c = new ClienteFalso({ links })
+    await gravarPlano(c, p, { ...opts, permitirNovos: true })
+    expect(c.sqls.at(-1)).toBe('COMMIT')
+    const [novo] = c.inseridas('budgets')
+    expect(c.inseridas('budgets')).toHaveLength(1)
+    expect(c.inseridas('budget_items')).toHaveLength(1)
+    expect(c.inseridas('budget_items')[0].budget_id).toBe(novo.id)
   })
 
   it('insere só o que falta e aponta para o alvo já vinculado', async () => {
@@ -436,6 +473,19 @@ describe('gravarPlano: verificações antes de gravar', () => {
     recusa({}, (p) => { p.consultas[0].pacienteSourceId = 'NAO' }, /consulta.*1/i))
   it('procedimento de outro convênio no tratamento aborta', () =>
     recusa({}, (p) => { p.tratamentos[0].convenioNome = null as never }, /tratamento.*1/i))
+
+  it.each([false, true])('item novo em orçamento já vinculado aborta (permitirNovos: %s)', async (permitirNovos) => {
+    const links = linksDe(plano())
+    await recusa({ links }, (p) => {
+      p.orcamentos[0].itens.push({ sourceId: 'T9', procedure: 'Extra', tooth: '13', quantity: 1, unit_price: 5, approved: true })
+    }, /item de orçamento.*\(1\)/i, { permitirNovos })
+  })
+
+  it('tratamento em orçamento de outro paciente aborta', () =>
+    recusa({}, (p) => { p.tratamentos[1].orcamentoSourceId = 'O1' as never }, /tratamento.*outro paciente.*\(1\)/i))
+
+  it('histórico em orçamento de outro paciente aborta', () =>
+    recusa({}, (p) => { p.historico[0].pacienteSourceId = 'P2' }, /histórico.*outro paciente.*\(1\)/i))
 
   it('linha já vinculada não é validada de novo', async () => {
     const p = plano()
