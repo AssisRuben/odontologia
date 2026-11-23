@@ -232,7 +232,7 @@ describe('anonimizarBackup', () => {
     const o = fixture()
     const a = anonimo()
     const manter: Record<string, string[]> = {
-      pacientes: ['ID', 'Numero', 'Sexo', 'Nome do plano', 'Data de criação', 'Última consulta'],
+      pacientes: ['ID', 'Numero', 'Nome do plano', 'Data de criação', 'Última consulta'],
       consultas: ['ID Paciente', 'ID Dentista', 'Data consulta', 'Duração', 'Status'],
       convenios: COLUNAS.convenios,
       evolucoes: ['ID', 'ID Paciente', 'Número Paciente', 'Data', 'Data de criação', 'Última atualização'],
@@ -243,6 +243,23 @@ describe('anonimizarBackup', () => {
     }
     for (const [planilha, colunas] of Object.entries(manter)) {
       for (const c of colunas) expect(coluna(a[planilha], c), `${planilha}.${c}`).toEqual(coluna(o[planilha], c))
+    }
+  })
+
+  it('sexo vem do gerador, não do valor original', () => {
+    const b = fixture()
+    b.pacientes[2].Sexo = 'Outro'
+    const baixo = anonimizarBackup(b, { rng: () => 0 }).pacientes
+    const alto = anonimizarBackup(b, { rng: () => 0.99 }).pacientes
+    expect(coluna(baixo, 'Sexo')).toEqual(['Masculino', 'Masculino', 'Masculino', null])
+    expect(coluna(alto, 'Sexo')).toEqual(['Feminino', 'Feminino', 'Feminino', null])
+  })
+
+  it('sexo sorteado continua aceito pelo mapeamento', () => {
+    for (const rng of [() => 0, () => 0.99, rngDe(5)]) {
+      const plano = mapearBackup(anonimizarBackup(fixture(), { rng }), { agora: AGORA })
+      expect(plano.pacientes[3].gender).toBeNull()
+      for (const p of plano.pacientes.slice(0, 2)) expect(['M', 'F']).toContain(p.gender)
     }
   })
 

@@ -16,6 +16,7 @@ const NASCIMENTO_MAX = Date.UTC(2010, 11, 31) / DIA_MS
 const MIN_CONTADOR = 999_999
 const COLUNAS_POR_LINHA = Math.max(...Object.values(COLUNAS).map((c) => c.length))
 const LIMITE_RNG = 2 ** 48
+const SEXOS = ['Masculino', 'Feminino']
 
 const rngPadrao = () => randomInt(LIMITE_RNG) / LIMITE_RNG
 
@@ -160,6 +161,8 @@ const regraCartao = (v, ctx) => {
 
 const regraTexto = (v, ctx) => ctx.texto(texto(v))
 const regraJson = (v, ctx) => JSON.stringify([ctx.texto(texto(v))])
+// Sorteado sem olhar o original.
+const regraSexo = (_v, ctx) => SEXOS[ctx.sortear(SEXOS.length)]
 
 function regraNascimento(v, ctx, l, planilha, coluna) {
   const original = dataYmd(v, { planilha, coluna, linha: l._linha })
@@ -184,7 +187,7 @@ const NOME_PACIENTE = { Paciente: regraNome, 'ID Paciente': manter, 'CPF Pacient
 const REGRAS = {
   pacientes: {
     ID: manter, Numero: manter, 'Nome completo': regraNome, 'Profissão': fixo('Profissão fictícia'), CPF: regraCpf,
-    RG: fixo('RG fictício'), 'Data de nascimento': regraNascimento, Sexo: manter, CEP: fixo('00000-000'),
+    RG: fixo('RG fictício'), 'Data de nascimento': regraNascimento, Sexo: regraSexo, CEP: fixo('00000-000'),
     'Endereço': fixo('Rua Fictícia'), Complemento: fixo('Complemento fictício'), Bairro: fixo('Bairro Fictício'),
     Cidade: fixo('Cidade Fictícia'), Estado: fixo('ZZ'), Email: regraEmail, Celular: regraFone,
     'Contato de emergência nome': fixo('Contato fictício'), 'Contato de emergência telefone': regraFone, Telefone: regraFone,

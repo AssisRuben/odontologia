@@ -72,8 +72,8 @@ npm run importar:codental -- --backup <pasta> --clinica <uuid> --profissional <u
 
 `--anonimizar` grava as planilhas em uma pasta nova. Recusa `--saida` dentro do repositório, igual a `--backup` ou dentro dele, e pasta que já tenha conteúdo. Não combina com `--gravar`, `--arquivos`, `--confirmar-clinica`, `--permitir-existentes` nem `--permitir-novos`. Ao terminar, relê a cópia e confere o relatório. Se divergir, apaga as planilhas.
 
-- **Trocados:** nomes, CPFs (com dígito verificador propositalmente inválido), telefones (DDD 10, não atribuído), e-mails (`@example.invalid`), carteirinhas, nascimentos, endereços, RG, profissão, contatos, responsáveis, profissionais e todo texto livre.
-- **Mantidos:** IDs, `Numero`, sexo, status, datas de consultas e do financeiro, durações, valores, planos, procedimentos, preços, dentes, faces e vínculos.
+- **Trocados:** nomes, CPFs (com dígito verificador propositalmente inválido), telefones (DDD 10, não atribuído), e-mails (`@example.invalid`), carteirinhas, nascimentos, sexo (sorteado entre Masculino e Feminino, vazio continua vazio), endereços, RG, profissão, contatos, responsáveis, profissionais e todo texto livre.
+- **Mantidos:** IDs, `Numero`, status, datas de consultas e do financeiro, durações, valores, planos, procedimentos, preços, dentes, faces e vínculos.
 - **Os ZIPs de arquivos de pacientes NÃO são anonimizados e nunca podem ser carregados na homologação.** Eles contêm radiografias, fotos e documentos reais. O anonimizador não gera nem copia arquivos.
 
 Como os CPFs substitutos são inválidos de propósito, telas e rotinas que validam CPF (cobrança, nota fiscal, assinatura de orçamento, edição do CPF do responsável) vão recusá-los ou tratá-los como ausentes na homologação. Isso é esperado. Não troque por CPFs válidos.
