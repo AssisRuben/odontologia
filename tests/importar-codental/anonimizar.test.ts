@@ -329,6 +329,14 @@ describe('anonimizarBackup', () => {
     expect(a.pacientes[0].Celular).not.toBe(a.pacientes[2].Celular)
   })
 
+  it('funciona com o gerador padrão, sem rng injetado', () => {
+    const a: Backup = anonimizarBackup(fixture())
+    expect(a.pacientes[0]['Nome completo']).toMatch(/^Paciente \d{6,}$/)
+    expect(isValidCpf(String(a.pacientes[0].CPF))).toBe(false)
+    expect(vazamentos(JSON.stringify(a))).toEqual([])
+    expect(relatorioSemNomes(a)).toEqual(relatorioSemNomes(fixture()))
+  })
+
   it('recusa gerador fora do intervalo', () => {
     expect(() => anonimizarBackup(fixture(), { rng: () => 1 })).toThrow(/gerador/i)
   })
@@ -413,6 +421,16 @@ describe('CLI --anonimizar', () => {
       const xml = Object.values(partes).map((u) => strFromU8(u)).join('\n')
       expect(vazamentos(xml), nome).toEqual([])
     }
+  })
+
+  it('roda de ponta a ponta com o gerador padrão da CLI', async () => {
+    const entrada = await temp()
+    const saida = path.join(await temp(), 'anon')
+    await gravarFixture(entrada)
+    const r = await rodar(['--anonimizar', '--backup', entrada, '--saida', saida], { rng: undefined })
+    expect(r.err).toBe('')
+    expect(r.codigo).toBe(0)
+    expect(relatorioSemNomes(await lerBackup(saida))).toEqual(relatorioSemNomes(await lerBackup(entrada)))
   })
 
   it('não exige clínica nem profissional', async () => {

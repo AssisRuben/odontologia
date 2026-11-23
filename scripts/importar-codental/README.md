@@ -10,17 +10,19 @@ Sem `--gravar`, nada é gravado e nenhuma conexão é aberta.
 
 Não pule etapas. Cada uma depende da anterior.
 
-1. **SQL:** aplicar `supabase/2026-11-22-importacao-codental.sql` no ambiente alvo.
+1. **SQL fora de produção:** aplicar `supabase/2026-11-22-importacao-codental.sql` nos ambientes **descartável e de homologação**. Não aplique em produção nesta etapa.
 2. **Simulação:** rodar sobre o backup e revisar o relatório (seção 6).
 3. **Ensaio descartável:** gravar dados anonimizados em banco e Storage descartáveis (seção 4).
 4. **Homologação:** com dados anonimizados e **sem arquivos reais** (seção 5).
 5. **Critérios de aceite:** conferir todos na homologação (seção 8) e remover os dados de teste (seção 9).
 6. **Supabase Pro** ativo em produção.
 7. **Backup do banco de produção** validado, com restauração testada.
-8. **Export final** do Codental, depois que a clínica parar de usá-lo.
-9. **Simulação** sobre o export final, revisada e comparada com a anterior.
-10. **Gravação** em produção, com autorização explícita.
-11. **Arquivos** em produção, em execução separada.
+8. **Autorização explícita** do responsável para alterar a produção.
+9. **SQL em produção:** aplicar o mesmo arquivo, só depois das etapas 7 e 8.
+10. **Export final** do Codental, depois que a clínica parar de usá-lo.
+11. **Simulação** sobre o export final, revisada e comparada com a anterior.
+12. **Gravação** em produção.
+13. **Arquivos** em produção, em execução separada.
 
 ## 2. Variáveis de ambiente
 
@@ -73,12 +75,12 @@ npm run importar:codental -- --backup <pasta> --clinica <uuid> --profissional <u
 `--anonimizar` grava as planilhas em uma pasta nova. Recusa `--saida` dentro do repositório, igual a `--backup` ou dentro dele, e pasta que já tenha conteúdo. Não combina com `--gravar`, `--arquivos`, `--confirmar-clinica`, `--permitir-existentes` nem `--permitir-novos`. Ao terminar, relê a cópia e confere o relatório. Se divergir, apaga as planilhas.
 
 - **Trocados:** nomes, CPFs (com dígito verificador propositalmente inválido), telefones (DDD 10, não atribuído), e-mails (`@example.invalid`), carteirinhas, nascimentos, sexo (sorteado entre Masculino e Feminino, vazio continua vazio), endereços, RG, profissão, contatos, responsáveis, profissionais e todo texto livre.
-- **Mantidos:** IDs, `Numero`, status, datas de consultas e do financeiro, durações, valores, planos, procedimentos, preços, dentes, faces e vínculos.
+- **Mantidos:** IDs, `Numero`, status, datas de cadastro (criação, atualização e última consulta), datas clínicas (consultas e evoluções), datas de orçamentos e do financeiro, durações, valores, planos, procedimentos com sua `Categoria`, preços, dentes, faces e vínculos.
 - **Os ZIPs de arquivos de pacientes NÃO são anonimizados e nunca podem ser carregados na homologação.** Eles contêm radiografias, fotos e documentos reais. O anonimizador não gera nem copia arquivos.
 
 Como os CPFs substitutos são inválidos de propósito, telas e rotinas que validam CPF (cobrança, nota fiscal, assinatura de orçamento, edição do CPF do responsável) vão recusá-los ou tratá-los como ausentes na homologação. Isso é esperado. Não troque por CPFs válidos.
 
-A cópia anonimizada ainda mantém datas e valores reais. Trate-a como dado restrito.
+**A cópia anonimizada continua sendo dado restrito.** Datas de cadastro, clínicas, de orçamento e do financeiro, valores, procedimentos e categorias são reais e, combinados, podem permitir reconhecer um paciente. Aplique a ela os mesmos cuidados de acesso e descarte do backup.
 
 ## 4. Ensaio obrigatório em ambiente descartável
 
@@ -93,12 +95,30 @@ A cópia anonimizada ainda mantém datas e valores reais. Trate-a como dado rest
 
 ## 5. Homologação
 
-**Antes de gravar, confirme que as mensagens automáticas de WhatsApp estão desligadas nesse ambiente.** A homologação tem integração ativa. A importação só desliga retornos e aniversários; confirmações e lembretes continuam valendo para consultas futuras importadas.
+**Antes de gravar, desligue todos os tipos de mensagem da clínica de teste.** A homologação tem integração ativa. A importação só desliga retornos e aniversários; confirmações e lembretes continuam valendo para consultas futuras importadas. Em clínica nova, `budget_reminder` já vem ligado.
+
+1. No menu, abra **Mensagens**, aba **Automáticas**, e desligue a chave de: Confirmação de consulta, Lembrete de consulta, Retorno semestral, Aniversariantes, Inadimplentes, Lembrete de vencimento e Lembrete de orçamento.
+2. **Envio de orçamento** não tem chave na tela, porque é um envio manual. Zere também o registro dele no banco e **não use o botão de enviar orçamento** nessa clínica: `enabled = false` não bloqueia o envio manual.
+
+   ```sql
+   UPDATE message_settings SET enabled = false WHERE clinic_id = '<uuid-da-clinica-de-teste>';
+   ```
+
+3. Em **Configurações**, abra **Agente do WhatsApp**, deixe **Agente ligado** desativado e salve.
+4. De preferência, mantenha a clínica de teste sem WhatsApp conectado (**Configurações** > **Configurações de mensagens**). A rotina de envio só processa clínicas conectadas.
+5. Confira. As duas consultas devem retornar `0`:
+
+   ```sql
+   SELECT count(*) FROM message_settings WHERE clinic_id = '<uuid-da-clinica-de-teste>' AND enabled;
+   SELECT count(*) FROM messages WHERE clinic_id = '<uuid-da-clinica-de-teste>' AND status = 'queued';
+   ```
+
+Depois:
 
 - Use somente a pasta gerada por `--anonimizar`.
 - Use uma clínica de teste dedicada.
 - Não use `--arquivos` com o ZIP real.
-- Confirme que nenhuma mensagem foi enfileirada depois da gravação.
+- Depois da gravação, repita as duas consultas de conferência. Ambas devem continuar em `0`.
 
 ## 6. Como ler o relatório
 

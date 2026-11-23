@@ -15,7 +15,8 @@ const NASCIMENTO_MIN = Date.UTC(1930, 0, 1) / DIA_MS
 const NASCIMENTO_MAX = Date.UTC(2010, 11, 31) / DIA_MS
 const MIN_CONTADOR = 999_999
 const COLUNAS_POR_LINHA = Math.max(...Object.values(COLUNAS).map((c) => c.length))
-const LIMITE_RNG = 2 ** 48
+// Maior limite aceito por crypto.randomInt.
+const LIMITE_RNG = 2 ** 48 - 1
 const SEXOS = ['Masculino', 'Feminino']
 
 const rngPadrao = () => randomInt(LIMITE_RNG) / LIMITE_RNG
