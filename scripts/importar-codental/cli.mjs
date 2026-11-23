@@ -270,6 +270,10 @@ export async function principal(argv, deps = {}) {
     }
     if (!UUID.test(v.clinica)) throw new Error('--clinica deve ser um UUID')
     if (!UUID.test(v.profissional)) throw new Error('--profissional deve ser um UUID')
+    // A policy do Storage compara a pasta como texto com o UUID em minúsculas.
+    v.clinica = v.clinica.toLowerCase()
+    v.profissional = v.profissional.toLowerCase()
+    if (v['confirmar-clinica'] !== undefined) v['confirmar-clinica'] = v['confirmar-clinica'].toLowerCase()
     if (dentroDoRepositorio(v.saida)) throw new Error('--saida não pode ficar dentro do repositório')
     let cfgConexao = null
     if (v.gravar) {

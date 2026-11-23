@@ -688,6 +688,28 @@ describe('cli --arquivos', () => {
     expect(r.out).not.toMatch(/incompleta/i)
   })
 
+  it('clínica em maiúsculas gera o mesmo caminho e o mesmo documento que em minúsculas', async () => {
+    const MINUSCULA = 'abcdefab-cdef-4abc-8abc-abcdefabcdef'
+    const MAIUSCULA = MINUSCULA.toUpperCase()
+    const base = await rodar(['--clinica', MINUSCULA, '--gravar', '--confirmar-clinica', MINUSCULA], {}, [VALIDO])
+    const r = await rodar(['--clinica', MAIUSCULA, '--gravar', '--confirmar-clinica', MAIUSCULA], {}, [VALIDO])
+    expect(r.err).toBe('')
+    expect(r.codigo).toBe(0)
+    expect(r.storage.envios[0].caminho.startsWith(`${MINUSCULA}/${PAC_A}/`)).toBe(true)
+    expect(r.storage.envios[0].caminho).toBe(base.storage.envios[0].caminho)
+    expect(r.banco.docs[0].clinic_id).toBe(MINUSCULA)
+    expect(r.banco.docs[0].id).toBe(base.banco.docs[0].id)
+  })
+
+  it('confirmação em outra caixa da mesma clínica é aceita; de outra clínica, não', async () => {
+    const MINUSCULA = 'abcdefab-cdef-4abc-8abc-abcdefabcdef'
+    const aceita = await rodar(['--clinica', MINUSCULA, '--gravar', '--confirmar-clinica', MINUSCULA.toUpperCase()], {}, [VALIDO])
+    expect(aceita.codigo).toBe(0)
+    const outra = await rodar(['--clinica', MINUSCULA, '--gravar', '--confirmar-clinica', PAC_A], {}, [VALIDO])
+    expect(outra.codigo).toBe(1)
+    expect(outra.estado.conectou).toBe(0)
+  })
+
   it('--gravar recusa quando os pacientes ainda não foram vinculados', async () => {
     const r = await rodar(['--gravar', '--confirmar-clinica', CLINICA], {
       mapearBackup: () => ({ pacientes: [{ sourceId: 'OUTRO', numero: '10' }] }),

@@ -654,6 +654,20 @@ describe('cli --gravar', () => {
     return { codigo, dir, out: out.join('\n'), err: err.join('\n'), estado }
   }
 
+  it('normaliza clínica e profissional para minúsculas antes de mapear e gravar', async () => {
+    const clinica = 'abcdefab-cdef-4abc-8abc-abcdefabcdef'
+    const profissional = 'fedcbafe-dcba-4fed-8fed-fedcbafedcba'
+    let mapeado: unknown = null
+    const r = await preparar(
+      { mapearBackup: (_b: unknown, o: unknown) => { mapeado = o; return plano() } },
+      ['--clinica', clinica.toUpperCase(), '--profissional', profissional.toUpperCase(), '--confirmar-clinica', clinica.toUpperCase()],
+    )
+    expect(r.err).toBe('')
+    expect(r.codigo).toBe(0)
+    expect(r.estado.opts).toMatchObject({ clinicId: clinica, professionalId: profissional })
+    expect(mapeado).toMatchObject({ clinicId: clinica, professionalId: profissional })
+  })
+
   it('grava, salva resultado sem valores e fecha a conexão', async () => {
     const r = await preparar()
     expect(r.err).toBe('')
