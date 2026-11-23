@@ -10,6 +10,7 @@ const FONTE = 'codental'
 const ENTIDADE = 'arquivo'
 const MAX_CONCORRENCIA = 4
 const MAX_REPETICOES = 3
+export const LIMITE_ENVIO_MS = 120000
 const ESPERA_BASE_MS = 500
 const MAX_TAMANHO = 50 * 1024 * 1024
 const BYTES_ASSINATURA = 64
@@ -310,11 +311,28 @@ function ehTransitorio(erro) {
   return !codigos.length || codigos.some((n) => n === 408 || n === 429 || n >= 500)
 }
 
-async function enviarComRepeticao(storage, esperar, caminho, corpo, opcoes) {
+/** fetch que cancela a requisição ao estourar o limite, para a tentativa não seguir em segundo plano. */
+export const fetchComLimite = (limiteMs, base = fetch) => (url, init = {}) =>
+  base(url, { ...init, signal: AbortSignal.timeout(limiteMs) })
+
+/** Sem status HTTP, o erro de tempo esgotado conta como transitório. */
+async function comLimite(promessa, limiteMs) {
+  let timer
+  const estouro = new Promise((_, rejeitar) => {
+    timer = setTimeout(() => rejeitar(new Error('tempo esgotado')), limiteMs)
+  })
+  try {
+    return await Promise.race([promessa, estouro])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function enviarComRepeticao(storage, esperar, limiteMs, caminho, corpo, opcoes) {
   for (let tentativa = 0; ; tentativa++) {
     let erro
     try {
-      erro = (await storage.upload(caminho, corpo, opcoes))?.error ?? null
+      erro = (await comLimite(storage.upload(caminho, corpo, opcoes), limiteMs))?.error ?? null
     } catch (e) {
       erro = e ?? new Error('falha')
     }
@@ -327,12 +345,12 @@ async function enviarComRepeticao(storage, esperar, caminho, corpo, opcoes) {
 const esperaPadrao = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * @param deps { cliente, storage: { upload(caminho, corpo, opcoes) }, esperar? }
+ * @param deps { cliente, storage: { upload(caminho, corpo, opcoes) }, esperar?, limiteEnvioMs? }
  * @param planejados resultado de planejarArquivos
  * @param opts { clinicId, concorrencia? } no máximo 4 envios simultâneos
  */
 export async function enviarArquivos(deps, planejados, opts) {
-  const { cliente, storage, esperar = esperaPadrao } = deps
+  const { cliente, storage, esperar = esperaPadrao, limiteEnvioMs = LIMITE_ENVIO_MS } = deps
   const { clinicId, concorrencia = MAX_CONCORRENCIA } = opts
   const plano = resumirPlano(planejados)
   const motivos = { semPaciente: plano.semPaciente, tipoDesconhecido: 0, leitura: 0, envio: 0, banco: 0, vinculoDivergente: 0 }
@@ -370,7 +388,7 @@ export async function enviarArquivos(deps, planejados, opts) {
       const id = idDeterministico(clinicId, item.sourceId)
       const caminho = `${clinicId}/${item.patientId}/${id}.${tipo.ext}`
       motivo = 'envio'
-      await enviarComRepeticao(storage, esperar, caminho, corpo, { contentType: tipo.mime, upsert: true })
+      await enviarComRepeticao(storage, esperar, limiteEnvioMs, caminho, corpo, { contentType: tipo.mime, upsert: true })
       motivo = 'banco'
       const { rowCount } = await cliente.query(SQL_REGISTRAR, [
         clinicId, FONTE, ENTIDADE, item.sourceId, id, item.patientId, item.nome, caminho, tipo.mime, corpo.length, item.categoria,

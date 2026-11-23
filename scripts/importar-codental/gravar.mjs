@@ -22,6 +22,7 @@ const STATUS = {
   tratamento: new Set(['planned', 'in_progress', 'completed', 'cancelled']),
   orcamento: new Set(['draft', 'sent', 'approved', 'rejected', 'expired', 'completed']),
   historico: new Set(['paid', 'open']),
+  item_orcamento: new Set(['pending', 'in_progress', 'completed']),
 }
 
 const COLUNAS = {
@@ -44,6 +45,7 @@ const COLUNAS = {
   },
   item_orcamento: {
     id: 'uuid', budget_id: 'uuid', procedure: 'text', tooth: 'text', quantity: 'int', unit_price: 'numeric', approved: 'boolean',
+    status: 'text',
   },
   tratamento: {
     id: 'uuid', clinic_id: 'uuid', patient_id: 'uuid', professional_id: 'uuid', insurance_plan_id: 'uuid',
@@ -404,9 +406,11 @@ function montarLinhas(plano, fontes, vinculos, ids, resolvidos, { clinicId, prof
     problemas.conferir('item_orcamento', textoOk(i.procedure), 'procedimento ausente')
     problemas.conferir('item_orcamento', inteiroOk(i.quantity), 'quantidade inválida')
     problemas.conferir('item_orcamento', dinheiroOk(i.unit_price), 'valor fora do limite')
+    problemas.conferir('item_orcamento', STATUS.item_orcamento.has(i.status), 'status não permitido')
     return {
       id: ids.item_orcamento.get(i.sourceId), budget_id: ref('item_orcamento', 'orcamento', donoDoItem.get(i.sourceId)),
       procedure: i.procedure, tooth: i.tooth, quantity: i.quantity, unit_price: i.unit_price, approved: i.approved,
+      status: i.status,
     }
   })
 
@@ -486,12 +490,27 @@ export async function gravarPlano(cliente, plano, opts) {
   let etapa = 'verificação'
   try {
     await cliente.query('BEGIN')
+    await cliente.query("SET LOCAL lock_timeout = '30s'")
 
     // Trava a clínica sem bloquear o uso normal: duas importações não rodam juntas.
     const clinica = await cliente.query('SELECT id FROM clinics WHERE id = $1 FOR NO KEY UPDATE', [clinicId])
     if (!clinica.rows.length) throw new ErroGravacao('Importação recusada. Clínica não encontrada.')
     const prof = await cliente.query('SELECT id FROM professionals WHERE id = $1 AND clinic_id = $2', [professionalId, clinicId])
     if (!prof.rows.length) throw new ErroGravacao('Importação recusada. Profissional não pertence à clínica.')
+
+    // A comissão aloca só `payments`; o histórico importado fica fora. Sem opção que libere.
+    const comissao = await cliente.query(
+      `SELECT count(*) AS n FROM professionals
+       WHERE clinic_id = $1 AND (commission_rate IS NOT NULL OR commission_rate_insurance IS NOT NULL)`,
+      [clinicId],
+    )
+    const comComissao = Number(comissao.rows[0].n)
+    if (comComissao !== 0) {
+      throw new ErroGravacao(
+        `Importação recusada. A clínica tem ${comComissao} profissional(is) com comissão configurada. `
+        + 'Defina antes a regra de alocação para clínica importada (veja o README).',
+      )
+    }
 
     const problemas = criarProblemas()
     conferirIdsUnicos(fontes, problemas)

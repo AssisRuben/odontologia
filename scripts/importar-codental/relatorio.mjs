@@ -26,6 +26,7 @@ export function montarRelatorio(plano) {
   const importadas = (linhas) => linhas.filter((l) => l.imported_from === 'codental').length
   const pagos = plano.historico.filter((h) => h.original_status === 'paid')
   const abertos = plano.historico.filter((h) => h.original_status !== 'paid')
+  const orcamentosPagos = new Set(pagos.map((h) => h.orcamentoSourceId).filter((id) => id != null))
 
   return {
     contagens: {
@@ -57,6 +58,11 @@ export function montarRelatorio(plano) {
     avisos: { ...plano.avisos },
     tratamentosOrcamentoOutroPaciente: outroPaciente(plano.tratamentos, donos),
     historicoOrcamentoOutroPaciente: outroPaciente(plano.historico, donos),
+    // Risco de comissão: o pago antigo não está em payments.
+    tratamentosVivosComHistoricoPago: plano.tratamentos.filter(
+      (t) => t.imported_from == null && orcamentosPagos.has(t.orcamentoSourceId),
+    ).length,
+    dentistasDistintos: { ...plano.dentistasDistintos },
   }
 }
 
@@ -75,6 +81,8 @@ export function resumoTexto(r) {
     `Histórico: ${c.historico} | pago ${r.historico.pago.quantidade} (${reais(r.historico.pago.centavos)}) | em aberto ${r.historico.emAberto.quantidade} (${reais(r.historico.emAberto.centavos)})`,
     `Tratamentos em orçamento de outro paciente: ${r.tratamentosOrcamentoOutroPaciente}`,
     `Histórico em orçamento de outro paciente: ${r.historicoOrcamentoOutroPaciente}`,
+    `Tratamentos vivos com histórico pago: ${r.tratamentosVivosComHistoricoPago}`,
+    `Dentistas distintos: ${Object.entries(r.dentistasDistintos ?? {}).map(([k, n]) => `${k} ${n}`).join(', ')}`,
     'Avisos:',
     ...Object.entries(r.avisos).map(([k, v]) => `  ${k}: ${v}`),
   ]

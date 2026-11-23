@@ -32,6 +32,10 @@ function valorCelula(v) {
   return null
 }
 
+// O exceljs entrega { error } na célula, ou em `result` quando ela tem fórmula.
+const celulaComErro = (v) =>
+  v !== null && typeof v === 'object' && !(v instanceof Date) && ('error' in v || celulaComErro(v.result ?? null))
+
 async function lerPlanilha(arquivo, planilha) {
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.readFile(arquivo)
@@ -57,7 +61,9 @@ async function lerPlanilha(arquivo, planilha) {
     const obj = { _linha: n }
     let temValor = false
     for (const coluna of COLUNAS[planilha]) {
-      const v = valorCelula(row.getCell(posicao.get(coluna)).value)
+      const bruto = row.getCell(posicao.get(coluna)).value
+      if (celulaComErro(bruto)) throw erroCelula({ planilha, coluna, linha: n }, 'célula com erro do Excel')
+      const v = valorCelula(bruto)
       obj[coluna] = v
       if (v !== null) temValor = true
     }

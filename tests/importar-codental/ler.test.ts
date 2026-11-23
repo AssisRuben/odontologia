@@ -134,3 +134,17 @@ describe('normalização de células', () => {
     expect(() => simNao('Talvez', onde)).toThrow(/linha 7/)
   })
 })
+
+describe('lerBackup: célula de erro do Excel', () => {
+  it.each([
+    ['erro direto', { error: '#N/A' }],
+    ['fórmula com erro', { formula: 'A1/0', result: { error: '#DIV/0!' } }],
+  ])('%s aborta com planilha, coluna e linha, sem o valor', async (_nome, celula) => {
+    await gravarTodas('profissionais')
+    await gravar('profissionais', COLUNAS.profissionais as string[], [['10', 'usuario', celula]])
+    let msg = ''
+    try { await lerBackup(pasta) } catch (e) { msg = (e as Error).message }
+    expect(msg).toMatch(/Planilha profissionais, coluna Nome, linha 2/)
+    expect(msg).not.toMatch(/#N\/A|#DIV/)
+  })
+})

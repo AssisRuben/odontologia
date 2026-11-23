@@ -9,6 +9,8 @@ import {
   BUCKET,
   ErroArquivos,
   enviarArquivos,
+  fetchComLimite,
+  LIMITE_ENVIO_MS,
   lerEntradasZip,
   numerosUnicos,
   pacientesVinculados,
@@ -80,6 +82,7 @@ export function configConexao(url) {
       password: decodeURIComponent(u.password),
       database: decodeURIComponent(database),
       ssl: { rejectUnauthorized: true },
+      connectionTimeoutMillis: 30000,
     }
   } catch {
     throw new Error('IMPORT_DATABASE_URL inválida')
@@ -147,6 +150,7 @@ async function storagePadrao({ url, chave }) {
   const { createClient } = await import('@supabase/supabase-js')
   const bucket = createClient(url, chave, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: fetchComLimite(LIMITE_ENVIO_MS) },
   }).storage.from(BUCKET)
   return { upload: (caminho, corpo, opcoes) => bucket.upload(caminho, corpo, opcoes) }
 }

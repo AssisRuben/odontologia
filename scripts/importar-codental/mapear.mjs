@@ -202,7 +202,8 @@ function mapearConsultas(linhas, refs, agora, avisos) {
       end_time: new Date(inicio + duracaoMinutos(l) * 60000).toISOString(),
       status,
       notes: juntar([nota, texto(l['Observação']), rotulo('Etiquetas', texto(l.Etiquetas))]),
-      imported_from: passada ? ORIGEM : null,
+      // Só a consulta futura ainda em aberto continua viva no sistema.
+      imported_from: status === 'scheduled' || status === 'confirmed' ? null : ORIGEM,
     }
   })
 }
@@ -290,6 +291,7 @@ function mapearOrcamentos(linhas, refs, tratamentos) {
     if (!itensPorOrcamento.has(t.orcamentoSourceId)) itensPorOrcamento.set(t.orcamentoSourceId, [])
     itensPorOrcamento.get(t.orcamentoSourceId).push({
       sourceId: t.sourceId, procedure: t.procedure, tooth, quantity: 1, unit_price: t.value,
+      status: t.status === 'completed' ? 'completed' : 'pending',
     })
   }
 
@@ -357,10 +359,45 @@ function contarRepetidos(chaves) {
 
 const nomeComparavel = (nome) => nome.normalize('NFC').toLowerCase().trim().replace(/\s+/g, ' ')
 
+// ── Dentista ───────────────────────────────────────────────────────────────
+const MAIS_DE_UM_DENTISTA = 'mais de um dentista. A importação atribui tudo a um único profissional.'
+
+function distintos(linhas, coluna, normalizar = (t) => t) {
+  const valores = new Set()
+  for (const l of linhas ?? []) {
+    const t = texto(l[coluna])
+    if (t !== null) valores.add(normalizar(t))
+  }
+  return valores
+}
+
+/** O importador grava tudo em --profissional: backup com outro dentista não pode entrar. */
+function exigirUmDentista(backup) {
+  const profissionais = distintos(backup.profissionais, 'ID')
+  const consultas = distintos(backup.consultas, 'ID Dentista')
+  const evolucoes = distintos(backup.evolucoes, 'Dentista', nomeComparavel)
+  const tratamentos = distintos(backup.tratamentos, 'Dentista', nomeComparavel)
+
+  const fontes = [['profissionais', 'ID', profissionais], ['consultas', 'ID Dentista', consultas],
+    ['evolucoes', 'Dentista', evolucoes], ['tratamentos', 'Dentista', tratamentos]]
+  for (const [planilha, coluna, valores] of fontes) {
+    if (valores.size > 1) throw new Error(`Planilha ${planilha}, coluna ${coluna}: ${MAIS_DE_UM_DENTISTA}`)
+  }
+  // Estas duas planilhas só têm o nome: um dentista em cada também são dois.
+  if (new Set([...evolucoes, ...tratamentos]).size > 1) {
+    throw new Error(`Planilhas evolucoes e tratamentos, coluna Dentista: ${MAIS_DE_UM_DENTISTA}`)
+  }
+  return {
+    profissionais: profissionais.size, consultas: consultas.size,
+    evolucoes: evolucoes.size, tratamentos: tratamentos.size,
+  }
+}
+
 // ── Plano ──────────────────────────────────────────────────────────────────
 export function mapearBackup(backup, opts) {
   const { agora } = opts
   if (!(agora instanceof Date) || Number.isNaN(agora.getTime())) throw new Error('opts.agora inválido')
+  const dentistasDistintos = exigirUmDentista(backup)
 
   const avisos = {
     tratamentosSemValor: 0, consultasSemDesfecho: 0, evolucoesRepetidas: 0,
@@ -388,5 +425,5 @@ export function mapearBackup(backup, opts) {
     pacientes.map((p) => p.whatsapp ?? p.phone).filter(Boolean),
   )
 
-  return { pacientes, convenios, procedimentos, consultas, evolucoes, tratamentos, orcamentos, historico, avisos }
+  return { pacientes, convenios, procedimentos, consultas, evolucoes, tratamentos, orcamentos, historico, avisos, dentistasDistintos }
 }

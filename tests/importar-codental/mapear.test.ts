@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mapearBackup } from '../../scripts/importar-codental/mapear.mjs'
 
 type Linha = Record<string, unknown>
-type Parcial = Partial<Record<'pacientes' | 'consultas' | 'convenios' | 'evolucoes' | 'orcamentos' | 'pagamentos' | 'tratamentos', Linha[]>>
+type Parcial = Partial<Record<'pacientes' | 'consultas' | 'convenios' | 'evolucoes' | 'orcamentos' | 'pagamentos' | 'tratamentos' | 'profissionais', Linha[]>>
 
 const agora = new Date('2026-06-01T12:00:00.000Z')
 const opts = { clinicId: 'clinica-teste', professionalId: 'prof-teste', agora }
@@ -17,7 +17,7 @@ const mapear = (b: Parcial) => mapearBackup({
   orcamentos: numerar(b.orcamentos),
   pagamentos: numerar(b.pagamentos),
   tratamentos: numerar(b.tratamentos),
-  profissionais: [],
+  profissionais: numerar(b.profissionais),
 }, opts)
 
 const consulta = (over: Linha = {}): Linha => ({
@@ -316,8 +316,8 @@ describe('orçamentos', () => {
     expect(o).not.toHaveProperty('sent_at')
     expect(o).not.toHaveProperty('decided_at')
     expect(o.itens).toEqual([
-      { sourceId: 'T1', procedure: 'Restauração', tooth: '11, 12', quantity: 1, unit_price: 100, approved: true },
-      { sourceId: 'T2', procedure: 'Outro', tooth: null, quantity: 1, unit_price: 0, approved: true },
+      { sourceId: 'T1', procedure: 'Restauração', tooth: '11, 12', quantity: 1, unit_price: 100, approved: true, status: 'completed' },
+      { sourceId: 'T2', procedure: 'Outro', tooth: null, quantity: 1, unit_price: 0, approved: true, status: 'completed' },
     ])
     expect(plano.tratamentos[0].orcamentoSourceId).toBe('O1')
   })
@@ -414,5 +414,76 @@ describe('evoluções e avisos', () => {
     const antes = JSON.stringify(backup)
     mapearBackup(backup, opts)
     expect(JSON.stringify(backup)).toBe(antes)
+  })
+})
+
+describe('um único dentista', () => {
+  const evolucao = (over: Linha = {}): Linha => ({ ID: 'E1', 'ID Paciente': 'P1', Data: '05/01/2026', Descrição: 'Texto', ...over })
+  const erro = (b: Parcial) => {
+    try { mapear(b) } catch (e) { return (e as Error).message }
+    throw new Error('esperava erro')
+  }
+
+  it('recusa mais de um ID em profissionais, sem valores', () => {
+    const msg = erro({ profissionais: [{ ID: 'SEGREDO-1' }, { ID: 'SEGREDO-2' }] })
+    expect(msg).toMatch(/profissionais.*ID.*mais de um dentista/)
+    expect(msg).not.toContain('SEGREDO')
+  })
+
+  it('recusa mais de um ID Dentista em consultas, sem valores', () => {
+    const msg = erro({ consultas: [consulta({ 'ID Dentista': 'SEGREDO-1' }), consulta({ 'ID Dentista': 'SEGREDO-2' })] })
+    expect(msg).toMatch(/consultas.*ID Dentista.*mais de um dentista/)
+    expect(msg).not.toContain('SEGREDO')
+  })
+
+  it('recusa mais de um Dentista em evoluções, sem valores', () => {
+    const msg = erro({ evolucoes: [evolucao({ Dentista: 'Dra. Segredo' }), evolucao({ ID: 'E2', Dentista: 'Dr. Sigilo' })] })
+    expect(msg).toMatch(/evolucoes.*Dentista.*mais de um dentista/)
+    expect(msg).not.toMatch(/Segredo|Sigilo/)
+  })
+
+  it('recusa mais de um Dentista em tratamentos, sem valores', () => {
+    const msg = erro({ tratamentos: [tratamento({ Dentista: 'Dra. Segredo' }), tratamento({ ID: 'T2', Dentista: 'Dr. Sigilo' })] })
+    expect(msg).toMatch(/tratamentos.*Dentista.*mais de um dentista/)
+    expect(msg).not.toMatch(/Segredo|Sigilo/)
+  })
+
+  it('recusa um dentista em evoluções e outro em tratamentos', () => {
+    const msg = erro({ evolucoes: [evolucao({ Dentista: 'Dra. Segredo' })], tratamentos: [tratamento({ Dentista: 'Dr. Sigilo' })] })
+    expect(msg).toMatch(/mais de um dentista/)
+    expect(msg).not.toMatch(/Segredo|Sigilo/)
+  })
+
+  it('vazio não conta como distinto e grafia igual é o mesmo dentista', () => {
+    const plano = mapear({
+      profissionais: [{ ID: 'D1' }, { ID: null }],
+      consultas: [consulta({ 'ID Dentista': 'D1' }), consulta({ 'ID Dentista': null })],
+      evolucoes: [evolucao({ Dentista: 'Dra. Ana' }), evolucao({ ID: 'E2', Dentista: null })],
+      tratamentos: [tratamento({ Dentista: ' dra.  ana ' })],
+    })
+    expect(plano.dentistasDistintos).toEqual({ profissionais: 1, consultas: 1, evolucoes: 1, tratamentos: 1 })
+  })
+})
+
+describe('status dos itens de orçamento', () => {
+  it('tratamento finalizado vira item completed; os demais, pending', () => {
+    const { orcamentos } = mapear({
+      orcamentos: [orcamento()],
+      tratamentos: [
+        tratamento({ 'ID orçamento': 'O1' }),
+        tratamento({ ID: 'T2', 'ID orçamento': 'O1', Finalizado: 'Não' }),
+      ],
+    })
+    expect(orcamentos[0].itens.map((i: { status: string }) => i.status)).toEqual(['completed', 'pending'])
+  })
+})
+
+describe('marca das consultas futuras', () => {
+  it.each([
+    ['Cancelada pelo paciente', 'cancelled'], ['Cancelada pelo dentista', 'cancelled'], ['Faltou', 'no_show'], ['Finalizada', 'completed'],
+  ])('futura %s recebe a marca', (Status, esperado) => {
+    const [c] = mapear({ consultas: [consulta({ Status, 'Data consulta': '05/07/2026 09:00' })] }).consultas
+    expect(c.status).toBe(esperado)
+    expect(c.imported_from).toBe('codental')
   })
 })

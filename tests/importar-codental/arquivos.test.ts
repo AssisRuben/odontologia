@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   detectarTipo,
   enviarArquivos,
+  fetchComLimite,
+  LIMITE_ENVIO_MS,
   lerEntradasZip,
   pacientesVinculados,
   planejarArquivos,
@@ -718,5 +720,33 @@ describe('cli --arquivos', () => {
     expect(r.err).toMatch(/pacientes/i)
     expect(r.storage.envios).toHaveLength(0)
     expect(r.estado.fechou).toBe(1)
+  })
+})
+
+describe('enviarArquivos: timeout do upload', () => {
+  it('tentativa que não termina conta como erro transitório e é repetida', async () => {
+    const { storage, deps, esperas } = preparar()
+    const original = storage.upload.bind(storage)
+    let chamadas = 0
+    storage.upload = async (c, b, o) => {
+      chamadas++
+      if (chamadas === 1) return new Promise<never>(() => {})
+      return original(c, b, o)
+    }
+    const r = await enviarArquivos({ ...deps, limiteEnvioMs: 5 }, planejarArquivos([entrada('arquivos/10/a.png', PNG)], pacientes()), opts)
+    expect(r).toMatchObject({ enviados: 1, falhas: 0 })
+    expect(chamadas).toBe(2)
+    expect(esperas).toHaveLength(1)
+  })
+
+  it('o limite padrão por tentativa é de 120 s', () => {
+    expect(LIMITE_ENVIO_MS).toBe(120000)
+  })
+
+  it('fetchComLimite cancela a requisição ao estourar o limite', async () => {
+    const base = (_u: unknown, init?: RequestInit) => new Promise<Response>((_res, rej) => {
+      init!.signal!.addEventListener('abort', () => rej(new Error('cancelado')))
+    })
+    await expect(fetchComLimite(5, base as typeof fetch)('https://x.test')).rejects.toThrow('cancelado')
   })
 })

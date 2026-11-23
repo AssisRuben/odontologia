@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { montarRelatorio } from '../../scripts/importar-codental/relatorio.mjs'
+import { montarRelatorio, resumoTexto } from '../../scripts/importar-codental/relatorio.mjs'
 import { principal } from '../../scripts/importar-codental/cli.mjs'
 
 const NOME = 'Fulano Sigiloso'
@@ -138,5 +138,28 @@ describe('cli principal', () => {
     const r = await rodar(base(dir), { lerBackup: async () => { throw new Error('Planilha x, linha 3: inválido') } })
     expect(r.codigo).not.toBe(0)
     expect(r.err).toBe('Planilha x, linha 3: inválido')
+  })
+})
+
+describe('montarRelatorio: riscos da importação', () => {
+  it('conta tratamentos vivos cujo orçamento tem linha paga no histórico', () => {
+    const p = plano()
+    expect(montarRelatorio(p).tratamentosVivosComHistoricoPago).toBe(0)
+    p.historico.push({ sourceId: 'h5', pacienteSourceId: 'P1', orcamentoSourceId: 'O2', amount: 10, original_status: 'paid' })
+    expect(montarRelatorio(p).tratamentosVivosComHistoricoPago).toBe(1)
+  })
+
+  it('não conta tratamento com marca, mesmo com orçamento pago', () => {
+    const p = plano()
+    p.tratamentos = p.tratamentos.filter((t) => t.sourceId === 'T1')
+    expect(montarRelatorio(p).tratamentosVivosComHistoricoPago).toBe(0)
+  })
+
+  it('mostra dentistasDistintos no relatório e no resumo', () => {
+    const r = montarRelatorio({ ...plano(), dentistasDistintos: { profissionais: 1, consultas: 1, evolucoes: 1, tratamentos: 1 } })
+    expect(r.dentistasDistintos).toEqual({ profissionais: 1, consultas: 1, evolucoes: 1, tratamentos: 1 })
+    const texto = resumoTexto(r)
+    expect(texto).toContain('Dentistas distintos')
+    expect(texto).toContain('Tratamentos vivos com histórico pago: 0')
   })
 })

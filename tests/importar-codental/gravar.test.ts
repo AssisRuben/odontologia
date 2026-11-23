@@ -15,7 +15,7 @@ const opts = { clinicId: CLINICA, professionalId: PROF }
 
 type Linha = Record<string, unknown>
 type Link = { entity: string; source_id: string; target_id: string }
-type ItemPlano = { sourceId: string; procedure: string; tooth: string | null; quantity: number; unit_price: number; approved: boolean | null }
+type ItemPlano = { sourceId: string; procedure: string; tooth: string | null; quantity: number; unit_price: number; approved: boolean | null; status: string }
 type Config = {
   clinica?: boolean
   profissional?: boolean
@@ -27,6 +27,7 @@ type Config = {
   itensBanco?: { id: string; budget_id: string }[]
   falharEm?: RegExp
   comandoCommit?: string
+  comissoes?: number
 }
 
 const ERRO_PG = () => Object.assign(new Error(`valor duplicado ${NOME}`), {
@@ -47,6 +48,7 @@ class ClienteFalso {
     if (/FROM budget_items/.test(sql)) return { rows: (c.itensBanco ?? []).filter((r) => (params[1] as string[]).includes(r.id)) }
     if (/FROM budgets/.test(sql)) return { rows: (c.orcamentosBanco ?? []).filter((r) => (params[1] as string[]).includes(r.id)) }
     if (/FROM clinics/.test(sql)) return { rows: c.clinica === false ? [] : [{ id: CLINICA }] }
+    if (/FROM professionals/.test(sql) && /commission_rate/.test(sql)) return { rows: [{ n: String(c.comissoes ?? 0) }] }
     if (/FROM professionals/.test(sql)) return { rows: c.profissional === false ? [] : [{ id: PROF }] }
     if (/FROM patients/.test(sql)) return { rows: [{ n: String(c.semVinculo ?? 0) }] }
     if (/FROM import_links/.test(sql)) return { rows: c.links ?? [] }
@@ -103,7 +105,7 @@ const plano = () => ({
     {
       sourceId: 'O1', pacienteSourceId: 'P1', status: 'approved', total: 100.5, approved_total: 100.5, notes: null,
       created_at: '2023-01-01T03:00:00.000Z', imported_from: 'codental',
-      itens: [{ sourceId: 'T1', procedure: 'Limpeza', tooth: '11, 12', quantity: 1, unit_price: 100.5, approved: true }] as ItemPlano[],
+      itens: [{ sourceId: 'T1', procedure: 'Limpeza', tooth: '11, 12', quantity: 1, unit_price: 100.5, approved: true, status: 'completed' }] as ItemPlano[],
     },
     { sourceId: 'O2', pacienteSourceId: 'P2', status: 'draft', total: 0, approved_total: null, notes: null, created_at: null, imported_from: 'codental', itens: [] as ItemPlano[] },
   ],
@@ -354,7 +356,7 @@ describe('gravarPlano: idempotência', () => {
     p.orcamentos.push({
       sourceId: 'O3', pacienteSourceId: 'P2', status: 'draft', total: 10, approved_total: null, notes: null, created_at: null,
       imported_from: 'codental',
-      itens: [{ sourceId: 'T3', procedure: 'Canal', tooth: null, quantity: 1, unit_price: 10, approved: null }],
+      itens: [{ sourceId: 'T3', procedure: 'Canal', tooth: null, quantity: 1, unit_price: 10, approved: null, status: 'pending' }],
     })
     const c = new ClienteFalso(estadoDe(p, links))
     await gravarPlano(c, p, { ...opts, permitirNovos: true })
@@ -497,7 +499,7 @@ describe('gravarPlano: verificações antes de gravar', () => {
 
   it.each([false, true])('item novo em orçamento já vinculado aborta (permitirNovos: %s)', async (permitirNovos) => {
     await recusa(estadoDe(plano()), (p) => {
-      p.orcamentos[0].itens.push({ sourceId: 'T9', procedure: 'Extra', tooth: '13', quantity: 1, unit_price: 5, approved: true })
+      p.orcamentos[0].itens.push({ sourceId: 'T9', procedure: 'Extra', tooth: '13', quantity: 1, unit_price: 5, approved: true, status: 'pending' })
     }, /item de orçamento.*\(1\)/i, { permitirNovos })
   })
 
@@ -727,5 +729,57 @@ describe('cli --gravar', () => {
     expect(r.err).toBe('Falha segura')
     expect(r.estado.fechou).toBe(1)
     await expect(readFile(path.join(r.dir, 'resultado-gravacao.json'), 'utf8')).rejects.toThrow()
+  })
+})
+
+describe('gravarPlano: comissão configurada', () => {
+  it('aborta só com a contagem, antes de qualquer escrita', async () => {
+    const c = new ClienteFalso({ comissoes: 2 })
+    const e = await erroDe(() => gravarPlano(c, plano(), opts))
+    expect(e.message).toMatch(/Importação recusada.*2 profissional\(is\) com comissão/)
+    expect(e.message).not.toContain(NOME)
+    expect(c.escritas).toHaveLength(0)
+    expect(c.sqls.at(-1)).toBe('ROLLBACK')
+  })
+
+  it('não há opção que libere', async () => {
+    const c = new ClienteFalso({ comissoes: 1 })
+    const liberar = { ...opts, permitirExistentes: true, permitirNovos: true, permitirComissao: true }
+    await expect(gravarPlano(c, plano(), liberar)).rejects.toThrow(/comissão/)
+  })
+
+  it('confere as duas taxas, só da clínica', async () => {
+    const c = new ClienteFalso()
+    await gravarPlano(c, plano(), opts)
+    const q = c.chamadas.find((x) => /commission_rate/.test(x.sql))!
+    expect(q.sql).toMatch(/commission_rate IS NOT NULL OR commission_rate_insurance IS NOT NULL/)
+    expect(q.params).toEqual([CLINICA])
+  })
+})
+
+describe('gravarPlano: status dos itens e timeout', () => {
+  it('grava o status do item', async () => {
+    const c = new ClienteFalso()
+    await gravarPlano(c, plano(), opts)
+    expect(c.inseridas('budget_items')[0].status).toBe('completed')
+  })
+
+  it('recusa status de item fora da lista', async () => {
+    const p = plano()
+    p.orcamentos[0].itens[0].status = 'outro'
+    const c = new ClienteFalso()
+    await expect(gravarPlano(c, p, opts)).rejects.toThrow(/item de orçamento: status não permitido/)
+    expect(c.escritas).toHaveLength(0)
+  })
+
+  it('define lock_timeout de 30 s logo depois do BEGIN', async () => {
+    const c = new ClienteFalso()
+    await gravarPlano(c, plano(), opts)
+    expect(c.sqls[1]).toBe("SET LOCAL lock_timeout = '30s'")
+  })
+
+  it('a conexão tem timeout de 30 s', () => {
+    const cfg = configConexao('postgresql://usuario:senha@db.exemplo.test:6543/postgres?sslmode=require')
+    expect(cfg.connectionTimeoutMillis).toBe(30000)
   })
 })

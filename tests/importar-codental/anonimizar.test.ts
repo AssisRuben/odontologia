@@ -117,10 +117,24 @@ function rngDe(semente: number) {
   }
 }
 
+/** O mapeamento só aceita um dentista: junta o segundo ao primeiro. */
+const umDentista = (b: Backup): Backup => {
+  const [d1] = b.profissionais
+  const trocar = (l: Linha): Linha => ({
+    ...l,
+    ...(l.Dentista == null ? {} : { Dentista: d1.Nome }),
+    ...(l['ID Dentista'] == null ? {} : { 'ID Dentista': d1.ID }),
+  })
+  return {
+    ...b, profissionais: [d1], consultas: b.consultas.map(trocar),
+    evolucoes: b.evolucoes.map(trocar), tratamentos: b.tratamentos.map(trocar),
+  }
+}
+
 const anonimo = (semente = 7): Backup => anonimizarBackup(fixture(), { rng: rngDe(semente) })
 const coluna = (linhas: Linha[], c: string) => linhas.map((l) => l[c])
 const relatorioSemNomes = (b: Backup) => {
-  const r = montarRelatorio(mapearBackup(b, { agora: AGORA }))
+  const r = montarRelatorio(mapearBackup(umDentista(b), { agora: AGORA }))
   const avisos: Partial<typeof r.avisos> = { ...r.avisos }
   delete avisos.gruposNomeNascimento
   return { ...r, avisos }
@@ -257,7 +271,7 @@ describe('anonimizarBackup', () => {
 
   it('sexo sorteado continua aceito pelo mapeamento', () => {
     for (const rng of [() => 0, () => 0.99, rngDe(5)]) {
-      const plano = mapearBackup(anonimizarBackup(fixture(), { rng }), { agora: AGORA })
+      const plano = mapearBackup(anonimizarBackup(umDentista(fixture()), { rng }), { agora: AGORA })
       expect(plano.pacientes[3].gender).toBeNull()
       for (const p of plano.pacientes.slice(0, 2)) expect(['M', 'F']).toContain(p.gender)
     }
@@ -366,7 +380,7 @@ describe('CLI --anonimizar', () => {
   }
 
   async function gravarFixture(pasta: string) {
-    const b = fixture()
+    const b = umDentista(fixture())
     for (const [planilha, colunas] of Object.entries(COLUNAS)) {
       const wb = new ExcelJS.Workbook()
       const ws = wb.addWorksheet('Planilha')
