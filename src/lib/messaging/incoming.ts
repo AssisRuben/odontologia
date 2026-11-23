@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProvider, type AudioMedia, type ConnectionStatus, type WebhookEvent } from '@/lib/whatsapp'
 import { fetchAll } from './cycleData'
 import { normalizePhone } from './phone'
-import { parseReply, pickConfirmationTarget, type SentConfirmation } from './replies'
+import { countOpenConfirmations, parseReply, pickConfirmationTarget, type SentConfirmation } from './replies'
 import { createSupabaseQueueRepo } from './repo'
 import { sendNow } from './sendNow'
 import { renderTemplate } from './templates'
@@ -40,9 +40,9 @@ export interface IncomingOutcome {
 export interface IncomingDeps {
   findClinicByInstance(instance: string): Promise<{ clinicId: string; token: string; cfg: MessagingConfig } | null>
   findPatientByPhone(clinicId: string, phone: string): Promise<string | null>
-  /** Evolution pode entregar a mesma mensagem duas vezes: já existe uma com este provider_message_id? */
   /** Mais de um paciente cadastrado usa este telefone (família)? Então não dá para saber quem escreve. */
   phoneShared(clinicId: string, phone: string): Promise<boolean>
+  /** Evolution pode entregar a mesma mensagem duas vezes: já existe uma com este provider_message_id? */
   incomingExists(clinicId: string, providerMessageId: string): Promise<boolean>
   saveIncoming(row: {
     clinic_id: string
@@ -167,6 +167,12 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
   if (agentOn && (await deps.hasActiveOffers(clinicId, conversationId, now))) return toAgent()
 
   confirmations ??= await deps.recentConfirmations(clinicId, phone, since)
+  // Família com mais de uma consulta em aberto: "1"/"2" não diz qual. Quem decide é a recepção.
+  // Vale com o agente desligado: não dispara envio, só deixa a conversa pendente para a equipe.
+  if (shared && countOpenConfirmations(confirmations, now) > 1) {
+    await deps.setHandler(conversationId, 'human', REASON_SHARED_PHONE)
+    return { result: 'stored', agent: null }
+  }
   const target = pickConfirmationTarget(confirmations, now)
   if (!target) return toAgent()
 
