@@ -150,6 +150,9 @@ async function storagePadrao({ url, chave }) {
   return { upload: (caminho, corpo, opcoes) => bucket.upload(caminho, corpo, opcoes) }
 }
 
+/** Arquivo recusado não foi importado: a execução não pode terminar como completa. */
+const avisoRecusados = (n) => (n > 0 ? [`Importação incompleta: ${n} arquivo(s) recusado(s)`] : [])
+
 function resumoSimulacaoArquivos(r) {
   return [
     'Simulação de arquivos (nada foi enviado)',
@@ -162,6 +165,7 @@ function resumoSimulacaoArquivos(r) {
     `Sem paciente: ${r.semPaciente}`,
     `Tipo desconhecido: ${r.tipoDesconhecido}`,
     `Ilegíveis: ${r.ilegiveis}`,
+    ...avisoRecusados(r.recusados),
   ].join('\n')
 }
 
@@ -171,6 +175,7 @@ function resumoEnvioArquivos(r) {
     `Total: ${r.total} | Enviados: ${r.enviados} | Cópias: ${r.copias} | Já registrados: ${r.jaRegistrados}`,
     `Recusados: ${r.recusados} | Falhas: ${r.falhas}`,
     `Motivos: ${Object.entries(r.motivos).map(([k, n]) => `${k} ${n}`).join(', ')}`,
+    ...avisoRecusados(r.recusados),
   ].join('\n')
 }
 
@@ -178,8 +183,9 @@ async function simularEtapaArquivos(v, plano, { lerZip, out }) {
   const zip = await lerZip(path.resolve(v.arquivos))
   try {
     const planejados = planejarArquivos(zip.entradas, numerosUnicos(plano.pacientes))
-    out(resumoSimulacaoArquivos(await simularArquivos(planejados)))
-    return 0
+    const resumo = await simularArquivos(planejados)
+    out(resumoSimulacaoArquivos(resumo))
+    return resumo.recusados > 0 ? 1 : 0
   } finally {
     await zip.fechar()
   }
@@ -216,7 +222,7 @@ async function gravarEtapaArquivos(v, plano, pasta, cfg, { criarCliente, criarSt
       err('O envio foi concluído, mas o arquivo de resultado não pôde ser salvo.')
       return 1
     }
-    return resultado.falhas > 0 ? 1 : 0
+    return resultado.falhas > 0 || resultado.recusados > 0 ? 1 : 0
   } finally {
     await cliente.end().catch(() => {})
   }

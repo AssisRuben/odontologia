@@ -582,7 +582,7 @@ describe('cli --arquivos', () => {
   it('sem --gravar só planeja: sem rede, com contagens e sem nomes', async () => {
     const r = await rodar([])
     expect(r.err).toBe('')
-    expect(r.codigo).toBe(0)
+    expect(r.codigo).toBe(1)
     expect(r.estado).toMatchObject({ conectou: 0, storage: 0, gravou: 0 })
     expect(r.out).toMatch(/Duplicados: 1/)
     expect(r.out).toMatch(/Recusados: 1/)
@@ -635,6 +635,57 @@ describe('cli --arquivos', () => {
     const r = await rodar(['--gravar', '--confirmar-clinica', CLINICA], {}, [{ nome: 'arquivos/10/a.png', corpo: PNG }])
     expect(r.err).toBe('')
     expect(r.codigo).toBe(0)
+  })
+
+  const RECUSADO = { nome: '../fora.png', corpo: JPEG }
+  const VALIDO = { nome: 'arquivos/10/a.png', corpo: PNG }
+  const GRAVAR = ['--gravar', '--confirmar-clinica', CLINICA]
+
+  it('simulação só com recusados sai com erro e avisa que está incompleta', async () => {
+    const r = await rodar([], {}, [RECUSADO])
+    expect(r.codigo).toBe(1)
+    expect(r.out).toMatch(/Importação incompleta: 1 arquivo\(s\) recusado\(s\)/)
+    expect(r.out).not.toContain('fora.png')
+    expect(r.estado).toMatchObject({ conectou: 0, storage: 0 })
+  })
+
+  it('simulação mista sai com erro e ainda conta os válidos', async () => {
+    const r = await rodar([], {}, [RECUSADO, VALIDO])
+    expect(r.codigo).toBe(1)
+    expect(r.out).toMatch(/Total: 2/)
+    expect(r.out).toMatch(/Importação incompleta: 1 arquivo\(s\) recusado\(s\)/)
+  })
+
+  it('simulação limpa sai com zero e não fala em incompleta', async () => {
+    const r = await rodar([], {}, [VALIDO])
+    expect(r.err).toBe('')
+    expect(r.codigo).toBe(0)
+    expect(r.out).not.toMatch(/incompleta/i)
+  })
+
+  it('--gravar só com recusados sai com erro, sem enviar nada', async () => {
+    const r = await rodar(GRAVAR, {}, [RECUSADO])
+    expect(r.codigo).toBe(1)
+    expect(r.out).toMatch(/Importação incompleta: 1 arquivo\(s\) recusado\(s\)/)
+    expect(r.out).not.toContain('fora.png')
+    expect(r.storage.envios).toHaveLength(0)
+    const json = JSON.parse(await readFile(path.join(r.saida, 'resultado-arquivos.json'), 'utf8'))
+    expect(json).toMatchObject({ recusados: 1, falhas: 0 })
+  })
+
+  it('--gravar misto sai com erro e ainda envia os válidos', async () => {
+    const r = await rodar(GRAVAR, {}, [RECUSADO, VALIDO])
+    expect(r.codigo).toBe(1)
+    expect(r.out).toMatch(/Importação incompleta: 1 arquivo\(s\) recusado\(s\)/)
+    expect(r.storage.envios).toHaveLength(1)
+    expect(r.banco.docs).toHaveLength(1)
+  })
+
+  it('--gravar limpo sai com zero e não fala em incompleta', async () => {
+    const r = await rodar(GRAVAR, {}, [VALIDO])
+    expect(r.err).toBe('')
+    expect(r.codigo).toBe(0)
+    expect(r.out).not.toMatch(/incompleta/i)
   })
 
   it('--gravar recusa quando os pacientes ainda não foram vinculados', async () => {
