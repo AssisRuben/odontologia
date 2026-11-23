@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { handleIncoming, type IncomingDeps } from '@/lib/messaging/incoming'
+import { REASON_SHARED_PHONE } from '@/lib/agente/conversa'
 import type { SentConfirmation } from '@/lib/messaging/replies'
 import type { WebhookEvent } from '@/lib/whatsapp'
 
@@ -19,6 +20,7 @@ function makeDeps(over: Partial<IncomingDeps> = {}) {
   const base = {
     findClinicByInstance: vi.fn(async (i: string) => (i === 'inst' ? { clinicId: 'c1', token: 't', cfg } : null)),
     findPatientByPhone: vi.fn(async () => 'p1' as string | null),
+    phoneShared: vi.fn<IncomingDeps['phoneShared']>(async () => false),
     incomingExists: vi.fn(async () => false),
     saveIncoming: vi.fn<IncomingDeps['saveIncoming']>(async () => 'in1' as string | null),
     recentConfirmations: vi.fn(async () => [conf]),
@@ -193,6 +195,57 @@ describe('handleIncoming', () => {
     const d = makeDeps()
     await handleIncoming(incoming('oi', '123'), d, now)
     expect(d.saveIncoming.mock.calls[0][0].phone).toBe('123')
+  })
+
+  describe('telefone compartilhado', () => {
+    const shared = () => vi.fn<IncomingDeps['phoneShared']>(async () => true)
+    const on = () => vi.fn(async () => true)
+
+    it('número compartilhado com agente ligado: sem paciente, vai para a recepção', async () => {
+      const d = makeDeps({ phoneShared: shared(), agentEnabled: on() })
+      const out = await handleIncoming(incoming('preciso de horário'), d, now)
+      expect(out).toEqual({ result: 'stored', agent: null })
+      expect(d.phoneShared).toHaveBeenCalledWith('c1', '5511987654321')
+      expect(d.upsertConversation).toHaveBeenCalledWith('c1', '5511987654321', null, now)
+      expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: null }))
+      expect(d.setHandler).toHaveBeenCalledWith('conv1', 'human', REASON_SHARED_PHONE)
+    })
+
+    it('número compartilhado com agente desligado: guarda, sem handoff', async () => {
+      const d = makeDeps({ phoneShared: shared() })
+      const out = await handleIncoming(incoming('preciso de horário'), d, now)
+      expect(out).toEqual({ result: 'stored', agent: null })
+      expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: null }))
+      expect(d.setHandler).not.toHaveBeenCalled()
+    })
+
+    it('número compartilhado responde "1": confirma a consulta alvo, sem handoff nem paciente', async () => {
+      const d = makeDeps({ phoneShared: shared(), agentEnabled: on() })
+      expect(await handleIncoming(incoming('1'), d, now)).toEqual({ result: 'confirmed', agent: null })
+      expect(d.setAppointmentStatus).toHaveBeenCalledWith('c1', 'a1', 'confirmed')
+      expect(d.sendAutoReply.mock.calls[0][0].patientId).toBeNull()
+      expect(d.setHandler).not.toHaveBeenCalled()
+    })
+
+    it('número de um só paciente: inalterado', async () => {
+      const d = makeDeps({ agentEnabled: on() })
+      const out = await handleIncoming(incoming('oi'), d, now)
+      expect(out).toEqual({ result: 'stored', agent: { conversationId: 'conv1', messageId: 'in1' } })
+      expect(d.saveIncoming).toHaveBeenCalledWith(expect.objectContaining({ patient_id: 'p1' }))
+      expect(d.setHandler).not.toHaveBeenCalled()
+    })
+
+    it('sem paciente cadastrado não consulta phoneShared', async () => {
+      const d = makeDeps({ findPatientByPhone: vi.fn(async () => null), agentEnabled: on() })
+      await handleIncoming(incoming('oi'), d, now)
+      expect(d.phoneShared).not.toHaveBeenCalled()
+    })
+
+    it('mensagem do celular da clínica para número compartilhado não vincula paciente', async () => {
+      const d = makeDeps({ phoneShared: shared(), agentEnabled: on() })
+      await handleIncoming({ kind: 'outgoing', instance: 'inst', to: '5511987654321', text: 'Olá', providerMessageId: 'out1', at: now }, d, now)
+      expect(d.upsertConversation).toHaveBeenCalledWith('c1', '5511987654321', null, now)
+    })
   })
 
   describe('agente', () => {

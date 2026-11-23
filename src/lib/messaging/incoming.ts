@@ -15,6 +15,7 @@ import {
   MAX_WA_AUDIO_SECONDS,
   OUTGOING_RECHECK_MS,
   REASON_CLINIC_PHONE,
+  REASON_SHARED_PHONE,
   TEXT_AUDIO,
   TEXT_AUDIO_UNTRANSCRIBED,
   truncateIncoming,
@@ -40,6 +41,8 @@ export interface IncomingDeps {
   findClinicByInstance(instance: string): Promise<{ clinicId: string; token: string; cfg: MessagingConfig } | null>
   findPatientByPhone(clinicId: string, phone: string): Promise<string | null>
   /** Evolution pode entregar a mesma mensagem duas vezes: já existe uma com este provider_message_id? */
+  /** Mais de um paciente cadastrado usa este telefone (família)? Então não dá para saber quem escreve. */
+  phoneShared(clinicId: string, phone: string): Promise<boolean>
   incomingExists(clinicId: string, providerMessageId: string): Promise<boolean>
   saveIncoming(row: {
     clinic_id: string
@@ -98,6 +101,9 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
 
   const phone = normalizePhone(event.from) ?? event.from
   const patientId = await deps.findPatientByPhone(clinicId, phone)
+  const shared = patientId ? await deps.phoneShared(clinicId, phone) : false
+  // Número de família: o paciente "encontrado" é um palpite, então a conversa não é vinculada a ninguém.
+  const linkedPatientId = shared ? null : patientId
   const agentOn = await deps.agentEnabled(clinicId)
 
   // Privacidade (LGPD): o número da clínica também recebe conversas que não são de pacientes.
@@ -131,11 +137,11 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
   }
   text = truncateIncoming(text)
 
-  const conversationId = await deps.upsertConversation(clinicId, phone, patientId, event.at)
+  const conversationId = await deps.upsertConversation(clinicId, phone, linkedPatientId, event.at)
   // null = duplicata concorrente (índice único)
   const messageId = await deps.saveIncoming({
     clinic_id: clinicId,
-    patient_id: patientId,
+    patient_id: linkedPatientId,
     phone,
     body: text,
     provider_message_id: event.providerMessageId,
@@ -146,21 +152,28 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
   if (messageId === null) return done('ignored')
 
   // Mensagem guardada e não consumida por "1"/"2": segue para o agente (se ligado).
-  const toAgent: IncomingOutcome = { result: 'stored', agent: agentOn ? { conversationId, messageId } : null }
+  // Número compartilhado: em vez do agente, a conversa vai para a recepção.
+  const toAgent = async (): Promise<IncomingOutcome> => {
+    if (agentOn && shared) {
+      await deps.setHandler(conversationId, 'human', REASON_SHARED_PHONE)
+      return { result: 'stored', agent: null }
+    }
+    return { result: 'stored', agent: agentOn ? { conversationId, messageId } : null }
+  }
 
   const reply = parseReply(text)
-  if (!reply) return toAgent
+  if (!reply) return toAgent()
   // R7: com o agente ligado e uma lista de horários vigente, "1"/"2" escolhe a opção — vai para o agente.
-  if (agentOn && (await deps.hasActiveOffers(clinicId, conversationId, now))) return toAgent
+  if (agentOn && (await deps.hasActiveOffers(clinicId, conversationId, now))) return toAgent()
 
   confirmations ??= await deps.recentConfirmations(clinicId, phone, since)
   const target = pickConfirmationTarget(confirmations, now)
-  if (!target) return toAgent
+  if (!target) return toAgent()
 
   const action = reply === 'confirm' ? 'confirmed' : 'cancelled'
   // "1"/"2" repetido: a consulta já está nesse status — só guarda a mensagem, sem nova resposta automática.
-  if (target.appointment.status === action) return toAgent
-  if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return toAgent
+  if (target.appointment.status === action) return toAgent()
+  if (!(await deps.setAppointmentStatus(clinicId, target.appointment_id, action))) return toAgent()
   await deps.setReplyAction(messageId, action, target.appointment_id)
 
   let body = CANCEL_TEXT
@@ -176,7 +189,7 @@ export async function handleIncoming(event: WebhookEvent, deps: IncomingDeps, no
   }
   // A resposta automática não pode desfazer a mudança de status nem derrubar o webhook.
   try {
-    await deps.sendAutoReply({ clinicId, patientId, phone, body, appointmentId: target.appointment_id })
+    await deps.sendAutoReply({ clinicId, patientId: linkedPatientId, phone, body, appointmentId: target.appointment_id })
   } catch (err) {
     console.error('[webhook] auto_reply falhou:', err instanceof Error ? err.message : 'erro')
   }
@@ -201,7 +214,8 @@ async function handleOutgoing(
   await deps.sleep(OUTGOING_RECHECK_MS)
   if (await deps.outgoingKnown(clinicId, event.providerMessageId, phone, event.text, since)) return ignored
 
-  const conversationId = await deps.upsertConversation(clinicId, phone, patientId, event.at)
+  const shared = patientId ? await deps.phoneShared(clinicId, phone) : false
+  const conversationId = await deps.upsertConversation(clinicId, phone, shared ? null : patientId, event.at)
   await deps.saveHumanFromPhone(clinicId, conversationId, phone, truncateIncoming(event.text), event.providerMessageId)
   // Saudação/ausência automática do WhatsApp Business sai logo após a mensagem do paciente:
   // fica no histórico, mas não tira a conversa do agente.
@@ -246,6 +260,18 @@ function check(error: { message: string } | null): void {
 
 export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminClient()): IncomingDeps {
   const repo = createSupabaseQueueRepo(admin)
+  const patientsWithPhone = async (clinicId: string, target: string): Promise<PatientPhones[]> => {
+    const patients = await fetchAll<PatientPhones>((a, b) =>
+      admin
+        .from('patients')
+        .select('id, whatsapp, phone, created_at')
+        .eq('clinic_id', clinicId)
+        .order('created_at')
+        .order('id')
+        .range(a, b),
+    )
+    return patients.filter((p) => (normalizePhone(p.whatsapp) ?? normalizePhone(p.phone)) === target)
+  }
   return {
     async findClinicByInstance(instance) {
       const { data: conn, error } = await admin
@@ -264,19 +290,16 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
       return { clinicId: conn.clinic_id, token: conn.token, cfg: normalizeMessagingConfig(clinic!.messaging_config) }
     },
 
+    async phoneShared(clinicId, phone) {
+      const target = normalizePhone(phone)
+      if (!target) return false
+      return (await patientsWithPhone(clinicId, target)).length > 1
+    },
+
     async findPatientByPhone(clinicId, phone) {
       const target = normalizePhone(phone)
       if (!target) return null
-      const patients = await fetchAll<PatientPhones>((a, b) =>
-        admin
-          .from('patients')
-          .select('id, whatsapp, phone, created_at')
-          .eq('clinic_id', clinicId)
-          .order('created_at')
-          .order('id')
-          .range(a, b),
-      )
-      const matching = patients.filter((p) => (normalizePhone(p.whatsapp) ?? normalizePhone(p.phone)) === target)
+      const matching = await patientsWithPhone(clinicId, target)
       const last = new Map<string, string>()
       if (matching.length > 1) {
         const { data, error } = await admin
