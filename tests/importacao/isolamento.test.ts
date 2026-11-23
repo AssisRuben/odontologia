@@ -68,4 +68,14 @@ describe('isolamento do histórico importado', () => {
     expect(t).toHaveLength(2)
     expect(t.every(filtraHistorico)).toBe(true)
   })
+
+  it('convênios: operadora sem fechamento ignora tratamento importado', async () => {
+    const { admin, queries } = fakeAdmin((q) =>
+      q.table === 'insurance_plans' ? { data: [{ id: 'op1', name: 'Operadora' }], error: null } : vazio())
+    const repo = createConveniosRepo({ ...admin, rpc: async () => ({ data: null, error: null }) } as unknown as SupabaseClient)
+    await repo.dadosPendencias(CLINIC, '2026-11-22')
+    const t = daTabela(queries, 'treatments').filter((q) => q.calls.some((c) => c[0] === 'limit'))
+    expect(t).toHaveLength(1)
+    expect(t.every(filtraHistorico)).toBe(true)
+  })
 })

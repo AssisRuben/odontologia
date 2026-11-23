@@ -927,6 +927,7 @@ export function createConveniosRepo(admin: SupabaseClient) {
           .eq('clinic_id', clinicId)
           .eq('insurance_plan_id', o.id)
           .neq('status', 'cancelled')
+          .is('imported_from', null)
           .limit(1)
         if (error) throw new Error(error.message)
         if (data?.length) operadorasSemFechamento.push(o)
