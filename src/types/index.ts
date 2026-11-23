@@ -568,6 +568,7 @@ export interface Budget {
   lost_reason: LostReason | null
   followup_at: string | null
   approval_seen_at: string | null
+  imported_from?: string | null
   created_at: string
   updated_at: string
   items?: BudgetItem[]

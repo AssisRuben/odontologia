@@ -98,3 +98,13 @@ describe('sendBudget', () => {
     expect(d.insertResent).not.toHaveBeenCalled()
   })
 })
+
+describe('sendBudget: orçamento importado', () => {
+  it('recusa sem criar link nem enviar', async () => {
+    const d = deps({ loadBudget: vi.fn(async () => ({ ...budget, imported_from: 'codental' })) })
+    const r = await sendBudget(input, d)
+    expect(r).toEqual({ status: 422, body: { error: 'Orçamento importado é somente leitura.' } })
+    expect(d.rpcSend).not.toHaveBeenCalled()
+    expect(d.sendMessage).not.toHaveBeenCalled()
+  })
+})

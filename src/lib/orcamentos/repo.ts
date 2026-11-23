@@ -75,14 +75,14 @@ export function createApprovalDeps(admin: SupabaseClient): ApprovalDeps {
     async loadForApproval(budgetId, clinicId) {
       const { data, error } = await admin
         .from('budgets')
-        .select('id, created_at, valid_until, patients(name), professionals(name), budget_items(id, procedure, tooth, quantity, unit_price)')
+        .select('id, created_at, valid_until, imported_from, patients(name), professionals(name), budget_items(id, procedure, tooth, quantity, unit_price)')
         .eq('id', budgetId)
         .eq('clinic_id', clinicId)
         .maybeSingle()
       if (checkId(error) || !data) return null
       const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
       const row = data as unknown as {
-        id: string; created_at: string; valid_until: string | null
+        id: string; created_at: string; valid_until: string | null; imported_from: string | null
         patients: { name: string } | { name: string }[] | null
         professionals: { name: string } | { name: string }[] | null
         budget_items: { id: string; procedure: string; tooth: string | null; quantity: number; unit_price: number }[]
@@ -95,6 +95,7 @@ export function createApprovalDeps(admin: SupabaseClient): ApprovalDeps {
         patientName: one(row.patients)?.name ?? '',
         professionalName: one(row.professionals)?.name ?? null,
         items: row.budget_items.map((i) => ({ ...i, unit_price: Number(i.unit_price) })),
+        importedFrom: row.imported_from,
       }
     },
     async actorName(clinicId, actorId) {
@@ -137,13 +138,13 @@ export function createSendDeps(admin: SupabaseClient): SendDeps {
     async loadBudget(budgetId, clinicId) {
       const { data, error } = await admin
         .from('budgets')
-        .select('id, patient_id, status, total, budget_items(id)')
+        .select('id, patient_id, status, total, imported_from, budget_items(id)')
         .eq('id', budgetId)
         .eq('clinic_id', clinicId)
         .maybeSingle()
       if (checkId(error) || !data) return null
-      const r = data as unknown as { id: string; patient_id: string; status: BudgetStatus; total: number; budget_items: unknown[] }
-      return { id: r.id, patient_id: r.patient_id, status: r.status, total: Number(r.total), itemCount: r.budget_items.length }
+      const r = data as unknown as { id: string; patient_id: string; status: BudgetStatus; total: number; imported_from: string | null; budget_items: unknown[] }
+      return { id: r.id, patient_id: r.patient_id, status: r.status, total: Number(r.total), itemCount: r.budget_items.length, imported_from: r.imported_from }
     },
     async getValidityDays(clinicId) {
       const { data, error } = await admin.from('clinics').select('budget_validity_days').eq('id', clinicId).single()

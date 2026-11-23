@@ -12,7 +12,7 @@ import { ModalNovaCobranca } from '@/components/pagamentos/ModalNovaCobranca'
 import type { NovaCobrancaPatient } from '@/components/pagamentos/ModalNovaCobranca'
 import { ModalDecisao } from '@/components/orcamentos/ModalDecisao'
 import { STAGE_LABEL } from '@/lib/orcamentos/etapas'
-import { actionsFor, eventLabel } from '@/lib/orcamentos/aba'
+import { actionsFor, eventLabel, totalDoOrcamento } from '@/lib/orcamentos/aba'
 import type { Budget, BudgetEvent, BudgetItem, BudgetStatus } from '@/types'
 
 interface Props {
@@ -230,9 +230,9 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
             const items = b.items || []
             const itemsTotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
             const won = b.status === 'approved' || b.status === 'completed'
-            const total = won ? Number(b.approved_total ?? itemsTotal) : itemsTotal
+            const total = totalDoOrcamento(b, itemsTotal)
             const remaining = total - (charged[b.id] ?? 0)
-            const act = actionsFor(b.status, remaining)
+            const act = actionsFor(b.status, remaining, Boolean(b.imported_from))
             const msg = msgs[b.id]
             const disabled = busy === b.id
             const linhaHistorico = [
@@ -294,7 +294,8 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                           className="h-7 px-2 rounded-lg border border-linha text-xs bg-white disabled:bg-porcelana"
                         />
                       </label>
-                      {b.status === 'sent' && <span className="text-[11px] text-[#B45309]">{SENT_EDIT_NOTICE}</span>}
+                      {b.status === 'sent' && !b.imported_from && <span className="text-[11px] text-[#B45309]">{SENT_EDIT_NOTICE}</span>}
+                      {b.imported_from && <span className="text-[11px] text-tinta-3">Importado do sistema anterior: somente leitura.</span>}
                     </div>
 
                     <div className="divide-y divide-porcelana-2">
@@ -318,8 +319,9 @@ export function TabOrcamentos({ patientId, clinicId, patient }: Props) {
                             </div>
                             <select
                               value={item.status}
+                              disabled={!act.editItems}
                               onChange={e => updateItemStatus(b.id, item.id, e.target.value as BudgetItem['status'])}
-                              className="h-7 px-2 rounded-lg border border-linha text-xs bg-white focus:outline-none"
+                              className="h-7 px-2 rounded-lg border border-linha text-xs bg-white disabled:bg-porcelana focus:outline-none"
                               style={{ color: ist.color }}
                             >
                               {Object.entries(ITEM_STATUS).map(([v, c]) => (

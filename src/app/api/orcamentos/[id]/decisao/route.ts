@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getCurrentClinic } from '@/lib/auth/currentClinic'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { approveBudget, rejectBudget } from '@/lib/orcamentos/aprovacao'
+import { approveBudget, IMPORTED_READ_ONLY, rejectBudget } from '@/lib/orcamentos/aprovacao'
 import { canDecideByReception, canReopen } from '@/lib/orcamentos/etapas'
 import { parseDecision } from '@/lib/orcamentos/rotas'
 import { createApprovalDeps } from '@/lib/orcamentos/repo'
@@ -29,13 +29,14 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/orcamentos/
     const admin = createAdminClient()
     const { data, error } = await admin
       .from('budgets')
-      .select('status')
+      .select('status, imported_from')
       .eq('id', id)
       .eq('clinic_id', current.clinicId)
       .maybeSingle()
     if (error && error.code !== '22P02') throw new Error(error.message)
     if (!data) return NextResponse.json({ error: 'Orçamento não encontrado' }, { status: 404 })
-    const status = (data as { status: BudgetStatus }).status
+    const { status, imported_from } = data as { status: BudgetStatus; imported_from: string | null }
+    if (imported_from) return NextResponse.json({ error: IMPORTED_READ_ONLY }, { status: 422 })
 
     if (d.action === 'reopen') {
       if (!canReopen(status)) {
