@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { lerTudo } from '@/lib/supabase/lerTudo'
 import { useClinicStore } from '@/store/clinicStore'
 import { getInitials, formatPhone } from '@/lib/utils'
-import { aniversariantesDoMes, retornosPendentes } from '@/lib/pacientes/listas'
+import { aniversariantesDoMes, estadoDaLista, retornosPendentes } from '@/lib/pacientes/listas'
 import type { Patient } from '@/types'
 
 const AVATAR_COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#84CC16','#F97316','#EC4899','#6366F1']
@@ -49,6 +49,14 @@ export default function PacientesPage() {
   const [showForm, setShowForm] = useState(false)
   const [consultas, setConsultas] = useState<ConsultaResumo[] | null>(null)
   const [erroConsultas, setErroConsultas] = useState(false)
+  const [erroPacientes, setErroPacientes] = useState(false)
+
+  function tentarNovamente() {
+    if (!clinicId) return
+    setErroPacientes(false)
+    setLoading(true)
+    loadPatients(clinicId)
+  }
 
   async function loadPatients(id: string) {
     const supabase = createClient()
@@ -63,9 +71,11 @@ export default function PacientesPage() {
           .range(de, ate),
       )
       setPatients(lista)
+      setErroPacientes(false)
     } catch (e) {
       console.error('[pacientes] erro ao carregar a lista:', e)
       setPatients([])
+      setErroPacientes(true)
     }
     setLoading(false)
   }
@@ -92,6 +102,9 @@ export default function PacientesPage() {
     p.name.toLowerCase().includes(q) || p.phone?.includes(q) || p.cpf?.includes(q))
   const aniversarianteIds = new Set(aniversariantes.map((p) => p.id))
   const carregandoLista = loading || (activeTab === 'retornos' && !consultas && !erroConsultas)
+  const estadoLista = estadoDaLista({
+    erroPacientes, erroConsultas, aba: activeTab, carregando: carregandoLista, quantidade: filtered.length,
+  })
 
   const tabs = [
     { id: 'buscar' as Tab, label: 'Buscar' },
@@ -153,13 +166,20 @@ export default function PacientesPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'retornos' && erroConsultas ? (
+        {estadoLista === 'erro-pacientes' ? (
+          <div role="alert" className="flex flex-col items-center justify-center h-48 gap-3">
+            <p className="text-sm text-red-600">Não consegui carregar os pacientes.</p>
+            <button onClick={tentarNovamente} className="text-sm text-petroleo font-medium hover:underline">
+              Tentar novamente
+            </button>
+          </div>
+        ) : estadoLista === 'erro-consultas' ? (
           <p className="p-6 text-sm text-red-600">Não consegui carregar as consultas. Recarregue a página.</p>
-        ) : carregandoLista ? (
+        ) : estadoLista === 'carregando' ? (
           <div className="flex items-center justify-center h-48">
             <div className="w-6 h-6 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : estadoLista === 'vazia' ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
               <circle cx="32" cy="32" r="30" fill="#EEF2F2" />

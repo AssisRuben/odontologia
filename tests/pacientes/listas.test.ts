@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aniversariantesDoMes, retornosPendentes } from '@/lib/pacientes/listas'
+import { aniversariantesDoMes, estadoDaLista, retornosPendentes } from '@/lib/pacientes/listas'
 
 const p = (id: string, birthdate: string | null = null) => ({ id, name: id, birthdate })
 
@@ -46,5 +46,27 @@ describe('retornosPendentes', () => {
       c('b', '2026-05-12T12:00:00-03:00', 'completed'),
     ]
     expect(retornosPendentes([p('a'), p('b')], consultas, agora).map(x => x.paciente.id)).toEqual(['a'])
+  })
+})
+
+describe('estadoDaLista', () => {
+  const base = { erroPacientes: false, erroConsultas: false, aba: 'buscar', carregando: false, quantidade: 0 }
+
+  it('falha ao carregar pacientes nunca vira tela vazia', () => {
+    expect(estadoDaLista({ ...base, erroPacientes: true })).toBe('erro-pacientes')
+  })
+  it('falha nos pacientes vale em todas as abas e antes do carregando', () => {
+    for (const aba of ['buscar', 'aniversariantes', 'retornos']) {
+      expect(estadoDaLista({ ...base, aba, erroPacientes: true, erroConsultas: true, carregando: true })).toBe('erro-pacientes')
+    }
+  })
+  it('falha nas consultas só afeta a aba de retornos', () => {
+    expect(estadoDaLista({ ...base, aba: 'retornos', erroConsultas: true })).toBe('erro-consultas')
+    expect(estadoDaLista({ ...base, aba: 'buscar', erroConsultas: true, quantidade: 1 })).toBe('lista')
+  })
+  it('carregando, vazia e lista', () => {
+    expect(estadoDaLista({ ...base, carregando: true })).toBe('carregando')
+    expect(estadoDaLista(base)).toBe('vazia')
+    expect(estadoDaLista({ ...base, quantidade: 2 })).toBe('lista')
   })
 })
