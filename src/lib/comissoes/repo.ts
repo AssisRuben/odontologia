@@ -112,6 +112,7 @@ export function createComissoesRepo(admin: SupabaseClient) {
           .eq('clinic_id', clinicId)
           .eq('status', 'completed')
           .not('completed_at', 'is', null)
+          .is('imported_from', null)
           .order('id')
           .range(de, ate),
       )

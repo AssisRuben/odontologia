@@ -3606,6 +3606,14 @@ ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS treatment_id UUID
 
 CREATE INDEX IF NOT EXISTS inventory_movements_treatment_idx ON inventory_movements (treatment_id);
 
+-- ── Marca de origem (importação) ────────────────────────────
+-- Registros criados pela importação de outro sistema carregam o nome da origem.
+
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS imported_from TEXT;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS imported_from TEXT;
+ALTER TABLE treatments ADD COLUMN IF NOT EXISTS imported_from TEXT;
+ALTER TABLE budgets ADD COLUMN IF NOT EXISTS imported_from TEXT;
+
 -- ── Gatilho: situação do material do tratamento ─────────────
 -- As funções abaixo ligam app.material = 'on' (só na transação) e o gatilho aceita os
 -- valores enviados. Em qualquer outra gravação (navegador, IA, aprovação de orçamento):
@@ -3627,7 +3635,8 @@ BEGIN
     NEW.material_status := NULL;
     NEW.material_kit_id := NULL;
 
-    IF NEW.status = 'completed' AND NEW.material_status IS NULL THEN
+    IF NEW.status = 'completed' AND NEW.imported_from IS NULL
+       AND NEW.material_status IS NULL THEN
       NEW.material_status := 'pendente';
     END IF;
   ELSE
@@ -3635,6 +3644,7 @@ BEGIN
     NEW.material_kit_id := OLD.material_kit_id;
 
     IF NEW.status = 'completed' AND OLD.status IS DISTINCT FROM 'completed'
+       AND NEW.imported_from IS NULL
        AND NEW.material_status IS NULL THEN
       NEW.material_status := 'pendente';
     END IF;
@@ -4363,3 +4373,47 @@ GRANT EXECUTE ON FUNCTION public.end_expense_recurrence(UUID, UUID, DATE) TO ser
 --   '0 9 * * *',
 --   $$SELECT public.generate_recurring_expenses(id) FROM clinics$$
 -- );
+
+-- ── Vínculos da importação ──────────────────────────────────
+-- Liga o id de origem ao id criado aqui, para a importação poder rodar de novo sem
+-- duplicar. Só o service role acessa (sem policies).
+
+CREATE TABLE IF NOT EXISTS import_links (
+  clinic_id  UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  source     TEXT NOT NULL,
+  entity     TEXT NOT NULL,
+  source_id  TEXT NOT NULL,
+  target_id  UUID NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (clinic_id, source, entity, source_id)
+);
+
+ALTER TABLE import_links ENABLE ROW LEVEL SECURITY;
+
+-- ── Histórico financeiro importado ──────────────────────────
+-- Somente leitura para a clínica; a gravação é só do service role.
+
+CREATE TABLE IF NOT EXISTS legacy_payments (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id          UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  patient_id         UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  budget_id          UUID REFERENCES budgets(id) ON DELETE SET NULL,
+  source_id          TEXT NOT NULL,
+  description        TEXT,
+  amount             NUMERIC(10,2) NOT NULL,
+  due_date           DATE,
+  paid_at            DATE,
+  payment_method     TEXT,
+  installment_number INTEGER,
+  installment_count  INTEGER,
+  original_status    TEXT NOT NULL CHECK (original_status IN ('paid','open')),
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (clinic_id, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS legacy_payments_patient_idx ON legacy_payments (patient_id);
+
+ALTER TABLE legacy_payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "clinic_member_select" ON legacy_payments;
+CREATE POLICY "clinic_member_select" ON legacy_payments FOR SELECT TO authenticated
+  USING (clinic_id IN (SELECT public.user_clinic_ids()));

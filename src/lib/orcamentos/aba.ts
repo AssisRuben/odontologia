@@ -36,12 +36,22 @@ export interface BudgetActions {
   complete: boolean
   editValidity: boolean
   editProfessional: boolean
+  editItems: boolean
 }
 
-export function actionsFor(status: BudgetStatus, remainingToCharge: number): BudgetActions {
+/** Orçamento importado é somente leitura: só mantém a cobrança do saldo. */
+export function actionsFor(status: BudgetStatus, remainingToCharge: number, imported = false): BudgetActions {
   const open = status === 'draft' || status === 'sent'
   const won = status === 'approved' || status === 'completed'
+  if (imported) {
+    return {
+      send: false, resend: false, copyLink: false, decide: false, reopen: false, receipt: false,
+      charge: won && remainingToCharge > 0.004,
+      complete: false, editValidity: false, editProfessional: false, editItems: false,
+    }
+  }
   return {
+    editItems: true,
     send: status === 'draft',
     resend: status === 'sent',
     copyLink: status === 'sent',
@@ -53,6 +63,16 @@ export function actionsFor(status: BudgetStatus, remainingToCharge: number): Bud
     editValidity: open,
     editProfessional: open,
   }
+}
+
+/** Importado vale o total da origem: os itens podem não somar o mesmo (desconto, sem preço). */
+export function totalDoOrcamento(
+  b: { status: BudgetStatus; total: number; approved_total: number | null; imported_from?: string | null },
+  itemsTotal: number,
+): number {
+  if (b.imported_from) return Number(b.total)
+  const won = b.status === 'approved' || b.status === 'completed'
+  return won ? Number(b.approved_total ?? itemsTotal) : itemsTotal
 }
 
 export function parseValidityDays(raw: string): { ok: true; days: number } | { ok: false; error: string } {

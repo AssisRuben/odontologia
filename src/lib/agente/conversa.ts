@@ -21,6 +21,7 @@ export const TEXT_AUDIO_UNTRANSCRIBED = '[áudio não transcrito]'
 export const REASON_OPT_OUT = 'Paciente pediu para não receber WhatsApp'
 export const REASON_FLOOD = 'Muitas mensagens seguidas'
 export const REASON_CLINIC_PHONE = 'Respondido pelo celular da clínica'
+export const REASON_SHARED_PHONE = 'Número usado por mais de um paciente'
 export const REASON_TAKEN_OVER = 'Assumida pela equipe'
 export const REASON_DEFAULT = 'Pedido do paciente'
 

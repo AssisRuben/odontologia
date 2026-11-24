@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "importar:codental": "node scripts/importar-codental/cli.mjs",
     "manual": "node --env-file=.env.local scripts/manual/gerar.mjs",
     "demo": "node --env-file=.env.local scripts/demo/rodar.mjs"
   },
@@ -57,9 +58,12 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "exceljs": "^4.4.0",
+    "pg": "^8.23.1",
     "playwright": "^1.65.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "yauzl": "^3.4.0"
   }
 }

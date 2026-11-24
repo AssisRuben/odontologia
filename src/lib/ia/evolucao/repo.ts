@@ -42,10 +42,12 @@ export async function loadFichaInput(
       .limit(LIMITE),
     admin
       .from('budget_items')
-      .select('id, procedure, tooth, status, budgets!inner(created_at, clinic_id, patient_id, status)')
+      .select('id, procedure, tooth, status, budgets!inner(created_at, clinic_id, patient_id, status, imported_from)')
       .eq('budgets.clinic_id', clinicId)
       .eq('budgets.patient_id', patientId)
       .eq('budgets.status', 'approved')
+      // O tratamento vivo do orçamento importado já aparece na ficha.
+      .is('budgets.imported_from', null)
       .eq('approved', true)
       .in('status', ['pending', 'in_progress'])
       .order('budgets(created_at)', { ascending: false })

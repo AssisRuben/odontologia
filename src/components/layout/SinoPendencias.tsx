@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bell, MessageSquare, ClipboardList, ShieldCheck, Cake, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { lerTudo } from '@/lib/supabase/lerTudo'
 import { useClinicStore } from '@/store/clinicStore'
 import { aniversariantesDoDia } from '@/lib/avisos/aniversariantes'
 import { todayYmd } from '@/lib/messaging/time'
@@ -44,15 +45,22 @@ export function SinoPendencias({ conversas, orcamentosAprovados, convenios }: Pr
   useEffect(() => {
     if (!open || !clinicId) return
     let cancelado = false
-    createClient()
-      .from('patients')
-      .select('id, name, birthdate')
-      .eq('clinic_id', clinicId)
-      .not('birthdate', 'is', null)
-      .then(({ data }) => {
+    const supabase = createClient()
+    lerTudo<{ id: string; name: string; birthdate: string | null }>((de, ate) =>
+      supabase
+        .from('patients')
+        .select('id, name, birthdate')
+        .eq('clinic_id', clinicId)
+        .not('birthdate', 'is', null)
+        .order('name')
+        .order('id')
+        .range(de, ate),
+    )
+      .catch(() => [])
+      .then((lista) => {
         if (cancelado) return
         const hoje = todayYmd(new Date(), 'America/Sao_Paulo')
-        setAniversariantes(aniversariantesDoDia(data ?? [], hoje))
+        setAniversariantes(aniversariantesDoDia(lista, hoje))
       })
     return () => { cancelado = true }
   }, [open, clinicId])
