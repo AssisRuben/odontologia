@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
   // (sem isso o Next bloqueia os arquivos de desenvolvimento e a página não funciona).
   allowedDevOrigins: ['*.trycloudflare.com'],
 
+  // Só no `npm run dev`: o botão "N" do Next ficaria em cima do "Expandir menu" no canto esquerdo.
+  devIndicators: { position: 'bottom-right' },
+
   // O proxy guarda o corpo da requisição em memória (padrão 10 MB, truncando o excedente).
   // A transcrição aceita áudio de até 25 MB, então o limite sobe para 26 MB.
   experimental: {

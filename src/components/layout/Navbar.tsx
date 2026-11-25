@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, Settings, HelpCircle,
+  Menu, X, Settings, HelpCircle, PanelLeftClose, PanelLeftOpen,
   Calendar, Users, DollarSign, Package, Layers, FileText, MessageSquare, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,6 +16,7 @@ import { BuscaRapida } from './BuscaRapida'
 import { SinoPendencias } from './SinoPendencias'
 import { MenuUsuario } from './MenuUsuario'
 import { LogoDente } from './LogoDente'
+import { useMenuLateral } from './MenuLateral'
 
 const navLinks = [
   { label: 'Agenda',        href: '/agenda',        icon: Calendar },
@@ -105,34 +106,93 @@ export function Navbar() {
 
   const isActive = (href: string) => pathname.startsWith(href)
 
+  // Menu lateral recolhido em faixa de ícones: o nome do item aparece ao lado, no mouse ou no Tab.
+  const { recolhido, alternar } = useMenuLateral()
+  const [dicaAtual, setDicaAtual] = useState<{ texto: string; top: number } | null>(null)
+  const dica: Dica = (texto) => {
+    if (!texto) return {}
+    const mostrar = (e: React.SyntheticEvent<HTMLElement>) => {
+      const r = e.currentTarget.getBoundingClientRect()
+      setDicaAtual({ texto, top: r.top + r.height / 2 })
+    }
+    const esconder = () => setDicaAtual(null)
+    return { onMouseEnter: mostrar, onFocus: mostrar, onMouseLeave: esconder, onBlur: esconder }
+  }
+
   return (
     <>
       {/* ── Menu lateral — computador ───────────────────────────────────── */}
       <aside
-        className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[220px] flex-col bg-petroleo text-[#C9D8DC] px-3 pt-4 pb-3"
+        className={cn(
+          'hidden md:flex fixed inset-y-0 left-0 z-40 flex-col overflow-hidden bg-petroleo text-[#C9D8DC] pt-4 pb-3',
+          'motion-safe:transition-[width] motion-safe:duration-200',
+          recolhido ? 'w-16 px-2.5' : 'w-[220px] px-3'
+        )}
         aria-label="Menu principal"
       >
-        <Link href="/agenda" className="flex items-center gap-2.5 px-2 pb-5 rounded-lg focus-visible:outline-2 focus-visible:outline-gengiva">
+        <Link
+          href="/agenda"
+          aria-label={recolhido ? 'Ir para a agenda' : undefined}
+          className={cn(
+            'flex items-center gap-2.5 pb-5 rounded-lg focus-visible:outline-2 focus-visible:outline-gengiva',
+            recolhido ? 'justify-center px-0' : 'px-2'
+          )}
+        >
           <LogoDente />
-          <span className="min-w-0">
-            <span className="block font-display text-[21px] leading-none font-bold tracking-tight text-white">Dental</span>
-            {clinicName && <span className="block mt-1 text-xs text-[#93AEB5] truncate">{clinicName}</span>}
-          </span>
+          {!recolhido && (
+            <span className="min-w-0">
+              <span className="block font-display text-[21px] leading-none font-bold tracking-tight text-white">Dental</span>
+              {clinicName && <span className="block mt-1 text-xs text-[#93AEB5] truncate">{clinicName}</span>}
+            </span>
+          )}
         </Link>
 
-        <nav className="flex-1 overflow-y-auto -mx-1 px-1">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden -mx-1 px-1">
           {sidebarPrincipal.map((link) => (
-            <SidebarLink key={link.href} link={link} active={isActive(link.href)} badge={badgeFor(link.href)} />
+            <SidebarLink key={link.href} link={link} active={isActive(link.href)} badge={badgeFor(link.href)} recolhido={recolhido} dica={dica} />
           ))}
           <hr className="border-0 border-t border-white/10 my-3 mx-2" />
           {sidebarApoio.map((link) => (
-            <SidebarLink key={link.href} link={link} active={isActive(link.href)} badge={badgeFor(link.href)} />
+            <SidebarLink key={link.href} link={link} active={isActive(link.href)} badge={badgeFor(link.href)} recolhido={recolhido} dica={dica} />
           ))}
         </nav>
+
+        <button
+          type="button"
+          onClick={() => { setDicaAtual(null); alternar() }}
+          aria-expanded={!recolhido}
+          aria-label={recolhido ? 'Expandir menu' : undefined}
+          className={cn(
+            'flex items-center gap-3 mt-2 py-2 rounded-[9px] text-sm font-medium text-[#93AEB5] transition-colors',
+            'hover:bg-white/[.07] hover:text-white focus-visible:outline-2 focus-visible:outline-gengiva',
+            recolhido ? 'justify-center px-0' : 'px-2.5'
+          )}
+          {...dica(recolhido ? 'Expandir menu' : null)}
+        >
+          {recolhido
+            ? <PanelLeftOpen className="w-[17px] h-[17px] shrink-0" />
+            : <PanelLeftClose className="w-[17px] h-[17px] shrink-0" />}
+          {!recolhido && <span className="whitespace-nowrap">Recolher menu</span>}
+        </button>
+
+        {/* Nome do item ao lado da faixa de ícones (fora do <nav> para não ser cortado pela rolagem) */}
+        {recolhido && dicaAtual && (
+          <span
+            role="tooltip"
+            className="pointer-events-none fixed left-[72px] z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-tinta px-2.5 py-1.5 text-xs font-medium text-white shadow-lg"
+            style={{ top: dicaAtual.top }}
+          >
+            {dicaAtual.texto}
+          </span>
+        )}
       </aside>
 
       {/* ── Barra de topo ───────────────────────────────────────────────── */}
-      <header className="fixed top-0 right-0 left-0 md:left-[220px] z-30 h-14 bg-porcelana/90 backdrop-blur border-b border-linha">
+      <header className={cn(
+        'fixed top-0 right-0 left-0 z-30 h-14 bg-porcelana/90 backdrop-blur border-b border-linha',
+        'motion-safe:transition-[left] motion-safe:duration-200',
+        recolhido ? 'md:left-16' : 'md:left-[220px]'
+      )}>
         <div className="flex items-center h-full px-4 md:px-6 gap-2">
           {/* Logo — só no celular (no computador está no menu lateral) */}
           <Link href="/agenda" className="flex items-center gap-2 mr-2 shrink-0 md:hidden">
@@ -243,23 +303,39 @@ export function Navbar() {
 
 type NavLink = (typeof navLinks)[number]
 
-/** Item do menu lateral (fundo claro quando é a página atual). */
-function SidebarLink({ link, active, badge }: { link: NavLink; active: boolean; badge: number }) {
+/** Eventos que mostram/escondem o nome do item ao lado da faixa de ícones (vazio quando não há dica). */
+type Dica = (texto: string | null) => Partial<Record<'onMouseEnter' | 'onFocus' | 'onMouseLeave' | 'onBlur', React.EventHandler<React.SyntheticEvent<HTMLElement>>>>
+
+/** Item do menu lateral (fundo claro quando é a página atual). Recolhido, mostra só o ícone. */
+function SidebarLink({ link, active, badge, recolhido, dica }: {
+  link: NavLink; active: boolean; badge: number; recolhido: boolean; dica: Dica
+}) {
+  const nome = badge > 0 ? `${link.label} (${badge > 99 ? '99+' : badge})` : link.label
   return (
     <Link
       href={link.href}
       aria-current={active ? 'page' : undefined}
+      aria-label={recolhido ? nome : undefined}
       className={cn(
-        'flex items-center gap-3 px-2.5 py-2 my-0.5 rounded-[9px] text-sm transition-colors',
+        'flex items-center gap-3 py-2 my-0.5 rounded-[9px] text-sm transition-colors',
         'focus-visible:outline-2 focus-visible:outline-gengiva',
+        recolhido ? 'justify-center px-0' : 'px-2.5',
         active
           ? 'bg-porcelana-2 text-petroleo font-semibold'
           : 'font-medium hover:bg-white/[.07] hover:text-white'
       )}
+      {...dica(recolhido ? nome : null)}
     >
-      <link.icon className={cn('w-[17px] h-[17px] shrink-0', active ? 'opacity-100' : 'opacity-80')} />
-      <span className="truncate">{link.label}</span>
-      {badge > 0 && (
+      <span className="relative shrink-0">
+        <link.icon className={cn('w-[17px] h-[17px]', active ? 'opacity-100' : 'opacity-80')} />
+        {recolhido && badge > 0 && (
+          <span className="absolute -top-2 -right-2.5 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-gengiva text-white text-[10px] font-bold tabular-nums">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </span>
+      {!recolhido && <span className="truncate whitespace-nowrap">{link.label}</span>}
+      {!recolhido && badge > 0 && (
         <span className="ml-auto min-w-5 px-1.5 py-px rounded-full bg-gengiva text-white text-[11px] font-bold text-center tabular-nums">
           {badge > 99 ? '99+' : badge}
         </span>
