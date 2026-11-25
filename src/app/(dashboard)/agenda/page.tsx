@@ -585,7 +585,7 @@ function AgendaConteudo() {
           onClose={() => setPopover(null)}
           onEdit={() => { setPopover(null); setEditingApt(popover.apt) }}
           onAddEvolucao={() => { setPopover(null); setEvolutionApt(popover.apt) }}
-          onConfirmed={() => setReloadKey(k => k + 1)}
+          onStatusChanged={() => setReloadKey(k => k + 1)}
           whatsapp={indicators.get(popover.apt.id)}
         />
       )}
