@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useMenuLateral } from '@/components/layout/MenuLateral'
 import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal, X, PanelRightClose, PanelRightOpen, MessageCircleOff } from 'lucide-react'
 import { format, addWeeks, subWeeks, addDays, subDays, addMonths, subMonths, startOfWeek, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -134,7 +135,8 @@ function AgendaConteudo() {
   const [modalProfessionalId, setModalProfessionalId] = useState<string | undefined>()
   const [modalNotes, setModalNotes] = useState<string | undefined>()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // Painel do dia (computador): começa escondido; a escolha fica guardada no navegador.
+  const { painelAgendaRecolhido: sidebarCollapsed, alternarPainelAgenda } = useMenuLateral()
   const [popover, setPopover] = useState<{ apt: Appointment; rect: DOMRect } | null>(null)
   const [editingApt, setEditingApt] = useState<Appointment | null>(null)
   function abrirNovaConsulta(o: { date?: Date; hour?: string; patientId?: string; professionalId?: string; notes?: string } = {}) {
@@ -398,12 +400,21 @@ function AgendaConteudo() {
 
             {/* Computador: mostra/esconde o painel da direita */}
             <button
-              onClick={() => setSidebarCollapsed((v) => !v)}
+              onClick={alternarPainelAgenda}
               title={sidebarCollapsed ? 'Mostrar painel do dia' : 'Esconder painel do dia'}
-              aria-label={sidebarCollapsed ? 'Mostrar painel do dia' : 'Esconder painel do dia'}
-              className="hidden md:grid w-10 h-10 place-items-center rounded-[10px] bg-white ring-1 ring-inset ring-linha text-tinta-3 hover:text-tinta shrink-0 transition-colors"
+              aria-label={
+                sidebarCollapsed
+                  ? `Mostrar painel do dia${waitingToday.length + aConfirmar.length > 0 ? ' (há pacientes aguardando ou consultas a confirmar)' : ''}`
+                  : 'Esconder painel do dia'
+              }
+              aria-expanded={!sidebarCollapsed}
+              className="hidden md:grid relative w-10 h-10 place-items-center rounded-[10px] bg-white ring-1 ring-inset ring-linha text-tinta-3 hover:text-tinta shrink-0 transition-colors"
             >
               {sidebarCollapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
+              {/* Painel escondido: avisa que há gente na sala de espera ou consulta por confirmar */}
+              {sidebarCollapsed && waitingToday.length + aConfirmar.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gengiva ring-2 ring-white" />
+              )}
             </button>
 
             <button
