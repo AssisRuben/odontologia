@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { topoDentroDaJanela } from '@/lib/ui/posicaoMenu'
 import Link from 'next/link'
 import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2, Check, CheckCheck, MessageCircle } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -53,20 +54,23 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
 
-  // Calcula posição inteligente
+  // Ao lado da consulta: à direita se couber, senão à esquerda
   const popW = 300
-  const popH = 300
   const margin = 10
   const vw = window.innerWidth
-  const vh = window.innerHeight
 
   let left = anchorRect.right + margin
   if (left + popW > vw - margin) left = anchorRect.left - popW - margin
   if (left < margin) left = margin
 
-  let top = anchorRect.top
-  if (top + popH > vh - margin) top = vh - popH - margin
-  if (top < margin) top = margin
+  // Na altura da consulta, subindo o que for preciso para o fim do popup não sair da janela.
+  // A altura varia (observação, botões), então é medida antes de o popup aparecer.
+  useLayoutEffect(() => {
+    const pop = popRef.current
+    if (!pop) return
+    pop.style.top = `${topoDentroDaJanela(anchorRect.top, pop.offsetHeight, window.innerHeight)}px`
+    pop.style.visibility = 'visible'
+  }, [anchorRect, confirmed])
 
   const statusColor = APPOINTMENT_STATUS_COLORS[apt.status] || '#5E6E75'
   const statusLabel = APPOINTMENT_STATUS_LABELS[apt.status] || apt.status
@@ -74,8 +78,8 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
   return (
     <div
       ref={popRef}
-      className="fixed z-50 bg-white rounded-xl shadow-2xl border border-linha overflow-hidden"
-      style={{ left, top, width: popW }}
+      className="invisible fixed z-50 bg-white rounded-xl shadow-2xl border border-linha overflow-x-hidden overflow-y-auto max-h-[calc(100vh-16px)]"
+      style={{ left, width: popW }}
     >
       {/* Faixa colorida de status no topo */}
       <div className="h-1 w-full" style={{ backgroundColor: statusColor }} />

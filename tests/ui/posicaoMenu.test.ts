@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { posicaoMenu } from '@/lib/ui/posicaoMenu'
+import { posicaoMenu, topoDentroDaJanela } from '@/lib/ui/posicaoMenu'
+
+describe('topoDentroDaJanela', () => {
+  it('mantém o topo desejado quando cabe', () => {
+    expect(topoDentroDaJanela(200, 300, 768)).toBe(200)
+  })
+
+  it('sobe o suficiente para o fim caber na janela (consulta no fim da agenda)', () => {
+    // popup de 420px pedido em 500 iria até 920; sobe para 768-8-420 = 340
+    expect(topoDentroDaJanela(500, 420, 768)).toBe(340)
+  })
+
+  it('maior que a janela: começa na margem de cima', () => {
+    expect(topoDentroDaJanela(300, 900, 768)).toBe(8)
+  })
+})
 
 // Janela 1366 x 768; menu de 120px de altura ancorado num botão de 28px.
 const janela = { largura: 1366, altura: 768 }
