@@ -97,7 +97,16 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               </span>
             </div>
             <h3 className="text-sm font-bold text-tinta leading-snug truncate">
-              {apt.patient?.name || 'Paciente'}
+              {apt.patient_id ? (
+                <Link
+                  href={`/pacientes/${apt.patient_id}`}
+                  onClick={onClose}
+                  title="Abrir prontuário"
+                  className="rounded-sm hover:text-petroleo hover:underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-petroleo"
+                >
+                  {apt.patient?.name || 'Paciente'}
+                </Link>
+              ) : (apt.patient?.name || 'Paciente')}
             </h3>
           </div>
           <button
