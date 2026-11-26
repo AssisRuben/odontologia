@@ -385,19 +385,19 @@ export const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, string> = {
   waiting: '#5B4BB0',
   in_progress: '#2F9A5E',
   completed: '#6E7C82',
-  cancelled: '#C24767',
-  no_show: '#C24767',
+  cancelled: '#C62828',
+  no_show: '#B4531A',
 }
 
 /** Fundo suave + texto de cada status, para os blocos da agenda. */
 export const APPOINTMENT_STATUS_SOFT: Record<AppointmentStatus, { bg: string; fg: string }> = {
-  scheduled: { bg: '#FFF5E1', fg: '#6A4A0C' },
-  confirmed: { bg: '#E4EFF2', fg: '#173B47' },
-  waiting: { bg: '#ECE7FA', fg: '#43348A' },
-  in_progress: { bg: '#DDF1E5', fg: '#175536' },
-  completed: { bg: '#F1F3F4', fg: '#6E7C82' },
-  cancelled: { bg: '#FCEEF1', fg: '#962A47' },
-  no_show: { bg: '#FCEEF1', fg: '#962A47' },
+  scheduled: { bg: '#FFF1CF', fg: '#6A4A0C' },
+  confirmed: { bg: '#DDEBF0', fg: '#173B47' },
+  waiting: { bg: '#E8E2FA', fg: '#43348A' },
+  in_progress: { bg: '#D6EFE0', fg: '#175536' },
+  completed: { bg: '#EEF0F1', fg: '#56656B' },
+  cancelled: { bg: '#FBDCDC', fg: '#A11D1D' },
+  no_show: { bg: '#FDE4D2', fg: '#8A3B0A' },
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
