@@ -74,7 +74,7 @@ Os tratamentos aparecem no odontograma da **Visão Geral**.
 
 A evolução é o registro do que foi feito em cada atendimento. Ela é criada pela [Agenda](#agenda): clique na consulta e em **Adicionar evolução**.
 
-- Escreva a evolução, ou use **Ditar** (o navegador transcreve enquanto você fala) ou **Gravar** (grava o áudio e transcreve com a IA). Clique em **Parar** para terminar.
+- Escreva a evolução ou fale. Com a [IA conectada](#ia), use **Gravar**: o áudio é transcrito pela IA, que reconhece termos de odontologia (faces, dentes, procedimentos, produtos). Sem IA, aparece **Ditar**: o navegador escreve enquanto você fala, mas costuma errar termos técnicos. Clique em **Parar** para terminar.
 - **Organizar com IA** deixa o texto no formato de prontuário e pode sugerir próximos passos, como marcar retorno.
 - **Adicionar imagem** anexa fotos ou radiografias.
 - Se o procedimento concluído usa material de um kit, o sistema pergunta se quer dar baixa no [Estoque](#estoque).

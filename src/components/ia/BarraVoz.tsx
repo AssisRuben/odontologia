@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Mic, Square, Loader2 } from 'lucide-react'
 import {
+  botoesVoz,
   getSpeechRecognition,
   mensagemErroDitado,
   modoReconhecimento,
@@ -21,7 +22,8 @@ const ERRO_GRAVADOR = 'Não foi possível gravar neste navegador.'
 const ERRO_GRANDE = 'Gravação grande demais para enviar. Grave trechos menores.'
 
 interface BarraVozProps {
-  gravarDisponivel: boolean
+  /** IA conectada (Gravar); null enquanto verifica. */
+  gravarDisponivel: boolean | null
   onTexto: (t: string) => void
   disabled?: boolean
   onOcupado?: (ocupado: boolean) => void
@@ -48,6 +50,7 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
   // APIs do navegador só no cliente: no servidor o snapshot é sempre vazio.
   const podeDitar = useSyncExternalStore(semAssinatura, () => getSpeechRecognition(window) !== null, () => false)
   const mime = useSyncExternalStore(semAssinatura, mimeSuportado, () => null)
+  const mostrar = botoesVoz({ podeDitar, podeGravar: mime !== null, iaConectada: gravarDisponivel })
 
   const onTextoRef = useRef(onTexto)
   const reconhecimento = useRef<SpeechRecognitionLike | null>(null)
@@ -257,22 +260,22 @@ export function BarraVoz({ gravarDisponivel, onTexto, disabled, onOcupado }: Bar
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-2">
-        {podeDitar && modo === 'ditando' && (
+        {mostrar.ditar && modo === 'ditando' && (
           <button type="button" onClick={pararDitado} className={`${botao} ${ativo}`}>
             <Square className="w-4 h-4" /> Parar
           </button>
         )}
-        {podeDitar && livre && (
+        {mostrar.ditar && livre && (
           <button type="button" onClick={ditar} disabled={disabled} className={`${botao} ${neutro}`}>
             <Mic className="w-4 h-4" /> Ditar
           </button>
         )}
-        {gravarDisponivel && mime && modo === 'gravando' && (
+        {mostrar.gravar && modo === 'gravando' && (
           <button type="button" onClick={pararGravacao} className={`${botao} ${ativo}`}>
             <Square className="w-4 h-4" /> Parar {mmss(segundos)}
           </button>
         )}
-        {gravarDisponivel && mime && livre && (
+        {mostrar.gravar && livre && (
           <button type="button" onClick={gravar} disabled={disabled} className={`${botao} ${neutro}`}>
             <Mic className="w-4 h-4" /> Gravar
           </button>
