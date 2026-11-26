@@ -116,3 +116,13 @@ export function maisFaltam(
     .map(([patient_id, a]) => ({ patient_id, ...a }))
     .sort((x, y) => y.faltas - x.faltas || (x.patient_id < y.patient_id ? -1 : x.patient_id > y.patient_id ? 1 : 0))
 }
+
+/** "2 pelo paciente, 1 pelo dentista, 2 sem informação": só as partes que não são zero. */
+export function quemCancelou(c: Pick<Contagem, 'canceladas' | 'canceladasPaciente' | 'canceladasDentista'>): string {
+  const semInfo = c.canceladas - c.canceladasPaciente - c.canceladasDentista
+  return [
+    c.canceladasPaciente && `${c.canceladasPaciente} pelo paciente`,
+    c.canceladasDentista && `${c.canceladasDentista} pelo dentista`,
+    semInfo && `${semInfo} sem informação`,
+  ].filter(Boolean).join(', ')
+}

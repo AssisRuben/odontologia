@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { lerSituacao, opcoesSituacao, rotuloSituacao, valorDaSituacao } from '@/lib/agenda/situacao'
+import { aplicarSituacao, lerSituacao, opcoesSituacao, rotuloSituacao, valorDaSituacao } from '@/lib/agenda/situacao'
 
 describe('situação da consulta com quem cancelou', () => {
   it('valorDaSituacao junta a situação e quem cancelou', () => {
@@ -34,5 +34,14 @@ describe('situação da consulta com quem cancelou', () => {
     expect(antigas[i]).toEqual({ value: 'cancelled', label: 'Cancelado' })
     expect(antigas[i + 1].label).toBe('Cancelado pelo paciente')
     expect(opcoesSituacao('cancelled:patient').some((o) => o.value === 'cancelled')).toBe(false)
+  })
+})
+
+describe('aplicarSituacao', () => {
+  it('a consulta passada para "Editar" leva a situação escolhida no popup', () => {
+    const apt = { id: 'a1', status: 'confirmed' as const, cancelled_by: null, notes: 'x' }
+    expect(aplicarSituacao(apt, 'cancelled:professional')).toEqual({ id: 'a1', status: 'cancelled', cancelled_by: 'professional', notes: 'x' })
+    expect(aplicarSituacao({ ...apt, status: 'cancelled' as const, cancelled_by: 'patient' as const }, 'completed'))
+      .toMatchObject({ status: 'completed', cancelled_by: null })
   })
 })

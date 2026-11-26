@@ -54,7 +54,7 @@ function Resumo({ resumo }: { resumo: ResumoConsultas }) {
   const semQuem = resumo.canceladas - resumo.canceladasPaciente - resumo.canceladasDentista
   if (resumo.canceladasPaciente) itens.push(<>{plural(resumo.canceladasPaciente, 'cancelada', 'canceladas')} pelo paciente</>)
   if (resumo.canceladasDentista) itens.push(<>{plural(resumo.canceladasDentista, 'cancelada', 'canceladas')} pelo dentista</>)
-  if (semQuem) itens.push(<>{plural(semQuem, 'cancelada', 'canceladas')}</>)
+  if (semQuem) itens.push(<>{plural(semQuem, 'cancelada', 'canceladas')} sem informação de quem cancelou</>)
   if (resumo.dentistas.length) itens.push(<>com {resumo.dentistas.join(', ')}</>)
 
   return (

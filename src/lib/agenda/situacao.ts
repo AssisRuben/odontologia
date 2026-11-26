@@ -39,3 +39,8 @@ export function opcoesSituacao(atual: ValorSituacao): { value: ValorSituacao; la
   }
   return opcoes
 }
+
+/** A consulta com a situação escolhida (ex.: a que o popup passa para "Editar", depois de mudar a situação ali). */
+export function aplicarSituacao<A extends { status: AppointmentStatus; cancelled_by?: CanceladoPor | null }>(apt: A, v: ValorSituacao): A {
+  return { ...apt, ...lerSituacao(v) }
+}

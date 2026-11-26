@@ -58,9 +58,9 @@ Clique em uma consulta da agenda para ver os detalhes. Na janela que abre, você
 2. Mude o que precisar: **Profissional**, **Data**, **Início**, **Fim**, **Procedimento**, **Observações** ou **Status**.
 3. Clique em **Salvar alterações**. O botão **Confirmar**, no alto da janela, marca a consulta como confirmada sem precisar mudar o status à mão.
 
-Os status possíveis são **Agendado**, **Confirmado**, **Aguardando** (o paciente chegou), **Em atendimento**, **Concluído**, **Faltou** e **Cancelado**. Marcar **Faltou** é o que alimenta o índice de faltas em [Relatórios](#relatorios).
+Os status possíveis são **Agendado**, **Confirmado**, **Aguardando** (o paciente chegou), **Em atendimento**, **Concluído**, **Cancelado pelo paciente**, **Cancelado pelo dentista** e **Faltou**. Marcar **Faltou** é o que alimenta o índice de faltas em [Relatórios](#relatorios), e escolher quem cancelou separa os cancelamentos do paciente e do dentista. Quando o paciente desmarca pelo WhatsApp, a consulta já fica como **Cancelado pelo paciente**. Consultas canceladas antes dessa separação aparecem só como **Cancelado**.
 
-Para apagar a consulta, clique em **Excluir consulta** e depois em **Sim, excluir**. Se o paciente apenas desmarcou, prefira o status **Cancelado**, para manter o histórico.
+Para apagar a consulta, clique em **Excluir consulta** e depois em **Sim, excluir**. Se o paciente apenas desmarcou, prefira o status **Cancelado pelo paciente**, para manter o histórico.
 
 ![Editar consulta](/ajuda/img/agenda-editar.png)
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resumoAgenda, maisFaltam, type ConsultaIn } from '@/lib/indicadores/agenda'
+import { resumoAgenda, maisFaltam, quemCancelou, type ConsultaIn } from '@/lib/indicadores/agenda'
 import type { AppointmentStatus } from '@/types'
 
 const agora = new Date('2026-11-20T15:00:00Z')
@@ -84,5 +84,13 @@ describe('maisFaltam', () => {
   it('ignora faltas futuras', () => {
     const cs = [c('no_show', '2026-11-25T13:00:00Z', 'd1', 'a'), c('no_show', '2026-11-26T13:00:00Z', 'd1', 'a')]
     expect(maisFaltam(cs, meses, agora, null)).toEqual([])
+  })
+})
+
+describe('quemCancelou', () => {
+  it('diz as partes que não são zero, com as sem informação', () => {
+    expect(quemCancelou({ canceladas: 5, canceladasPaciente: 2, canceladasDentista: 1 })).toBe('2 pelo paciente, 1 pelo dentista, 2 sem informação')
+    expect(quemCancelou({ canceladas: 1, canceladasPaciente: 0, canceladasDentista: 1 })).toBe('1 pelo dentista')
+    expect(quemCancelou({ canceladas: 0, canceladasPaciente: 0, canceladasDentista: 0 })).toBe('')
   })
 })

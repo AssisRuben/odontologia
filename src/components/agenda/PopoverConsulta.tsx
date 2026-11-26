@@ -8,7 +8,7 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatPhone } from '@/lib/utils'
 import { APPOINTMENT_STATUS_COLORS } from '@/types'
-import { lerSituacao, opcoesSituacao, valorDaSituacao, type ValorSituacao } from '@/lib/agenda/situacao'
+import { aplicarSituacao, lerSituacao, opcoesSituacao, valorDaSituacao, type ValorSituacao } from '@/lib/agenda/situacao'
 import type { Appointment, AppointmentStatus } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
@@ -17,7 +17,8 @@ interface PopoverConsultaProps {
   appointment: Appointment
   anchorRect: DOMRect
   onClose: () => void
-  onEdit: () => void
+  /** Recebe a consulta já com a situação escolhida no popup. */
+  onEdit: (apt: Appointment) => void
   onAddEvolucao: () => void
   /** Situação da consulta mudou (pela lista ou pelo "Confirmar consulta"): recarregar a agenda. */
   onStatusChanged?: () => void
@@ -238,7 +239,7 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               </Link>
             )}
             <button
-              onClick={() => { onClose(); onEdit() }}
+              onClick={() => { onClose(); onEdit(aplicarSituacao(apt, situacao)) }}
               className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-[#F59E0B] text-white text-xs font-medium hover:bg-[#D97706] transition-colors"
             >
               <Edit2 className="w-3.5 h-3.5" />
