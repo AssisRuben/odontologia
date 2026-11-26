@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { lerTudo } from '@/lib/supabase/lerTudo'
 import { useClinicStore } from '@/store/clinicStore'
 import { MiniCalendario } from '@/components/agenda/MiniCalendario'
+import { LegendaSituacao } from '@/components/agenda/LegendaSituacao'
 import { CalendarioAgenda } from '@/components/agenda/CalendarioAgenda'
 import { ModalNovaConsulta } from '@/components/agenda/ModalNovaConsulta'
 import { PopoverConsulta } from '@/components/agenda/PopoverConsulta'
@@ -522,21 +523,24 @@ function AgendaConteudo() {
           </div>
         )}
 
-        <div className="relative flex-1 min-h-0 mx-2 md:mx-6 mb-2 md:mb-5 bg-white rounded-xl ring-1 ring-linha overflow-hidden">
+        <div className="relative flex-1 min-h-0 mx-2 md:mx-6 mb-2 md:mb-5 bg-white rounded-xl ring-1 ring-linha overflow-hidden flex flex-col">
+          <LegendaSituacao />
           {carregandoConsultas && (
             <div role="status" aria-label="Carregando consultas" className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
               <div className="w-8 h-8 border-2 border-petroleo border-t-transparent rounded-full animate-spin" />
             </div>
           )}
-          <CalendarioAgenda
-            key={agendaState.version}
-            view={view}
-            currentDate={currentDate}
-            appointments={filteredAppointments}
-            indicators={indicators}
-            onDateClick={(date, hour) => abrirNovaConsulta({ date, hour })}
-            onEventClick={openPopover}
-          />
+          <div className="flex-1 min-h-0">
+            <CalendarioAgenda
+              key={agendaState.version}
+              view={view}
+              currentDate={currentDate}
+              appointments={filteredAppointments}
+              indicators={indicators}
+              onDateClick={(date, hour) => abrirNovaConsulta({ date, hour })}
+              onEventClick={openPopover}
+            />
+          </div>
         </div>
       </div>
 
