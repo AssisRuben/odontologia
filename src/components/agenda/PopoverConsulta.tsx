@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { topoDentroDaJanela } from '@/lib/ui/posicaoMenu'
 import Link from 'next/link'
-import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2, Check, CheckCheck, MessageCircle } from 'lucide-react'
+import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus, CheckCircle2, Check, CheckCheck, MessageCircle, ChevronDown } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatPhone } from '@/lib/utils'
 import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from '@/types'
-import type { Appointment } from '@/types'
+import type { Appointment, AppointmentStatus } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
 
@@ -17,21 +18,32 @@ interface PopoverConsultaProps {
   onClose: () => void
   onEdit: () => void
   onAddEvolucao: () => void
-  onConfirmed?: () => void
+  /** Situação da consulta mudou (pela lista ou pelo "Confirmar consulta"): recarregar a agenda. */
+  onStatusChanged?: () => void
   whatsapp?: WhatsAppIndicator
 }
 
-export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit, onAddEvolucao, onConfirmed, whatsapp }: PopoverConsultaProps) {
+export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit, onAddEvolucao, onStatusChanged, whatsapp }: PopoverConsultaProps) {
   const popRef = useRef<HTMLDivElement>(null)
-  const [confirming, setConfirming] = useState(false)
-  const [confirmed, setConfirmed]   = useState(apt.status === 'confirmed')
+  const [status, setStatus] = useState<AppointmentStatus>(apt.status)
+  const [salvando, setSalvando] = useState(false)
+  const [erroStatus, setErroStatus] = useState('')
 
-  async function handleConfirm() {
-    setConfirming(true)
-    await createClient().from('appointments').update({ status: 'confirmed' }).eq('id', apt.id)
-    setConfirmed(true)
-    setConfirming(false)
-    onConfirmed?.()
+  // Muda a situação na hora; se o banco recusar, volta a anterior e avisa.
+  async function mudarStatus(novo: AppointmentStatus) {
+    if (novo === status) return
+    const anterior = status
+    setStatus(novo)
+    setErroStatus('')
+    setSalvando(true)
+    const { error } = await createClient().from('appointments').update({ status: novo }).eq('id', apt.id)
+    setSalvando(false)
+    if (error) {
+      setStatus(anterior)
+      setErroStatus('Não foi possível mudar a situação. Tente de novo.')
+      return
+    }
+    onStatusChanged?.()
   }
 
   // Fecha ao clicar fora
@@ -53,29 +65,31 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
 
-  // Calcula posição inteligente
+  // Ao lado da consulta: à direita se couber, senão à esquerda
   const popW = 300
-  const popH = 300
   const margin = 10
   const vw = window.innerWidth
-  const vh = window.innerHeight
 
   let left = anchorRect.right + margin
   if (left + popW > vw - margin) left = anchorRect.left - popW - margin
   if (left < margin) left = margin
 
-  let top = anchorRect.top
-  if (top + popH > vh - margin) top = vh - popH - margin
-  if (top < margin) top = margin
+  // Na altura da consulta, subindo o que for preciso para o fim do popup não sair da janela.
+  // A altura varia (observação, botões), então é medida antes de o popup aparecer.
+  useLayoutEffect(() => {
+    const pop = popRef.current
+    if (!pop) return
+    pop.style.top = `${topoDentroDaJanela(anchorRect.top, pop.offsetHeight, window.innerHeight)}px`
+    pop.style.visibility = 'visible'
+  }, [anchorRect, status, erroStatus])
 
-  const statusColor = APPOINTMENT_STATUS_COLORS[apt.status] || '#5E6E75'
-  const statusLabel = APPOINTMENT_STATUS_LABELS[apt.status] || apt.status
+  const statusColor = APPOINTMENT_STATUS_COLORS[status] || '#5E6E75'
 
   return (
     <div
       ref={popRef}
-      className="fixed z-50 bg-white rounded-xl shadow-2xl border border-linha overflow-hidden"
-      style={{ left, top, width: popW }}
+      className="invisible fixed z-50 bg-white rounded-xl shadow-2xl border border-linha overflow-x-hidden overflow-y-auto max-h-[calc(100vh-16px)]"
+      style={{ left, width: popW }}
     >
       {/* Faixa colorida de status no topo */}
       <div className="h-1 w-full" style={{ backgroundColor: statusColor }} />
@@ -85,15 +99,35 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-                style={{ backgroundColor: statusColor + '20', color: statusColor }}
-              >
-                {statusLabel}
-              </span>
+              {/* Situação da consulta: a etiqueta é uma lista para trocar ali mesmo */}
+              <label className="relative inline-flex items-center rounded-full" style={{ backgroundColor: statusColor + '20', color: statusColor }}>
+                <span className="sr-only">Situação da consulta</span>
+                <select
+                  value={status}
+                  disabled={salvando}
+                  onChange={(e) => mudarStatus(e.target.value as AppointmentStatus)}
+                  title="Mudar situação"
+                  className="appearance-none cursor-pointer bg-transparent pl-2 pr-6 py-0.5 rounded-full text-xs font-semibold text-current focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current disabled:cursor-wait disabled:opacity-60"
+                >
+                  {(Object.keys(APPOINTMENT_STATUS_LABELS) as AppointmentStatus[]).map((s) => (
+                    <option key={s} value={s} className="text-tinta bg-white">{APPOINTMENT_STATUS_LABELS[s]}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-1.5 w-3 h-3" />
+              </label>
             </div>
+            {erroStatus && <p role="alert" className="mb-1 text-xs text-red-600">{erroStatus}</p>}
             <h3 className="text-sm font-bold text-tinta leading-snug truncate">
-              {apt.patient?.name || 'Paciente'}
+              {apt.patient_id ? (
+                <Link
+                  href={`/pacientes/${apt.patient_id}`}
+                  onClick={onClose}
+                  title="Abrir prontuário"
+                  className="rounded-sm hover:text-petroleo hover:underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-petroleo"
+                >
+                  {apt.patient?.name || 'Paciente'}
+                </Link>
+              ) : (apt.patient?.name || 'Paciente')}
             </h3>
           </div>
           <button
@@ -167,19 +201,19 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
         <div className="mt-4 pt-3 border-t border-porcelana space-y-2">
 
           {/* Confirmar consulta (só para agendada) */}
-          {confirmed ? (
+          {status === 'confirmed' ? (
             <div className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-[#DCFCE7] text-[#16A34A] text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
               Consulta confirmada
             </div>
-          ) : apt.status === 'scheduled' ? (
+          ) : status === 'scheduled' ? (
             <button
-              onClick={handleConfirm}
-              disabled={confirming}
+              onClick={() => mudarStatus('confirmed')}
+              disabled={salvando}
               className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-petroleo text-white text-xs font-semibold hover:bg-petroleo-escuro transition-colors disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {confirming ? 'Confirmando...' : 'Confirmar consulta'}
+              {salvando ? 'Confirmando...' : 'Confirmar consulta'}
             </button>
           ) : null}
 

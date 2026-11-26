@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { TreatmentStatus } from '@/types'
+import {
+  ALTURA, COLO, GENGIVA, LARGURA, LINHA_GENGIVA,
+  coroa, ehSuperior, faixasDaCoroa, mesialADireita, raizes, tipoDoDente,
+} from './odontogramaFormas'
 
 // ─── FDI quadrant arrays ──────────────────────────────────────────────────────
 const UP_R_P = [18, 17, 16, 15, 14, 13, 12, 11]
@@ -63,26 +67,69 @@ const STATUS_COLOR: Record<TreatmentStatus, string> = {
 function ff(s: TreatmentStatus | undefined) { return FACE_FILL[s ?? '_'] ?? FACE_FILL._ }
 function fs(s: TreatmentStatus | undefined) { return FACE_STROKE[s ?? '_'] ?? FACE_STROKE._ }
 
-// ─── Circular 5-face diagram ──────────────────────────────────────────────────
-// viewBox 0 0 24 24, center (12,12), r=11
-// Diagonal points at 45°: (4.22,4.22) (19.78,4.22) (19.78,19.78) (4.22,19.78)
+// ─── Disco das 5 faces (vista de cima) ───────────────────────────────────────
+// viewBox 0 0 24 24, centro (12,12), r=11. A vestibular fica do lado de fora da boca
+// (em cima na arcada superior, embaixo na inferior) e a mesial do lado do meio.
 
-function FaceDisk({ fd, size = 30 }: { fd: FaceStatus | undefined; size?: number }) {
+function FaceDisk({ num, fd, size = 30 }: { num: number; fd: FaceStatus | undefined; size?: number }) {
   const f = (k: FaceKey) => ff(fd?.[k])
   const s = (k: FaceKey) => fs(fd?.[k])
+  const [cima, baixo]: FaceKey[] = ehSuperior(num) ? ['V', 'L'] : ['L', 'V']
+  const [esq, dir]: FaceKey[] = mesialADireita(num) ? ['D', 'M'] : ['M', 'D']
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block' }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block' }} aria-hidden="true">
       <circle cx="12" cy="12" r="11.5" fill="white" stroke="#D1D5DB" strokeWidth="0.8" />
-      {/* V – vestibular (top) */}
-      <path d="M12,12 L4.22,4.22 A11,11 0 0,1 19.78,4.22 Z" fill={f('V')} stroke={s('V')} strokeWidth="0.5" />
-      {/* D – distal (right) */}
-      <path d="M12,12 L19.78,4.22 A11,11 0 0,1 19.78,19.78 Z" fill={f('D')} stroke={s('D')} strokeWidth="0.5" />
-      {/* L – lingual (bottom) */}
-      <path d="M12,12 L19.78,19.78 A11,11 0 0,1 4.22,19.78 Z" fill={f('L')} stroke={s('L')} strokeWidth="0.5" />
-      {/* M – mesial (left) */}
-      <path d="M12,12 L4.22,19.78 A11,11 0 0,1 4.22,4.22 Z" fill={f('M')} stroke={s('M')} strokeWidth="0.5" />
-      {/* O – oclusal (center) */}
+      <path d="M12,12 L4.22,4.22 A11,11 0 0,1 19.78,4.22 Z" fill={f(cima)} stroke={s(cima)} strokeWidth="0.5" />
+      <path d="M12,12 L19.78,4.22 A11,11 0 0,1 19.78,19.78 Z" fill={f(dir)} stroke={s(dir)} strokeWidth="0.5" />
+      <path d="M12,12 L19.78,19.78 A11,11 0 0,1 4.22,19.78 Z" fill={f(baixo)} stroke={s(baixo)} strokeWidth="0.5" />
+      <path d="M12,12 L4.22,19.78 A11,11 0 0,1 4.22,4.22 Z" fill={f(esq)} stroke={s(esq)} strokeWidth="0.5" />
+      {/* O – oclusal (centro) */}
       <circle cx="12" cy="12" r="4.8" fill={f('O')} stroke={s('O')} strokeWidth="0.5" />
+    </svg>
+  )
+}
+
+// ─── Dente em pé (vista de frente: coroa e raízes) ────────────────────────────
+
+const CROWN_FILL_EMPTY = '#FFFFFF'
+
+function ToothProfile({ num, fd }: { num: number; fd: FaceStatus | undefined }) {
+  const id = useId()
+  const superior = ehSuperior(num)
+  const deciduo = num >= 50
+  const tipo = tipoDoDente(num)
+  const c = coroa(tipo, deciduo)
+  const faixa = faixasDaCoroa(c, mesialADireita(num))
+  const best = bestStatus(fd)
+  const fill = (k: FaceKey) => (fd?.[k] ? ff(fd[k]) : CROWN_FILL_EMPTY)
+  const alto = ALTURA - COLO
+
+  return (
+    <svg width={LARGURA} height={ALTURA} viewBox={`0 0 ${LARGURA} ${ALTURA}`} overflow="visible" style={{ display: 'block' }} aria-hidden="true">
+      <defs>
+        <clipPath id={`${id}coroa`}><path d={c.d} /></clipPath>
+        <linearGradient id={`${id}gengiva`} x1="0" y1={COLO + 3} x2="0" y2={COLO - 18} gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#E0607E" stopOpacity="0.2" />
+          <stop offset="1" stopColor="#E0607E" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* O inferior é o mesmo desenho espelhado: raiz para baixo */}
+      <g transform={superior ? undefined : `matrix(1 0 0 -1 0 ${ALTURA})`}>
+        {raizes(tipo, superior, deciduo).map((r, i) => (
+          <path key={i} d={r.d}
+            fill={r.fundo ? '#F1F4F5' : '#FBFCFC'} stroke={r.fundo ? '#D5DDDF' : '#B9C5C9'} strokeWidth={r.fundo ? 0.6 : 0.75} />
+        ))}
+        <path d={GENGIVA} fill={`url(#${id}gengiva)`} />
+        <path d={LINHA_GENGIVA} fill="none" stroke="#E0607E" strokeOpacity="0.45" strokeWidth="0.7" />
+        <g clipPath={`url(#${id}coroa)`}>
+          <rect x="0" y={COLO - 5} width={LARGURA} height={alto + 5} fill={fill('V')} />
+          <rect x={faixa.xMesial} y={COLO - 5} width={faixa.largura} height={alto + 5} fill={fill('M')} />
+          <rect x={faixa.xDistal} y={COLO - 5} width={faixa.largura} height={alto + 5} fill={fill('D')} />
+          <rect x="0" y={faixa.yOclusal} width={LARGURA} height="8" fill={fill('O')} />
+        </g>
+        <path d={c.d} fill="none" stroke={best ? FACE_STROKE[best] ?? FACE_STROKE._ : '#B8C4C8'}
+          strokeWidth={best ? 1.1 : 0.8} strokeLinejoin="round" />
+      </g>
     </svg>
   )
 }
@@ -104,21 +151,24 @@ function ToothBtn({ num, fd, hasTreat, upper, onClick }: {
     <button
       onClick={onClick}
       title={`Dente ${num}`}
-      className="flex flex-col items-center gap-[3px] p-[3px] rounded hover:bg-gray-100 active:scale-95 transition-transform focus:outline-none"
+      className="flex flex-col items-center gap-[3px] p-[3px] rounded-md hover:bg-porcelana-2 active:scale-[0.97] motion-safe:transition-[background-color,transform] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-petroleo"
     >
+      {/* Superior: dente em pé, disco, número e bolinha. Inferior: o mesmo de baixo para cima. */}
       {upper ? (
         <>
-          <FaceDisk fd={fd} />
+          <ToothProfile num={num} fd={fd} />
+          <FaceDisk num={num} fd={fd} />
           <span className="text-[9px] font-bold leading-none" style={{ color: numColor }}>{num}</span>
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ringColor }} />
         </>
       ) : (
         <>
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ringColor }} />
           <span className="text-[9px] font-bold leading-none" style={{ color: numColor }}>{num}</span>
-          <FaceDisk fd={fd} />
+          <FaceDisk num={num} fd={fd} />
+          <ToothProfile num={num} fd={fd} />
         </>
       )}
-      {/* status dot */}
-      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ringColor }} />
     </button>
   )
 }
@@ -263,8 +313,8 @@ export function Odontograma({ patientId, refreshKey }: OdontogramaProps) {
   return (
     <div>
       {/* Toggle */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="flex rounded-lg border border-linha overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex shrink-0 rounded-lg border border-linha overflow-hidden">
           {(['permanentes', 'deciduos'] as const).map(m => (
             <button key={m} onClick={() => setMode(m)}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${

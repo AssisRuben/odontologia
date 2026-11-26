@@ -5,15 +5,16 @@ import { COOKIE_MENU } from './menuLateralCookie'
 
 type MenuLateral = { recolhido: boolean; alternar: () => void }
 
-const Contexto = createContext<MenuLateral>({ recolhido: false, alternar: () => {} })
+const Contexto = createContext<MenuLateral>({ recolhido: true, alternar: () => {} })
 
 export function useMenuLateral() {
   return useContext(Contexto)
 }
 
 /**
- * Envolve a área logada. Guarda se o menu lateral (computador) está recolhido em faixa de ícones
- * e expõe isso em `data-menu`, que o layout usa para ajustar o recuo do conteúdo.
+ * Envolve a área logada e guarda se o menu lateral está recolhido em faixa de ícones (computador).
+ * A escolha fica num cookie, para o servidor já montar a página no tamanho certo, e é exposta em
+ * `data-menu`, que o layout usa para o recuo do conteúdo.
  */
 export function MenuLateralProvider({ recolhidoInicial, className, children }: {
   recolhidoInicial: boolean
@@ -21,7 +22,6 @@ export function MenuLateralProvider({ recolhidoInicial, className, children }: {
   children: React.ReactNode
 }) {
   const [recolhido, setRecolhido] = useState(recolhidoInicial)
-
   const alternar = useCallback(() => {
     setRecolhido((atual) => {
       const novo = !atual
