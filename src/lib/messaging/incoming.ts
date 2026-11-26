@@ -387,7 +387,8 @@ export function createSupabaseIncomingDeps(admin: SupabaseClient = createAdminCl
     async setAppointmentStatus(clinicId, appointmentId, status) {
       const { data, error } = await admin
         .from('appointments')
-        .update({ status })
+        // Resposta "cancelar" ao lembrete: foi o paciente.
+        .update(status === 'cancelled' ? { status, cancelled_by: 'patient' } : { status })
         .eq('id', appointmentId)
         .eq('clinic_id', clinicId)
         .in('status', ['scheduled', 'confirmed'])

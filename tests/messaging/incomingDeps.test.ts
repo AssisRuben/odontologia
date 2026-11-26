@@ -99,3 +99,18 @@ describe('transcribeAudio', () => {
     expect(await createSupabaseIncomingDeps(admin).transcribeAudio('k1', 'inst', 't', MEDIA, 10)).toEqual({ ok: false, reason: 'failed' })
   })
 })
+
+describe('setAppointmentStatus', () => {
+  it('resposta "cancelar" grava que o paciente cancelou', async () => {
+    const { admin, queries } = fakeAdmin(() => ({ data: [{ id: 'a1' }], error: null }))
+    expect(await createSupabaseIncomingDeps(admin).setAppointmentStatus('k1', 'a1', 'cancelled')).toBe(true)
+    expect(queries[0].calls).toContainEqual(['update', { status: 'cancelled', cancelled_by: 'patient' }])
+    expect(queries[0].calls).toContainEqual(['in', 'status', ['scheduled', 'confirmed']])
+  })
+
+  it('confirmar não mexe em quem cancelou', async () => {
+    const { admin, queries } = fakeAdmin(() => ({ data: [{ id: 'a1' }], error: null }))
+    await createSupabaseIncomingDeps(admin).setAppointmentStatus('k1', 'a1', 'confirmed')
+    expect(queries[0].calls).toContainEqual(['update', { status: 'confirmed' }])
+  })
+})
