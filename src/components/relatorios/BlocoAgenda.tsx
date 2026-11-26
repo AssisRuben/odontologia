@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Painel } from '@/lib/indicadores/painel'
 import { pctInteiro } from './CartaoIndicador'
+import { quemCancelou } from '@/lib/indicadores/agenda'
 
 const th = 'px-4 py-2 text-left text-xs font-medium text-tinta-3 uppercase whitespace-nowrap'
 const thR = th.replace('text-left', 'text-right')
@@ -14,7 +15,10 @@ export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-tinta-2">
         <span>Atendidas: <b>{agenda.atendidas}</b></span>
         <span>Faltas: <b>{agenda.faltas}</b> ({pctInteiro(agenda.taxaFaltas)})</span>
-        <span>Canceladas: <b>{agenda.canceladas}</b> ({pctInteiro(agenda.taxaCancelamento)})</span>
+        <span>
+          Canceladas: <b>{agenda.canceladas}</b> ({pctInteiro(agenda.taxaCancelamento)})
+          {quemCancelou(agenda) && `: ${quemCancelou(agenda)}`}
+        </span>
         <span>Comparecimento: <b>{pctInteiro(agenda.comparecimento)}</b></span>
       </div>
       {agenda.semDesfecho > 0 && (
@@ -32,12 +36,15 @@ export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
               <th className={thR}>Atendidas</th>
               <th className={thR}>Faltas</th>
               <th className={thR}>Canceladas</th>
+              <th className={thR}>Pelo paciente</th>
+              <th className={thR}>Pelo dentista</th>
+              <th className={thR}>Sem informação</th>
               <th className={thR}>Comparecimento</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-porcelana">
             {agenda.porDentista.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-tinta-4">Sem consultas no mês.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-tinta-4">Sem consultas no mês.</td></tr>
             )}
             {agenda.porDentista.map((d) => (
               <tr key={d.professional_id}>
@@ -45,6 +52,9 @@ export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
                 <td className={tdR}>{d.atendidas}</td>
                 <td className={tdR}>{d.faltas}</td>
                 <td className={tdR}>{d.canceladas}</td>
+                <td className={tdR}>{d.canceladasPaciente}</td>
+                <td className={tdR}>{d.canceladasDentista}</td>
+                <td className={tdR}>{d.canceladas - d.canceladasPaciente - d.canceladasDentista}</td>
                 <td className={tdR}>{pctInteiro(d.comparecimento)}</td>
               </tr>
             ))}

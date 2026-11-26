@@ -7,7 +7,8 @@ import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatPhone } from '@/lib/utils'
-import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from '@/types'
+import { APPOINTMENT_STATUS_COLORS } from '@/types'
+import { aplicarSituacao, lerSituacao, opcoesSituacao, valorDaSituacao, type ValorSituacao } from '@/lib/agenda/situacao'
 import type { Appointment, AppointmentStatus } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
@@ -16,7 +17,8 @@ interface PopoverConsultaProps {
   appointment: Appointment
   anchorRect: DOMRect
   onClose: () => void
-  onEdit: () => void
+  /** Recebe a consulta já com a situação escolhida no popup. */
+  onEdit: (apt: Appointment) => void
   onAddEvolucao: () => void
   /** Situação da consulta mudou (pela lista ou pelo "Confirmar consulta"): recarregar a agenda. */
   onStatusChanged?: () => void
@@ -25,21 +27,22 @@ interface PopoverConsultaProps {
 
 export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit, onAddEvolucao, onStatusChanged, whatsapp }: PopoverConsultaProps) {
   const popRef = useRef<HTMLDivElement>(null)
-  const [status, setStatus] = useState<AppointmentStatus>(apt.status)
+  const [situacao, setSituacao] = useState<ValorSituacao>(valorDaSituacao(apt.status, apt.cancelled_by))
+  const status: AppointmentStatus = lerSituacao(situacao).status
   const [salvando, setSalvando] = useState(false)
   const [erroStatus, setErroStatus] = useState('')
 
   // Muda a situação na hora; se o banco recusar, volta a anterior e avisa.
-  async function mudarStatus(novo: AppointmentStatus) {
-    if (novo === status) return
-    const anterior = status
-    setStatus(novo)
+  async function mudarStatus(novo: ValorSituacao) {
+    if (novo === situacao) return
+    const anterior = situacao
+    setSituacao(novo)
     setErroStatus('')
     setSalvando(true)
-    const { error } = await createClient().from('appointments').update({ status: novo }).eq('id', apt.id)
+    const { error } = await createClient().from('appointments').update(lerSituacao(novo)).eq('id', apt.id)
     setSalvando(false)
     if (error) {
-      setStatus(anterior)
+      setSituacao(anterior)
       setErroStatus('Não foi possível mudar a situação. Tente de novo.')
       return
     }
@@ -103,14 +106,14 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               <label className="relative inline-flex items-center rounded-full" style={{ backgroundColor: statusColor + '20', color: statusColor }}>
                 <span className="sr-only">Situação da consulta</span>
                 <select
-                  value={status}
+                  value={situacao}
                   disabled={salvando}
-                  onChange={(e) => mudarStatus(e.target.value as AppointmentStatus)}
+                  onChange={(e) => mudarStatus(e.target.value as ValorSituacao)}
                   title="Mudar situação"
                   className="appearance-none cursor-pointer bg-transparent pl-2 pr-6 py-0.5 rounded-full text-xs font-semibold text-current focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current disabled:cursor-wait disabled:opacity-60"
                 >
-                  {(Object.keys(APPOINTMENT_STATUS_LABELS) as AppointmentStatus[]).map((s) => (
-                    <option key={s} value={s} className="text-tinta bg-white">{APPOINTMENT_STATUS_LABELS[s]}</option>
+                  {opcoesSituacao(situacao).map((o) => (
+                    <option key={o.value} value={o.value} className="text-tinta bg-white">{o.label}</option>
                   ))}
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-1.5 w-3 h-3" />
@@ -236,7 +239,7 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               </Link>
             )}
             <button
-              onClick={() => { onClose(); onEdit() }}
+              onClick={() => { onClose(); onEdit(aplicarSituacao(apt, situacao)) }}
               className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-[#F59E0B] text-white text-xs font-medium hover:bg-[#D97706] transition-colors"
             >
               <Edit2 className="w-3.5 h-3.5" />

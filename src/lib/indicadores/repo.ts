@@ -46,7 +46,7 @@ export async function entradaPainel(
     lerTudo<ConsultaIn>((de, ate) =>
       admin
         .from('appointments')
-        .select('id, patient_id, professional_id, start_time, status')
+        .select('id, patient_id, professional_id, start_time, status, cancelled_by')
         .eq('clinic_id', clinicId)
         .gte('start_time', deLocal)
         .lt('start_time', ateLocal)

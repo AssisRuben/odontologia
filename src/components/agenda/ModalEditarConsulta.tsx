@@ -5,7 +5,8 @@ import { format, parseISO } from 'date-fns'
 import { X, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ClockPicker } from './ClockPicker'
-import type { Appointment, Professional, AppointmentStatus } from '@/types'
+import type { Appointment, Professional } from '@/types'
+import { lerSituacao, opcoesSituacao, valorDaSituacao, type ValorSituacao } from '@/lib/agenda/situacao'
 
 function toLocalISO(date: string, time: string): string {
   const off  = new Date().getTimezoneOffset()
@@ -33,16 +34,6 @@ interface ModalEditarConsultaProps {
   onSaved: () => void
 }
 
-const statusOptions: { value: AppointmentStatus; label: string }[] = [
-  { value: 'scheduled',   label: 'Agendado' },
-  { value: 'confirmed',   label: 'Confirmado' },
-  { value: 'waiting',     label: 'Aguardando' },
-  { value: 'in_progress', label: 'Em atendimento' },
-  { value: 'completed',   label: 'Concluído' },
-  { value: 'cancelled',   label: 'Cancelado' },
-  { value: 'no_show',     label: 'Faltou' },
-]
-
 export function ModalEditarConsulta({
   open, appointment: apt, professionals, onClose, onSaved,
 }: ModalEditarConsultaProps) {
@@ -52,7 +43,8 @@ export function ModalEditarConsulta({
   const [endTime, setEndTime]     = useState(localTime(apt.end_time))
   const [procedure, setProcedure] = useState(apt.procedure || '')
   const [notes, setNotes]         = useState(apt.notes || '')
-  const [status, setStatus]       = useState<AppointmentStatus>(apt.status)
+  const [situacao, setSituacao]   = useState<ValorSituacao>(valorDaSituacao(apt.status, apt.cancelled_by))
+  const status = lerSituacao(situacao).status
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -66,7 +58,7 @@ export function ModalEditarConsulta({
     setEndTime(localTime(apt.end_time))
     setProcedure(apt.procedure || '')
     setNotes(apt.notes || '')
-    setStatus(apt.status)
+    setSituacao(valorDaSituacao(apt.status, apt.cancelled_by))
     setLoading(false)
     setError('')
     setConfirmDelete(false)
@@ -89,7 +81,7 @@ export function ModalEditarConsulta({
         end_time:   toLocalISO(date, endTime),
         procedure:  procedure || null,
         notes:      notes || null,
-        status,
+        ...lerSituacao(situacao),
       })
       .eq('id', apt.id)
 
@@ -137,7 +129,7 @@ export function ModalEditarConsulta({
             ) : (
               <button
                 type="button"
-                onClick={() => setStatus('confirmed')}
+                onClick={() => setSituacao('confirmed')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-petroleo text-white text-xs font-semibold hover:bg-petroleo-escuro transition-colors"
               >
                 ✓ Confirmar
@@ -209,11 +201,11 @@ export function ModalEditarConsulta({
           <div>
             <label className="block text-sm font-medium text-tinta mb-1">Status</label>
             <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
+              value={situacao}
+              onChange={(e) => setSituacao(e.target.value as ValorSituacao)}
               className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo bg-white"
             >
-              {statusOptions.map((s) => (
+              {opcoesSituacao(situacao).map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>

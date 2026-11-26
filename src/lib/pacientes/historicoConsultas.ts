@@ -1,12 +1,13 @@
 // Histórico de consultas do prontuário: resumo, próximas, passadas por ano e a evolução de cada consulta.
 import { format, parseISO } from 'date-fns'
-import type { AppointmentStatus } from '@/types'
+import type { AppointmentStatus, CanceladoPor } from '@/types'
 
 export interface ConsultaHist {
   id: string
   start_time: string
   end_time: string
   status: AppointmentStatus
+  cancelled_by?: CanceladoPor | null
   procedure?: string | null
   professional?: { name: string; color?: string | null } | null
 }
@@ -24,7 +25,10 @@ export interface ResumoConsultas {
   /** Início da primeira consulta concluída. */
   primeira: string | null
   faltas: number
+  /** Total de canceladas; as duas abaixo são as partes com quem cancelou conhecido. */
   canceladas: number
+  canceladasPaciente: number
+  canceladasDentista: number
   /** Quem atendeu as consultas concluídas, do que mais atendeu ao que menos. */
   dentistas: string[]
 }
@@ -41,11 +45,14 @@ function resumir(consultas: ConsultaHist[]): ResumoConsultas {
     const nome = x.professional?.name
     if (nome) porDentista.set(nome, (porDentista.get(nome) ?? 0) + 1)
   }
+  const canceladas = consultas.filter((x) => x.status === 'cancelled')
   return {
     realizadas: concluidas.length,
     primeira: concluidas[0]?.start_time ?? null,
     faltas: consultas.filter((x) => x.status === 'no_show').length,
-    canceladas: consultas.filter((x) => x.status === 'cancelled').length,
+    canceladas: canceladas.length,
+    canceladasPaciente: canceladas.filter((x) => x.cancelled_by === 'patient').length,
+    canceladasDentista: canceladas.filter((x) => x.cancelled_by === 'professional').length,
     dentistas: [...porDentista.entries()].sort((a, b) => b[1] - a[1]).map(([nome]) => nome),
   }
 }
