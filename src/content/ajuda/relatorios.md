@@ -8,7 +8,7 @@ Os **Relatórios** mostram os indicadores do mês num lugar só: agenda (faltas 
 2. Use as setas para escolher o mês e, se quiser, filtre por dentista (**Todos os dentistas**).
 3. No alto, os cartões resumem o mês: **Comparecimento**, **Faltas**, **Recebido**, **Ticket médio**, **Aprovação de orçamentos** e **Pacientes novos**. Enquanto o mês não acaba, aparece o aviso de que os valores são parciais.
 4. Abaixo, os blocos detalham:
-   - **Agenda**: consultas **Atendidas**, **Faltas**, **Canceladas** e a taxa de **Comparecimento**, com a **Tendência (6 meses)** e os **Pacientes que mais faltam (6 meses)**;
+   - **Agenda**: consultas **Atendidas**, **Faltas**, **Canceladas** (separadas em **Pelo paciente**, **Pelo dentista** e **Sem informação**) e a taxa de **Comparecimento**, com a **Tendência (6 meses)** e os **Pacientes que mais faltam (6 meses)**;
    - **Orçamentos**: valores **Apresentados** e **Aprovados**, a taxa de **Aprovação** (em valor e em quantidade) e o tempo médio até aprovar;
    - **Financeiro**: o valor dos tratamentos concluídos no mês, separado em **Particular** e **Convênio**, com o ticket médio de cada um.
 

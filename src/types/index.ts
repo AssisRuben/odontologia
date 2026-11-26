@@ -119,6 +119,9 @@ export type AppointmentStatus =
   | 'cancelled'
   | 'no_show'
 
+/** Quem cancelou a consulta. */
+export type CanceladoPor = 'patient' | 'professional'
+
 export interface Appointment {
   id: string
   clinic_id: string
@@ -127,6 +130,8 @@ export interface Appointment {
   start_time: string
   end_time: string
   status: AppointmentStatus
+  /** Quem cancelou (só em consulta cancelada; vazio nos cancelamentos antigos). */
+  cancelled_by?: CanceladoPor | null
   procedure?: string
   notes?: string
   color?: string

@@ -111,7 +111,7 @@ export function createAgendaDeps(admin: SupabaseClient): AgendaDeps {
     async desmarcar(clinicId, patientId, appointmentId) {
       const { data, error } = await admin
         .from('appointments')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled', cancelled_by: 'patient' })
         .eq('id', appointmentId)
         .eq('clinic_id', clinicId)
         .eq('patient_id', patientId)
