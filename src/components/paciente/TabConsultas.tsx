@@ -93,7 +93,7 @@ function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: 
 
   return (
     <li className="px-4 sm:px-5 py-3">
-      <div className="flex flex-col gap-1.5 md:grid md:grid-cols-[150px_100px_minmax(0,180px)_minmax(0,1fr)_auto] md:items-center md:gap-4">
+      <div className="flex flex-col gap-1.5 md:grid md:grid-cols-[150px_100px_minmax(0,180px)_minmax(0,1fr)_112px_100px] md:items-center md:gap-4">
         {/* data e hora (no celular, com a situação ao lado) */}
         <div className="flex items-center justify-between gap-2 md:contents">
           <p className="text-sm text-tinta tabular-nums">
@@ -115,19 +115,22 @@ function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: 
           <p className="min-w-0 truncate text-sm text-tinta-3" title={x.procedure || undefined}>{x.procedure || '—'}</p>
         </div>
 
-        <div className="flex items-center gap-2 md:justify-end">
-          <span className="hidden md:inline">{situacao}</span>
-          {evolucoes && (
+        {/* no computador, a situação e a evolução têm colunas fixas, para alinhar entre as linhas */}
+        <div className="flex items-center gap-2 md:contents">
+          <span className="hidden md:block">{situacao}</span>
+          {evolucoes ? (
             <button
               type="button"
               onClick={() => setAberta((v) => !v)}
               aria-expanded={aberta}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-petroleo hover:bg-petroleo-50 focus-visible:outline-2 focus-visible:outline-petroleo"
+              className="md:justify-self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-petroleo hover:bg-petroleo-50 focus-visible:outline-2 focus-visible:outline-petroleo"
             >
               <NotebookPen className="w-3.5 h-3.5" aria-hidden="true" />
               Evolução
               <ChevronDown className={`w-3.5 h-3.5 motion-safe:transition-transform ${aberta ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>
+          ) : (
+            <span className="hidden md:block" aria-hidden="true" />
           )}
         </div>
       </div>
