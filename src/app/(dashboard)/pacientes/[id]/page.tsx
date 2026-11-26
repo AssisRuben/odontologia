@@ -469,6 +469,21 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
         {/* ── Evoluções ───────────────────────────────────────────────────── */}
         {activeTab === 'evolucoes' && (
           <div className="space-y-3">
+            <div className="bg-white rounded-xl border border-linha px-5 py-3.5 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-tinta">
+                Evoluções
+                {evolutions.length > 0 && <span className="ml-1.5 font-normal text-tinta-4">{evolutions.length}</span>}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEvolucaoAberta(true)}
+                disabled={!clinicId}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-petroleo text-white text-xs font-medium hover:bg-petroleo-escuro transition-colors disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Nova evolução
+              </button>
+            </div>
             {evolutions.length === 0 ? (
               <div className="bg-white rounded-xl border border-linha flex items-center justify-center h-40 text-sm text-tinta-4">
                 Nenhuma evolução registrada.
