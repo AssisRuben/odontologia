@@ -11,6 +11,7 @@ import OpenAI, {
 import { z } from 'zod'
 import { makeAiClient, toAiError } from '@/lib/ia/openai'
 import { AiError } from '@/lib/ia/erros'
+import { PROMPT_TRANSCRICAO_ODONTO } from '@/lib/ia/termosOdonto'
 
 function fakeSdk(over: { create?: unknown; parse?: unknown; list?: unknown } = {}) {
   const create = vi.fn((over.create ?? (async () => ({ text: 'olá mundo' }))) as () => Promise<unknown>)
@@ -30,6 +31,13 @@ describe('transcribe', () => {
     const file = new File(['x'], 'a.webm', { type: 'audio/webm' })
     expect(await makeAiClient('k', sdk).transcribe(file)).toBe('olá mundo')
     expect(create).toHaveBeenCalledWith({ model: 'gpt-transcribe', file, languages: ['pt'] })
+  })
+
+  it('envia o texto de referência quando informado', async () => {
+    const { sdk, create } = fakeSdk()
+    const file = new File(['x'], 'a.webm', { type: 'audio/webm' })
+    await makeAiClient('k', sdk).transcribe(file, { prompt: 'oclusal, Elmex' })
+    expect(create).toHaveBeenCalledWith({ model: 'gpt-transcribe', file, languages: ['pt'], prompt: 'oclusal, Elmex' })
   })
 
   it('converte erros do SDK', async () => {
@@ -89,5 +97,13 @@ describe('toAiError', () => {
     expect(toAiError(e)).toBe(e)
     expect(toAiError(new Error('boom')).kind).toBe('unavailable')
     expect(toAiError('x').kind).toBe('unavailable')
+  })
+})
+
+describe('PROMPT_TRANSCRICAO_ODONTO', () => {
+  it('traz faces, dentes e produtos que a transcrição errava', () => {
+    for (const termo of ['oclusal', 'mesial', 'distal', 'vestibular', 'Elmex', 'resina', 'bloco', '46']) {
+      expect(PROMPT_TRANSCRICAO_ODONTO).toContain(termo)
+    }
   })
 })

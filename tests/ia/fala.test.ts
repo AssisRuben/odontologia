@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   MAX_REINICIOS_SEM_TEXTO,
+  botoesVoz,
   deveReiniciar,
   getSpeechRecognition,
   mensagemErroDitado,
@@ -93,5 +94,23 @@ describe('problemaGravacao', () => {
   it('até 4 MB pode enviar', () => {
     expect(problemaGravacao(4 * 1024 * 1024)).toBeNull()
     expect(problemaGravacao(1000)).toBeNull()
+  })
+})
+
+describe('botoesVoz', () => {
+  it('com IA e gravação disponível, mostra só o Gravar', () => {
+    expect(botoesVoz({ podeDitar: true, podeGravar: true, iaConectada: true })).toEqual({ ditar: false, gravar: true })
+  })
+  it('sem IA, mostra só o Ditar', () => {
+    expect(botoesVoz({ podeDitar: true, podeGravar: true, iaConectada: false })).toEqual({ ditar: true, gravar: false })
+  })
+  it('com IA mas sem gravação no navegador, mostra o Ditar no lugar', () => {
+    expect(botoesVoz({ podeDitar: true, podeGravar: false, iaConectada: true })).toEqual({ ditar: true, gravar: false })
+  })
+  it('enquanto verifica a IA, não mostra botão (evita o Ditar piscar e sumir)', () => {
+    expect(botoesVoz({ podeDitar: true, podeGravar: true, iaConectada: null })).toEqual({ ditar: false, gravar: false })
+  })
+  it('sem nada disponível, não mostra botão', () => {
+    expect(botoesVoz({ podeDitar: false, podeGravar: false, iaConectada: false })).toEqual({ ditar: false, gravar: false })
   })
 })

@@ -3,6 +3,7 @@ import { checkAudio } from '@/lib/ia/audio'
 import { getAiForClinic } from '@/lib/ia/conexao'
 import { NO_KEY_ERROR } from '@/lib/ia/erros'
 import { TRANSCRIBE_MODEL } from '@/lib/ia/modelos'
+import { PROMPT_TRANSCRICAO_ODONTO } from '@/lib/ia/termosOdonto'
 import { createAiDeps, recordUsage } from '@/lib/ia/repo'
 import { withClinic } from '@/lib/ia/rotas'
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     const uso = { kind: 'transcricao' as const, model: TRANSCRIBE_MODEL, audio_seconds: check.seconds, input_tokens: null, output_tokens: null }
     const renamed = new File([file], `audio.${check.ext}`, { type: file.type })
     try {
-      const texto = await ai.client.transcribe(renamed)
+      const texto = await ai.client.transcribe(renamed, { prompt: PROMPT_TRANSCRICAO_ODONTO })
       await recordUsage(admin, clinicId, userId, { ...uso, ok: true })
       return { status: 200, body: { texto } }
     } catch (e) {

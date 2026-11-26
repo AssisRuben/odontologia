@@ -12,6 +12,7 @@ import { ptBR } from 'date-fns/locale'
 import type { Appointment } from '@/types'
 import { APPOINTMENT_STATUS_COLORS, APPOINTMENT_STATUS_SOFT } from '@/types'
 import { nomeExibicao } from '@/lib/agenda/nome'
+import { faixaAgenda } from '@/lib/agenda/faixa'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
 
 interface CalendarioAgendaProps {
@@ -26,6 +27,8 @@ interface CalendarioAgendaProps {
 // Fora do componente de propósito: uma lista nova a cada render faz o FullCalendar
 // recalcular a semana e voltar a rolagem para o início (ex.: ao abrir o card da consulta).
 const DIAS_OCULTOS = [0]
+// "17:00" em vez de "17" na coluna de horários (também fora do componente, pelo mesmo motivo).
+const FORMATO_HORARIO = { hour: '2-digit', minute: '2-digit', hour12: false } as const
 
 export function CalendarioAgenda({
   view,
@@ -57,6 +60,9 @@ export function CalendarioAgenda({
     return () => observer.disconnect()
   }, [])
 
+  // 7h às 21h, esticando para mostrar consultas fora disso (strings: não recriam a semana à toa).
+  const faixa = faixaAgenda(appointments)
+
   // Bloco em tom suave do status; a cor do dentista vai na borda esquerda.
   const events = appointments.map((apt) => {
     const soft = APPOINTMENT_STATUS_SOFT[apt.status] ?? APPOINTMENT_STATUS_SOFT.scheduled
@@ -83,8 +89,9 @@ export function CalendarioAgenda({
         locale={ptBRLocale}
         headerToolbar={false}
         events={events}
-        slotMinTime="07:30:00"
-        slotMaxTime="18:00:00"
+        slotMinTime={faixa.inicio}
+        slotMaxTime={faixa.fim}
+        slotLabelFormat={FORMATO_HORARIO}
         allDaySlot={false}
         slotDuration="00:30:00"
         height="100%"
