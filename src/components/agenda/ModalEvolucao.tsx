@@ -12,6 +12,7 @@ import { appendText } from '@/lib/ia/texto'
 import { dataRetorno, type Sugestao } from '@/lib/ia/evolucao/sugestoes'
 import { ModalBaixaMaterial } from '@/components/kits/ModalBaixaMaterial'
 import type { Appointment, Professional } from '@/types'
+import { inicioEvolucao } from '@/lib/pacientes/novaEvolucao'
 
 interface Evolution {
   id: string
@@ -23,16 +24,22 @@ interface Evolution {
 
 interface ModalEvolucaoProps {
   open: boolean
-  appointment: Appointment
+  /** Consulta da evolução (pela agenda). Pelo prontuário vem nula, com o paciente em `paciente`. */
+  appointment: Appointment | null
+  paciente?: { id: string; name: string }
+  /** Dentista já escolhido quando não há consulta. */
+  profissionalInicial?: string
   professionals: Professional[]
   clinicId: string
   onClose: () => void
   onSaved: (retorno: { data: string; motivo: string; professionalId: string } | null) => void
 }
 
-export function ModalEvolucao({ open, appointment, professionals, onClose, onSaved }: ModalEvolucaoProps) {
-  const [professionalId, setProfessionalId] = useState(appointment.professional_id)
-  const [date, setDate] = useState(format(parseISO(appointment.start_time), 'yyyy-MM-dd'))
+export function ModalEvolucao({ open, appointment, paciente, profissionalInicial, professionals, onClose, onSaved }: ModalEvolucaoProps) {
+  const inicio = inicioEvolucao({ appointment, paciente, profissionalInicial, hoje: new Date() })
+  const { patientId, appointmentId } = inicio
+  const [professionalId, setProfessionalId] = useState(inicio.professionalId)
+  const [date, setDate] = useState(inicio.date)
   const [description, setDescription] = useState('')
   const [images, setImages] = useState<{ file: File; preview: string }[]>([])
   const [pastEvolutions, setPastEvolutions] = useState<Evolution[]>([])
@@ -63,8 +70,8 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
 
   useEffect(() => {
     if (!open) return
-    setProfessionalId(appointment.professional_id)
-    setDate(format(parseISO(appointment.start_time), 'yyyy-MM-dd'))
+    setProfessionalId(inicio.professionalId)
+    setDate(inicio.date)
     setDescription('')
     setImages([])
     setLoading(false)
@@ -81,17 +88,17 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
       const { data } = await supabase
         .from('evolutions')
         .select('*, professional:professionals(name, color)')
-        .eq('patient_id', appointment.patient_id)
+        .eq('patient_id', patientId)
         .order('date', { ascending: false })
         .limit(6)
       if (data) setPastEvolutions(data)
     }
     loadPast()
-  }, [open, appointment])
+  }, [open, appointment, patientId, inicio.professionalId, inicio.date])
 
   if (!open) return null
 
-  const patientName = appointment.patient?.name || 'Paciente'
+  const patientName = inicio.patientName
 
   // Evolução já salva: só a janela de baixa de material fica na tela.
   if (fila.length > 0) return <ModalBaixaMaterial key={fila[0]} treatmentId={fila[0]} onClose={proximaBaixa} />
@@ -134,8 +141,8 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientId: appointment.patient_id,
-          appointmentId: appointment.id,
+          patientId,
+          appointmentId,
           professionalId,
           date,
           description: description.trim(),
@@ -164,7 +171,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
 
     let ids: string[] = []
     try {
-      const r = await fetch(`/api/tratamentos/material/pendentes?paciente=${encodeURIComponent(appointment.patient_id)}`)
+      const r = await fetch(`/api/tratamentos/material/pendentes?paciente=${encodeURIComponent(patientId)}`)
       if (r.ok) {
         const pj = await r.json().catch(() => ({}))
         if (Array.isArray(pj.ids)) ids = pj.ids.filter((x: unknown): x is string => typeof x === 'string')
@@ -200,7 +207,7 @@ export function ModalEvolucao({ open, appointment, professionals, onClose, onSav
       const res = await fetch('/api/ia/evolucao/organizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId: appointment.patient_id, texto: description }),
+        body: JSON.stringify({ patientId, texto: description }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || typeof j.texto !== 'string') {

@@ -11,6 +11,8 @@ import { ModalBaixaMaterial } from '@/components/kits/ModalBaixaMaterial'
 import { SecaoGuias } from '@/components/paciente/SecaoGuias'
 import { naTabela } from '@/lib/convenios/guias'
 import { dataValida } from '@/lib/convenios/cadastro'
+import { camposDaTroca, dataExecucaoValida, passoDaTroca } from '@/lib/tratamentos/trocaSituacao'
+import { MenuSituacaoTratamento } from '@/components/paciente/MenuSituacaoTratamento'
 import type {
   Professional, InsurancePlan, Treatment, TreatmentStatus, InsuranceGuide, InsuranceGuideItem,
   InsurancePlanProcedure,
@@ -31,6 +33,10 @@ const STATUS_CONFIG: Record<TreatmentStatus, { label: string; color: string; bg:
   completed:   { label: 'Concluído',    color: '#22C55E', bg: '#F0FDF4' },
   cancelled:   { label: 'Cancelado',    color: '#EF4444', bg: '#FEF2F2' },
 }
+
+const hojeSP = () => todayYmd(new Date(), 'America/Sao_Paulo')
+
+const OPCOES_SITUACAO = (Object.keys(STATUS_CONFIG) as TreatmentStatus[]).map((value) => ({ value, ...STATUS_CONFIG[value] }))
 
 type ToothFaces = Record<number, Face[]>
 
@@ -81,6 +87,10 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null)
   const [expandedId, setExpandedId]       = useState<string | null>(null)
   const [baixaId, setBaixaId]             = useState<string | null>(null)
+  // Troca da situação direto no registro: o que falta confirmar, o registro gravando e o erro.
+  const [troca, setTroca] = useState<{ id: string; novo: TreatmentStatus; passo: 'pedirData' | 'perguntarMaterial'; data: string } | null>(null)
+  const [trocando, setTrocando] = useState<string | null>(null)
+  const [erroTroca, setErroTroca] = useState<{ id: string; msg: string } | null>(null)
   const [guides, setGuides]               = useState<InsuranceGuide[]>([])
   const [procById, setProcById]           = useState<Map<string, InsurancePlanProcedure>>(new Map())
   const [lotesPagos, setLotesPagos]       = useState<Set<string>>(new Set())
@@ -146,6 +156,37 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
 
   const allItems = guides.flatMap((g) => g.items || [])
 
+  function escolherSituacao(t: Treatment, novo: TreatmentStatus) {
+    setErroTroca(null)
+    const passo = passoDaTroca(t.status, novo, t.material_status)
+    if (passo === 'nada') { setTroca(null); return }
+    if (passo === 'gravar') { setTroca(null); void gravarTroca(t, novo); return }
+    setTroca({ id: t.id, novo, passo, data: hojeSP() })
+  }
+
+  async function gravarTroca(t: Treatment, novo: TreatmentStatus, executadoEm?: string, devolver = false) {
+    if (novo === 'completed' && (!executadoEm || !dataExecucaoValida(executadoEm, hojeSP()))) {
+      setErroTroca({ id: t.id, msg: 'Data de execução inválida (não pode ser no futuro).' })
+      return
+    }
+    setErroTroca(null)
+    setTrocando(t.id)
+    if (devolver) {
+      const res = await fetch(`/api/tratamentos/${t.id}/material/devolver`, { method: 'POST' }).catch(() => null)
+      if (!res?.ok) {
+        const j = res ? await res.json().catch(() => ({})) : {}
+        setErroTroca({ id: t.id, msg: typeof j.error === 'string' ? j.error : 'Não foi possível devolver o material.' })
+        setTrocando(null)
+        return
+      }
+    }
+    const { error } = await createClient().from('treatments').update(camposDaTroca(novo, executadoEm)).eq('id', t.id)
+    setTrocando(null)
+    if (error) { setErroTroca({ id: t.id, msg: 'Não foi possível mudar a situação. Tente de novo.' }); return }
+    setTroca(null)
+    await aposSalvar(t.id, novo, t.status)
+  }
+
   // Concluir um tratamento deixa o material "pendente" (gatilho do banco): abre a baixa em seguida.
   async function aposSalvar(id: string, status: TreatmentStatus, anterior: TreatmentStatus | null) {
     setModalOpen(false)
@@ -183,24 +224,31 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
         ) : (
           <div className="divide-y divide-porcelana">
             {treatments.map((t) => {
-              const s = STATUS_CONFIG[t.status] || STATUS_CONFIG.planned
               const expanded = expandedId === t.id
               const teeth = t.treatment_teeth || []
               return (
                 <div key={t.id}>
-                  <div className="flex items-center hover:bg-porcelana-2 transition-colors">
+                  <div className="relative flex items-center hover:bg-porcelana-2 transition-colors">
+                  {/* a linha inteira abre os detalhes; a etiqueta da situação fica por cima, com a própria lista */}
                   <button
-                    className="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-3.5 text-left"
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-label={`Detalhes de ${t.procedure}`}
+                    className="absolute inset-0 w-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-petroleo"
                     onClick={() => setExpandedId(expanded ? null : t.id)}
-                  >
+                  />
+                  <div className="relative flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-3.5 text-left pointer-events-none">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-tinta">{t.procedure}</span>
-                        <span
-                          className="text-xs font-medium px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: s.bg, color: s.color }}
-                        >
-                          {s.label}
+                        <span className="pointer-events-auto">
+                          <MenuSituacaoTratamento
+                            atual={t.status}
+                            opcoes={OPCOES_SITUACAO}
+                            procedimento={t.procedure}
+                            ocupado={trocando === t.id}
+                            onEscolher={(novo) => escolherSituacao(t, novo)}
+                          />
                         </span>
                         {t.status === 'completed' && t.material_status === 'pendente' && (
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full"
@@ -239,16 +287,60 @@ export function TabTratamentos({ patientId, clinicId, onTreatmentSaved }: TabTra
                     <ChevronDown
                       className={`w-4 h-4 text-tinta-4 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
                     />
-                  </button>
+                  </div>
                   {t.status === 'completed' && t.material_status === 'pendente' && (
                     <button
                       onClick={() => setBaixaId(t.id)}
-                      className="mr-5 shrink-0 px-3 py-1.5 rounded-lg border border-petroleo text-petroleo text-xs font-medium hover:bg-petroleo-50 transition-colors"
+                      className="relative mr-5 shrink-0 px-3 py-1.5 rounded-lg border border-petroleo text-petroleo text-xs font-medium hover:bg-petroleo-50 transition-colors"
                     >
                       Dar baixa
                     </button>
                   )}
                   </div>
+
+                  {troca?.id === t.id && troca.passo === 'pedirData' && (
+                    <div className="mx-5 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#CDEBD8] bg-[#F3F8F5] px-3 py-2.5 text-sm text-tinta">
+                      <label htmlFor={`concluir-${t.id}`}>Concluir em</label>
+                      <input
+                        id={`concluir-${t.id}`}
+                        type="date"
+                        value={troca.data}
+                        max={hojeSP()}
+                        onChange={(e) => setTroca({ ...troca, data: e.target.value })}
+                        className="h-8 px-2 rounded-lg border border-linha bg-white text-sm"
+                      />
+                      <button type="button" disabled={trocando === t.id} onClick={() => void gravarTroca(t, 'completed', troca.data)}
+                        className="px-3 py-1.5 rounded-lg bg-[#22A05A] text-white text-xs font-semibold hover:bg-[#1B8A4C] disabled:opacity-50">
+                        {trocando === t.id ? 'Concluindo...' : 'Concluir'}
+                      </button>
+                      <button type="button" disabled={trocando === t.id} onClick={() => { setTroca(null); setErroTroca(null) }}
+                        className="px-3 py-1.5 rounded-lg border border-linha bg-white text-xs font-medium text-tinta hover:bg-porcelana-2 disabled:opacity-50">
+                        Voltar
+                      </button>
+                    </div>
+                  )}
+                  {troca?.id === t.id && troca.passo === 'perguntarMaterial' && (
+                    <div className="mx-5 mb-3 rounded-xl border border-[#F6E2A8] bg-[#FFFBEB] px-3 py-2.5 text-sm text-[#5B4307]">
+                      <p>Este tratamento teve baixa de material. Devolver o material ao estoque?</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button type="button" disabled={trocando === t.id} onClick={() => void gravarTroca(t, troca.novo, undefined, true)}
+                          className="px-3 py-1.5 rounded-lg bg-petroleo text-white text-xs font-semibold hover:bg-petroleo-escuro disabled:opacity-50">
+                          {trocando === t.id ? 'Devolvendo...' : 'Devolver'}
+                        </button>
+                        <button type="button" disabled={trocando === t.id} onClick={() => void gravarTroca(t, troca.novo)}
+                          className="px-3 py-1.5 rounded-lg border border-linha bg-white text-xs font-medium text-tinta hover:bg-porcelana-2 disabled:opacity-50">
+                          Manter baixa
+                        </button>
+                        <button type="button" disabled={trocando === t.id} onClick={() => { setTroca(null); setErroTroca(null) }}
+                          className="px-3 py-1.5 rounded-lg border border-linha bg-white text-xs font-medium text-tinta hover:bg-porcelana-2 disabled:opacity-50">
+                          Voltar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {erroTroca?.id === t.id && (
+                    <p role="alert" className="mx-5 mb-3 text-xs text-red-600">{erroTroca.msg}</p>
+                  )}
 
                   {expanded && (
                     <div className="px-5 pb-4 bg-porcelana-2 border-t border-porcelana space-y-3 pt-3">
