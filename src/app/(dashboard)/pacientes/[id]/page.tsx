@@ -15,7 +15,10 @@ import { getInitials, formatPhone, formatCurrency } from '@/lib/utils'
 import {
   parsePatientNotes, serializePatientNotes,
 } from '@/types'
-import type { Patient, Appointment, Payment, FiscalInvoice } from '@/types'
+import type { Patient, Appointment, Payment, FiscalInvoice, Professional, InsurancePlan } from '@/types'
+import { ModalEvolucao } from '@/components/agenda/ModalEvolucao'
+import { ModalNovaConsulta } from '@/components/agenda/ModalNovaConsulta'
+import { profissionalPadrao } from '@/lib/pacientes/novaEvolucao'
 import { Odontograma } from '@/components/paciente/Odontograma'
 import { ModalCategoria, CATEGORIA_COLORS } from '@/components/paciente/ModalCategoria'
 import { ModalEditarPaciente } from '@/components/paciente/ModalEditarPaciente'
@@ -109,6 +112,27 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
   const [modalCobrancaOpen, setModalCobrancaOpen] = useState(false)
   const [treatRefresh, setTreatRefresh] = useState(0)
   const { clinicId } = useClinicStore()
+  // Nova evolução pelo prontuário (sem consulta) e, se a IA sugerir retorno, a nova consulta.
+  const [evolucaoAberta, setEvolucaoAberta] = useState(false)
+  const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
+  const [insurancePlans, setInsurancePlans] = useState<InsurancePlan[]>([])
+  const [retorno, setRetorno] = useState<{ data: string; motivo: string; professionalId: string } | null>(null)
+  const [recarregar, setRecarregar] = useState(0)
+
+  useEffect(() => {
+    if (!clinicId) return
+    const supabase = createClient()
+    Promise.all([
+      supabase.from('professionals').select('*').eq('clinic_id', clinicId).order('name'),
+      supabase.from('insurance_plans').select('*').eq('clinic_id', clinicId).order('name'),
+      supabase.auth.getUser(),
+    ]).then(([profRes, planRes, userRes]) => {
+      setProfessionals((profRes.data as Professional[]) || [])
+      setInsurancePlans((planRes.data as InsurancePlan[]) || [])
+      setUserId(userRes.data.user?.id ?? null)
+    })
+  }, [clinicId])
 
   useEffect(() => {
     async function load() {
@@ -141,7 +165,7 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
       setLoading(false)
     }
     load()
-  }, [params])
+  }, [params, recarregar])
 
   async function loadInvoices(list: Payment[]) {
     if (list.length === 0) { setInvoices([]); return }
@@ -368,7 +392,12 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
               <div className="bg-white rounded-xl border border-linha p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-tinta">Últimas Evoluções</h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setEvolucaoAberta(true)}
+                    disabled={!clinicId}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-linha text-xs font-medium text-tinta-2 hover:bg-porcelana transition-colors disabled:opacity-50"
+                  >
                     <Plus className="w-3.5 h-3.5" />
                     Adicionar
                   </button>
@@ -480,6 +509,39 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
         <div role="status" className="fixed bottom-4 right-4 z-50 bg-tinta text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           Mensagem enviada
         </div>
+      )}
+
+      {evolucaoAberta && clinicId && (
+        <ModalEvolucao
+          open={true}
+          appointment={null}
+          paciente={{ id: patient.id, name: patient.name }}
+          profissionalInicial={profissionalPadrao(professionals, userId, appointments.map((a) => a.professional_id))}
+          professionals={professionals}
+          clinicId={clinicId}
+          onClose={() => setEvolucaoAberta(false)}
+          onSaved={(r) => {
+            setEvolucaoAberta(false)
+            setRecarregar((k) => k + 1)
+            if (r) setRetorno(r)
+          }}
+        />
+      )}
+
+      {retorno && clinicId && (
+        <ModalNovaConsulta
+          open={true}
+          onClose={() => setRetorno(null)}
+          onSaved={() => { setRetorno(null); setRecarregar((k) => k + 1) }}
+          initialDate={(() => { const [y, m, d] = retorno.data.split('-').map(Number); return new Date(y, m - 1, d) })()}
+          initialPatientId={patient.id}
+          initialProfessionalId={retorno.professionalId}
+          initialNotes={`Retorno: ${retorno.motivo}`}
+          clinicId={clinicId}
+          professionals={professionals}
+          patients={[patient]}
+          insurancePlans={insurancePlans}
+        />
       )}
 
       {modalWaOpen && (
