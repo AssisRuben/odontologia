@@ -12,6 +12,7 @@ import { ModalEmitirNota } from './ModalEmitirNota'
 import { errorText } from './errorText'
 import { statusExibido } from '@/lib/payments/statusExibido'
 import { todayYmd } from '@/lib/messaging/time'
+import { useMenuAncorado } from '@/lib/ui/useMenuAncorado'
 
 interface Props {
   payments: Payment[]
@@ -114,7 +115,9 @@ function reaisInput(amount: number): string {
 
 export default function ListaPagamentos({ payments, invoices, showPatient, onChanged, extra }: Props) {
   const [dialog, setDialog] = useState<Dialog | null>(null)
-  const [menu, setMenu] = useState<{ id: string; top: number; right: number } | null>(null)
+  // Menu de ações aberto: pagamento e retângulo do botão que o abriu
+  const [menu, setMenu] = useState<{ id: string; ancora: DOMRect } | null>(null)
+  const menuRef = useMenuAncorado<HTMLDivElement>(menu?.ancora ?? null)
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null)
   const [nfse, setNfse] = useState<NfseInfo>({ enabled: null, description: DEFAULT_NFSE_DESC, invalidKey: false })
   const [busy, setBusy] = useState(false)
@@ -287,7 +290,7 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
                     aria-haspopup="menu"
                     onClick={e => {
                       const r = e.currentTarget.getBoundingClientRect()
-                      setMenu(menu?.id === p.id ? null : { id: p.id, top: r.bottom + 4, right: window.innerWidth - r.right })
+                      setMenu(menu?.id === p.id ? null : { id: p.id, ancora: r })
                     }}
                     className="p-1.5 rounded-lg text-tinta-3 hover:bg-porcelana shrink-0"
                   >
@@ -313,8 +316,8 @@ export default function ListaPagamentos({ payments, invoices, showPatient, onCha
       {menu && menuPayment && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
-          <div role="menu" style={{ top: menu.top, right: menu.right }}
-            className="fixed z-50 w-60 bg-white border border-linha rounded-lg shadow-lg py-1">
+          <div role="menu" ref={menuRef}
+            className="invisible fixed z-50 w-60 bg-white border border-linha rounded-lg shadow-lg py-1">
             {menuItems(menuPayment, invoiceByPayment.get(menuPayment.id), nfse.enabled === false, nfse.invalidKey).map(it => (
               <button key={it.id} role="menuitem" disabled={busy || it.disabled} title={it.title} onClick={() => perform(it.id, menuPayment, invoiceByPayment.get(menuPayment.id))}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-porcelana-2 disabled:opacity-50 ${it.danger ? 'text-red-600' : 'text-tinta-2'}`}>
