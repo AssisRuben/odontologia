@@ -25,6 +25,7 @@ import { HistoricoAnterior } from '@/components/paciente/HistoricoAnterior'
 import { TabDocumentos } from '@/components/paciente/TabDocumentos'
 import { TabTratamentos } from '@/components/paciente/TabTratamentos'
 import { TabProteses } from '@/components/paciente/TabProteses'
+import { TabConsultas } from '@/components/paciente/TabConsultas'
 import { useClinicStore } from '@/store/clinicStore'
 import { ModalEnviarWhatsApp } from '@/components/mensagens/ModalEnviarWhatsApp'
 import ListaPagamentos from '@/components/pagamentos/ListaPagamentos'
@@ -45,10 +46,11 @@ function calcAge(birthdate: string) {
 }
 
 
-type Tab = 'visao-geral' | 'anamneses' | 'orcamentos' | 'tratamentos' | 'proteses' | 'pagamentos' | 'evolucoes' | 'documentos'
+type Tab = 'visao-geral' | 'consultas' | 'anamneses' | 'orcamentos' | 'tratamentos' | 'proteses' | 'pagamentos' | 'evolucoes' | 'documentos'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'visao-geral',  label: 'Visão Geral' },
+  { id: 'consultas',    label: 'Consultas' },
   { id: 'anamneses',    label: 'Anamneses' },
   { id: 'orcamentos',   label: 'Orçamentos' },
   { id: 'tratamentos',  label: 'Tratamentos' },
@@ -61,6 +63,7 @@ const TABS: { id: Tab; label: string }[] = [
 interface PatientEvolution {
   id: string
   date: string
+  appointment_id: string | null
   description: string
   images: string[] | null
   ai_used: boolean
@@ -116,7 +119,7 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
         supabase.from('appointments').select('*, professional:professionals(*)').eq('patient_id', id).order('start_time', { ascending: false }),
         supabase.from('payments').select('*').eq('patient_id', id).order('due_date', { ascending: false }),
         supabase.from('evolutions')
-          .select('id, date, description, images, ai_used, professional:professionals(name, color)')
+          .select('id, date, appointment_id, description, images, ai_used, professional:professionals(name, color)')
           .eq('patient_id', id)
           .order('date', { ascending: false })
           .order('created_at', { ascending: false }),
@@ -383,6 +386,11 @@ function PacienteDetalhe({ params }: { params: Promise<{ id: string }> }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── Consultas ───────────────────────────────────────────────────── */}
+        {activeTab === 'consultas' && (
+          <TabConsultas consultas={appointments} evolucoes={evolutions} />
         )}
 
         {/* ── Tratamentos ─────────────────────────────────────────────────── */}

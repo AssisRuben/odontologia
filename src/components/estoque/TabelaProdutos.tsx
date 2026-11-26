@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import type { InventoryItem } from '@/types'
+import { useMenuAncorado } from '@/lib/ui/useMenuAncorado'
 import { alertasDoItem } from '@/lib/estoque/alertas'
 import { diasParaVencer, proximaValidade, situacaoLote } from '@/lib/estoque/validade'
 
@@ -46,13 +47,14 @@ function Situacao({ item, hojeYmd }: { item: InventoryItem; hojeYmd: string }) {
 }
 
 function Menu({ item, onAcao }: { item: InventoryItem; onAcao: Props['onAcao'] }) {
-  const [aberto, setAberto] = useState(false)
-  const [pos, setPos] = useState({ top: 0, right: 0 })
+  // Retângulo do botão enquanto o menu está aberto (null = fechado)
+  const [ancora, setAncora] = useState<DOMRect | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useMenuAncorado<HTMLDivElement>(ancora)
   useEffect(() => {
-    if (!aberto) return
-    const fora = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setAberto(false) }
-    const fecha = () => setAberto(false)
+    if (!ancora) return
+    const fecha = () => setAncora(null)
+    const fora = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) fecha() }
     document.addEventListener('mousedown', fora)
     window.addEventListener('scroll', fecha, true)
     window.addEventListener('resize', fecha)
@@ -61,21 +63,18 @@ function Menu({ item, onAcao }: { item: InventoryItem; onAcao: Props['onAcao'] }
       window.removeEventListener('scroll', fecha, true)
       window.removeEventListener('resize', fecha)
     }
-  }, [aberto])
+  }, [ancora])
   const opcao = 'block w-full text-left px-3 py-2 text-sm text-tinta hover:bg-porcelana-2'
-  const escolher = (t: AcaoProduto) => { setAberto(false); onAcao(t, item) }
+  const escolher = (t: AcaoProduto) => { setAncora(null); onAcao(t, item) }
   return (
     <div className="relative" ref={ref}>
-      <button type="button" aria-label="Mais ações" aria-expanded={aberto} onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect()
-          setPos({ top: r.bottom + 4, right: window.innerWidth - r.right })
-          setAberto((v) => !v)
-        }}
+      <button type="button" aria-label="Mais ações" aria-expanded={ancora !== null}
+        onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAncora((a) => (a ? null : r)) }}
         className="p-1.5 rounded-lg text-tinta-3 hover:bg-porcelana-2">
         <MoreHorizontal className="w-4 h-4" />
       </button>
-      {aberto && (
-        <div style={{ top: pos.top, right: pos.right }} className="fixed z-30 w-40 bg-white border border-linha rounded-lg shadow-lg py-1">
+      {ancora && (
+        <div ref={menuRef} className="invisible fixed z-30 w-40 bg-white border border-linha rounded-lg shadow-lg py-1">
           {item.active && <button className={opcao} onClick={() => escolher('contagem')}>Contagem</button>}
           <button className={opcao} onClick={() => escolher('editar')}>Editar</button>
           <button className={opcao} onClick={() => escolher('ativar')}>{item.active ? 'Desativar' : 'Reativar'}</button>
