@@ -3,7 +3,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { WhatsAppBanner } from '@/components/mensagens/WhatsAppBanner'
 import { ClinicProvider } from '@/components/layout/ClinicProvider'
 import { MenuLateralProvider } from '@/components/layout/MenuLateral'
-import { COOKIE_MENU, COOKIE_PAINEL_AGENDA, estaRecolhido } from '@/components/layout/menuLateralCookie'
+import { COOKIE_MENU, estaRecolhido } from '@/components/layout/menuLateralCookie'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const preferencias = await cookies()
@@ -12,7 +12,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <ClinicProvider>
       <MenuLateralProvider
         recolhidoInicial={estaRecolhido(preferencias.get(COOKIE_MENU)?.value)}
-        painelAgendaRecolhidoInicial={estaRecolhido(preferencias.get(COOKIE_PAINEL_AGENDA)?.value)}
         className="group/app min-h-screen bg-porcelana print:bg-white"
       >
         <div className="print:hidden">

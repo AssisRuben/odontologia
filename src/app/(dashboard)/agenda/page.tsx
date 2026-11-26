@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useMenuLateral } from '@/components/layout/MenuLateral'
 import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal, X, PanelRightClose, PanelRightOpen, MessageCircleOff } from 'lucide-react'
 import { format, addWeeks, subWeeks, addDays, subDays, addMonths, subMonths, startOfWeek, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -136,7 +135,9 @@ function AgendaConteudo() {
   const [modalNotes, setModalNotes] = useState<string | undefined>()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   // Painel do dia (computador): começa escondido; a escolha fica guardada no navegador.
-  const { painelAgendaRecolhido: sidebarCollapsed, alternarPainelAgenda } = useMenuLateral()
+  // Painel do dia (computador): sempre começa escondido ao abrir a agenda, para o calendário ocupar a tela.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const alternarPainelAgenda = () => setSidebarCollapsed((v) => !v)
   const [popover, setPopover] = useState<{ apt: Appointment; rect: DOMRect } | null>(null)
   const [editingApt, setEditingApt] = useState<Appointment | null>(null)
   function abrirNovaConsulta(o: { date?: Date; hour?: string; patientId?: string; professionalId?: string; notes?: string } = {}) {
