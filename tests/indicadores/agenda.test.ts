@@ -20,6 +20,17 @@ describe('resumoAgenda', () => {
     expect(r.taxaFaltas).toBeCloseTo(0.1)
     expect(r.taxaCancelamento).toBeCloseTo(2 / 12)
   })
+  it('separa canceladas pelo paciente e pelo dentista', () => {
+    const cs = [
+      { ...c('cancelled'), cancelled_by: 'patient' as const },
+      { ...c('cancelled'), cancelled_by: 'patient' as const },
+      { ...c('cancelled', undefined, 'd2'), cancelled_by: 'professional' as const },
+      c('cancelled'),
+    ]
+    const r = resumoAgenda(cs, '2026-11', agora, null)
+    expect(r).toMatchObject({ canceladas: 4, canceladasPaciente: 2, canceladasDentista: 1 })
+    expect(r.porDentista.find((d) => d.professional_id === 'd2')).toMatchObject({ canceladas: 1, canceladasPaciente: 0, canceladasDentista: 1 })
+  })
   it('sem consultas, taxas nulas', () => {
     const r = resumoAgenda([], '2026-11', agora, null)
     expect(r).toMatchObject({ total: 0, comparecimento: null, taxaFaltas: null, taxaCancelamento: null, porDentista: [] })

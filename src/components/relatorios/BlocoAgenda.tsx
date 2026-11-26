@@ -7,6 +7,12 @@ const thR = th.replace('text-left', 'text-right')
 const tdR = 'px-4 py-2 text-sm text-tinta-2 text-right whitespace-nowrap'
 const dmy = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`
 
+/** ": 2 pelo paciente, 1 pelo dentista" — só as partes que não são zero. */
+function quemCancelou(paciente: number, dentista: number) {
+  const partes = [paciente && `${paciente} pelo paciente`, dentista && `${dentista} pelo dentista`].filter(Boolean)
+  return partes.length ? `: ${partes.join(', ')}` : null
+}
+
 export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
   return (
     <section className="bg-white rounded-xl border border-linha p-5 space-y-4">
@@ -14,7 +20,10 @@ export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-tinta-2">
         <span>Atendidas: <b>{agenda.atendidas}</b></span>
         <span>Faltas: <b>{agenda.faltas}</b> ({pctInteiro(agenda.taxaFaltas)})</span>
-        <span>Canceladas: <b>{agenda.canceladas}</b> ({pctInteiro(agenda.taxaCancelamento)})</span>
+        <span>
+          Canceladas: <b>{agenda.canceladas}</b> ({pctInteiro(agenda.taxaCancelamento)})
+          {quemCancelou(agenda.canceladasPaciente, agenda.canceladasDentista)}
+        </span>
         <span>Comparecimento: <b>{pctInteiro(agenda.comparecimento)}</b></span>
       </div>
       {agenda.semDesfecho > 0 && (
@@ -32,12 +41,14 @@ export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
               <th className={thR}>Atendidas</th>
               <th className={thR}>Faltas</th>
               <th className={thR}>Canceladas</th>
+              <th className={thR}>Pelo paciente</th>
+              <th className={thR}>Pelo dentista</th>
               <th className={thR}>Comparecimento</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-porcelana">
             {agenda.porDentista.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-tinta-4">Sem consultas no mês.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-tinta-4">Sem consultas no mês.</td></tr>
             )}
             {agenda.porDentista.map((d) => (
               <tr key={d.professional_id}>
@@ -45,6 +56,8 @@ export default function BlocoAgenda({ agenda }: { agenda: Painel['agenda'] }) {
                 <td className={tdR}>{d.atendidas}</td>
                 <td className={tdR}>{d.faltas}</td>
                 <td className={tdR}>{d.canceladas}</td>
+                <td className={tdR}>{d.canceladasPaciente}</td>
+                <td className={tdR}>{d.canceladasDentista}</td>
                 <td className={tdR}>{pctInteiro(d.comparecimento)}</td>
               </tr>
             ))}
