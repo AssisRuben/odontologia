@@ -1,4 +1,4 @@
-import type { AppointmentStatus } from '@/types'
+import type { AppointmentStatus, CanceladoPor } from '@/types'
 import { diaDoInstante, mesDoInstante } from './periodo'
 
 export type ConsultaIn = {
@@ -7,6 +7,8 @@ export type ConsultaIn = {
   professional_id: string
   start_time: string
   status: AppointmentStatus
+  /** Quem cancelou (vazio nos cancelamentos antigos). */
+  cancelled_by?: CanceladoPor | null
   /** Mês (YYYY-MM) em São Paulo, já classificado; se ausente, é calculado de start_time. */
   mes?: string
 }
@@ -17,7 +19,10 @@ export type Contagem = {
   total: number
   atendidas: number
   faltas: number
+  /** Total de canceladas; as duas abaixo são as partes com quem cancelou conhecido. */
   canceladas: number
+  canceladasPaciente: number
+  canceladasDentista: number
   semDesfecho: number
   comparecimento: number | null
   taxaFaltas: number | null
@@ -28,11 +33,17 @@ function contar(cs: ConsultaIn[]): Contagem {
   let atendidas = 0
   let faltas = 0
   let canceladas = 0
+  let canceladasPaciente = 0
+  let canceladasDentista = 0
   let semDesfecho = 0
   for (const c of cs) {
     if (c.status === 'completed' || c.status === 'in_progress') atendidas++
     else if (c.status === 'no_show') faltas++
-    else if (c.status === 'cancelled') canceladas++
+    else if (c.status === 'cancelled') {
+      canceladas++
+      if (c.cancelled_by === 'patient') canceladasPaciente++
+      else if (c.cancelled_by === 'professional') canceladasDentista++
+    }
     else semDesfecho++
   }
   const total = cs.length
@@ -42,6 +53,8 @@ function contar(cs: ConsultaIn[]): Contagem {
     atendidas,
     faltas,
     canceladas,
+    canceladasPaciente,
+    canceladasDentista,
     semDesfecho,
     comparecimento: base > 0 ? atendidas / base : null,
     taxaFaltas: base > 0 ? faltas / base : null,
@@ -102,4 +115,14 @@ export function maisFaltam(
     .filter(([, a]) => a.faltas >= 2)
     .map(([patient_id, a]) => ({ patient_id, ...a }))
     .sort((x, y) => y.faltas - x.faltas || (x.patient_id < y.patient_id ? -1 : x.patient_id > y.patient_id ? 1 : 0))
+}
+
+/** "2 pelo paciente, 1 pelo dentista, 2 sem informação": só as partes que não são zero. */
+export function quemCancelou(c: Pick<Contagem, 'canceladas' | 'canceladasPaciente' | 'canceladasDentista'>): string {
+  const semInfo = c.canceladas - c.canceladasPaciente - c.canceladasDentista
+  return [
+    c.canceladasPaciente && `${c.canceladasPaciente} pelo paciente`,
+    c.canceladasDentista && `${c.canceladasDentista} pelo dentista`,
+    semInfo && `${semInfo} sem informação`,
+  ].filter(Boolean).join(', ')
 }

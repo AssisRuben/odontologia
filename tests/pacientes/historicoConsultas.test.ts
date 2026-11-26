@@ -52,14 +52,18 @@ describe('montarHistorico', () => {
       c('3', '2026-02-04T10:00:00', 'completed', 'Ana'),
       c('4', '2025-06-04T10:00:00', 'no_show'),
       c('5', '2025-07-04T10:00:00', 'no_show'),
-      c('6', '2025-08-04T10:00:00', 'cancelled', 'Bia'),
+      { ...c('6', '2025-08-04T10:00:00', 'cancelled', 'Bia'), cancelled_by: 'patient' },
+      c('7', '2025-09-04T10:00:00', 'cancelled'),
     ], [], agora)
-    expect(r.resumo).toEqual({ realizadas: 3, primeira: '2024-03-04T10:00:00', faltas: 2, canceladas: 1, dentistas: ['Ana', 'Paulo'] })
+    expect(r.resumo).toEqual({
+      realizadas: 3, primeira: '2024-03-04T10:00:00', faltas: 2,
+      canceladas: 2, canceladasPaciente: 1, canceladasDentista: 0, dentistas: ['Ana', 'Paulo'],
+    })
   })
 
   it('sem consultas', () => {
     expect(montarHistorico([], [], agora)).toEqual({
-      resumo: { realizadas: 0, primeira: null, faltas: 0, canceladas: 0, dentistas: [] },
+      resumo: { realizadas: 0, primeira: null, faltas: 0, canceladas: 0, canceladasPaciente: 0, canceladasDentista: 0, dentistas: [] },
       proximas: [],
       anos: [],
       evolucoesDa: {},

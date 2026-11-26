@@ -1491,7 +1491,7 @@ BEGIN
   RETURNING id INTO v_id;
 
   IF p_replace_id IS NOT NULL THEN
-    UPDATE appointments SET status = 'cancelled'
+    UPDATE appointments SET status = 'cancelled', cancelled_by = 'patient'
     WHERE id = p_replace_id AND clinic_id = p_clinic_id AND patient_id = p_patient_id
       AND status IN ('scheduled','confirmed');
     IF NOT FOUND THEN
@@ -4417,3 +4417,40 @@ ALTER TABLE legacy_payments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "clinic_member_select" ON legacy_payments;
 CREATE POLICY "clinic_member_select" ON legacy_payments FOR SELECT TO authenticated
   USING (clinic_id IN (SELECT public.user_clinic_ids()));
+
+-- ============================================================
+-- QUEM CANCELOU A CONSULTA (paciente ou dentista)
+-- Acrescenta: a coluna cancelled_by em appointments ('patient' ou 'professional';
+-- vazia nos cancelamentos antigos), o gatilho que apaga a coluna quando a consulta
+-- deixa de estar cancelada e uma nova versão de book_whatsapp_appointment: a consulta
+-- remarcada pelo agente do WhatsApp fica "cancelada pelo paciente".
+-- Rode depois de supabase/2026-11-22-importacao-codental.sql.
+--
+-- Como aplicar: Supabase Dashboard > SQL Editor > New query >
+-- cole este arquivo inteiro > Run. Pode rodar mais de uma vez.
+-- (Bancos novos criados com supabase/schema.sql já vêm assim.)
+-- ============================================================
+
+-- ── Quem cancelou ───────────────────────────────────────────
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_by TEXT;
+ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_cancelled_by_check;
+ALTER TABLE appointments ADD CONSTRAINT appointments_cancelled_by_check
+  CHECK (cancelled_by IN ('patient','professional'));
+
+-- Consulta que não está cancelada não tem "quem cancelou", venha a mudança de onde vier.
+CREATE OR REPLACE FUNCTION public.appointments_cancelled_by_clear()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $fn$
+BEGIN
+  IF NEW.status <> 'cancelled' THEN
+    NEW.cancelled_by := NULL;
+  END IF;
+  RETURN NEW;
+END;
+$fn$;
+
+DROP TRIGGER IF EXISTS appointments_cancelled_by_clear ON appointments;
+CREATE TRIGGER appointments_cancelled_by_clear
+  BEFORE INSERT OR UPDATE ON appointments
+  FOR EACH ROW EXECUTE FUNCTION public.appointments_cancelled_by_clear();

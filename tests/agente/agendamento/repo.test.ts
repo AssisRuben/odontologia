@@ -64,7 +64,7 @@ describe('createAgendaDeps', () => {
     expect(await createAgendaDeps(admin).desmarcar('k1', 'pa', 'ap1')).toBe(true)
     const q = queries[0]
     expect(q.table).toBe('appointments')
-    expect(q.calls).toContainEqual(['update', { status: 'cancelled' }])
+    expect(q.calls).toContainEqual(['update', { status: 'cancelled', cancelled_by: 'patient' }])
     expect(q.calls).toContainEqual(['eq', 'id', 'ap1'])
     expect(q.calls).toContainEqual(['eq', 'clinic_id', 'k1'])
     expect(q.calls).toContainEqual(['eq', 'patient_id', 'pa'])
