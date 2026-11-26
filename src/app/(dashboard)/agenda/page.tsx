@@ -135,7 +135,6 @@ function AgendaConteudo() {
   const [modalProfessionalId, setModalProfessionalId] = useState<string | undefined>()
   const [modalNotes, setModalNotes] = useState<string | undefined>()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // Painel do dia (computador): começa escondido; a escolha fica guardada no navegador.
   // Painel do dia (computador): sempre começa escondido ao abrir a agenda, para o calendário ocupar a tela.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const alternarPainelAgenda = () => setSidebarCollapsed((v) => !v)
@@ -400,28 +399,9 @@ function AgendaConteudo() {
               )}
             </button>
 
-            {/* Computador: mostra/esconde o painel da direita */}
-            <button
-              onClick={alternarPainelAgenda}
-              title={sidebarCollapsed ? 'Mostrar painel do dia' : 'Esconder painel do dia'}
-              aria-label={
-                sidebarCollapsed
-                  ? `Mostrar painel do dia${waitingToday.length + aConfirmar.length > 0 ? ' (há pacientes aguardando ou consultas a confirmar)' : ''}`
-                  : 'Esconder painel do dia'
-              }
-              aria-expanded={!sidebarCollapsed}
-              className="hidden md:grid relative w-10 h-10 place-items-center rounded-[10px] bg-white ring-1 ring-inset ring-linha text-tinta-3 hover:text-tinta shrink-0 transition-colors"
-            >
-              {sidebarCollapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
-              {/* Painel escondido: avisa que há gente na sala de espera ou consulta por confirmar */}
-              {sidebarCollapsed && waitingToday.length + aConfirmar.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gengiva ring-2 ring-white" />
-              )}
-            </button>
-
             <button
               onClick={() => abrirNovaConsulta({ date: new Date() })}
-              className="flex items-center gap-1.5 h-10 px-3 md:px-4 bg-petroleo text-white rounded-[10px] text-sm font-semibold hover:bg-petroleo-escuro transition-colors shrink-0"
+              className="flex items-center justify-center gap-1.5 h-10 px-3 md:px-4 md:w-44 bg-petroleo text-white rounded-[10px] text-sm font-semibold hover:bg-petroleo-escuro transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" strokeWidth={2.4} />
               <span className="hidden sm:inline">Nova consulta</span>
@@ -481,6 +461,30 @@ function AgendaConteudo() {
                 </button>
               ))}
             </div>
+
+            {/* Computador: mostra/esconde o painel do dia; fica embaixo do Nova consulta, do mesmo tamanho */}
+            <button
+              onClick={alternarPainelAgenda}
+              aria-expanded={!sidebarCollapsed}
+              aria-label={`${sidebarCollapsed ? 'Mostrar' : 'Esconder'} painel do dia${waitingToday.length > 0 ? `, ${waitingToday.length} na sala de espera` : ''}${aConfirmar.length > 0 ? `, ${aConfirmar.length} a confirmar` : ''}`}
+              className={cn(
+                'hidden md:flex items-center justify-center gap-1.5 h-10 w-44 ml-auto rounded-[10px] text-sm font-semibold ring-1 ring-inset shrink-0 transition-colors',
+                sidebarCollapsed ? 'bg-white text-tinta ring-linha hover:ring-petroleo/40' : 'bg-[#DFE6E7] text-tinta ring-transparent',
+              )}
+            >
+              {sidebarCollapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
+              Painel do dia
+              {sidebarCollapsed && waitingToday.length > 0 && (
+                <span title="Na sala de espera" className="text-xs font-semibold rounded-full px-1.5 py-px bg-[#ECE7FA] text-[#43348A] tabular-nums">
+                  {waitingToday.length}
+                </span>
+              )}
+              {sidebarCollapsed && aConfirmar.length > 0 && (
+                <span title="Falta confirmar" className="text-xs font-semibold rounded-full px-1.5 py-px bg-[#FFF5E1] text-[#6A4A0C] tabular-nums">
+                  {aConfirmar.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
