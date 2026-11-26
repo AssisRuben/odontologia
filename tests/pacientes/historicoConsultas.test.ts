@@ -96,6 +96,27 @@ describe('montarHistorico', () => {
     expect(ids(r.evolucoesDa.d)).toEqual(['e3'])
   })
 
+  it('sem ligação, não vai para consulta cancelada ou com falta se houver outra no dia', () => {
+    const r = montarHistorico(
+      [c('canc', '2026-11-10T09:00:00', 'cancelled'), c('falt', '2026-11-10T11:00:00', 'no_show'), c('ok', '2026-11-10T14:00:00')],
+      [e('e5', '2026-11-10')],
+      agora,
+    )
+    expect(ids(r.evolucoesDa.ok)).toEqual(['e5'])
+    expect(r.evolucoesDa.canc).toBeUndefined()
+  })
+
+  it('duas evoluções soltas no mesmo dia seguem a ordem em que foram registradas', () => {
+    // a página entrega as evoluções da mais nova para a mais antiga
+    const r = montarHistorico(
+      [c('m', '2026-11-10T09:00:00'), c('t', '2026-11-10T15:00:00')],
+      [e('tarde', '2026-11-10'), e('manha', '2026-11-10')],
+      agora,
+    )
+    expect(ids(r.evolucoesDa.m)).toEqual(['manha'])
+    expect(ids(r.evolucoesDa.t)).toEqual(['tarde'])
+  })
+
   it('evolução sem consulta no dia fica fora', () => {
     const r = montarHistorico([c('d', '2026-11-18T10:00:00')], [e('e4', '2020-01-01')], agora)
     expect(r.evolucoesDa).toEqual({})

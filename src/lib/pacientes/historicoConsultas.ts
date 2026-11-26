@@ -62,12 +62,16 @@ function ligarEvolucoes<C extends ConsultaHist, E extends EvolucaoHist>(consulta
     if (ev.appointment_id && existe.has(ev.appointment_id)) (evolucoesDa[ev.appointment_id] ??= []).push(ev)
     else soltas.push(ev)
   }
+  // No mesmo dia, as consultas que aconteceram vêm antes das canceladas ou com falta; depois, por horário.
+  const naoAconteceu = (x: ConsultaHist) => (FORA_DAS_PROXIMAS.includes(x.status) ? 1 : 0)
   const doDia = new Map<string, C[]>()
-  for (const x of [...consultas].sort((a, b) => inicio(a) - inicio(b))) {
+  for (const x of [...consultas].sort((a, b) => naoAconteceu(a) - naoAconteceu(b) || inicio(a) - inicio(b))) {
     const dia = diaLocal(x)
     doDia.set(dia, [...(doDia.get(dia) ?? []), x])
   }
-  for (const ev of soltas) {
+  // A página entrega as evoluções da mais nova para a mais antiga: a mais antiga fica com a primeira consulta do dia.
+  // Se todas as consultas do dia já têm evolução, a solta se junta à primeira, para não sumir.
+  for (const ev of [...soltas].reverse()) {
     const candidatas = doDia.get(ev.date)
     if (!candidatas) continue
     const alvo = candidatas.find((x) => !evolucoesDa[x.id]) ?? candidatas[0]
