@@ -91,16 +91,16 @@ function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: 
   const cor = APPOINTMENT_STATUS_COLORS[x.status] ?? '#5E6E75'
 
   const situacao = (
-    <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ backgroundColor: cor + '1A', color: cor }}>
+    <span className="shrink-0 whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ backgroundColor: cor + '1A', color: cor }}>
       {rotuloSituacao(x.status, x.cancelled_by)}
     </span>
   )
 
   return (
     <li className="px-4 sm:px-5 py-3">
-      <div className="flex flex-col gap-1.5 md:grid md:grid-cols-[150px_100px_minmax(0,180px)_minmax(0,1fr)_112px_100px] md:items-center md:gap-4">
+      <div className="flex flex-col gap-1.5 md:grid md:grid-cols-[150px_100px_minmax(0,180px)_minmax(0,1fr)_150px_100px] md:items-center md:gap-4">
         {/* data e hora (no celular, com a situação ao lado) */}
-        <div className="flex items-center justify-between gap-2 md:contents">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 md:contents">
           <p className="text-sm text-tinta tabular-nums">
             {format(inicio, 'dd/MM/yyyy', { locale: ptBR })}{' '}
             <span className="text-tinta-4">{format(inicio, 'EEE', { locale: ptBR })}</span>
