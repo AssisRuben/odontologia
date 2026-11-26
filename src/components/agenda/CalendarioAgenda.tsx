@@ -10,7 +10,8 @@ import { Check, CheckCheck, Clock, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Appointment } from '@/types'
-import { APPOINTMENT_STATUS_SOFT } from '@/types'
+import { APPOINTMENT_STATUS_COLORS, APPOINTMENT_STATUS_SOFT } from '@/types'
+import { nomeExibicao } from '@/lib/agenda/nome'
 import type { WhatsAppIndicator } from './useWhatsAppStatus'
 
 interface CalendarioAgendaProps {
@@ -57,7 +58,7 @@ export function CalendarioAgenda({
     const soft = APPOINTMENT_STATUS_SOFT[apt.status] ?? APPOINTMENT_STATUS_SOFT.scheduled
     return {
       id: apt.id,
-      title: apt.patient?.name || 'Paciente',
+      title: nomeExibicao(apt.patient?.name || 'Paciente'),
       start: apt.start_time,
       end: apt.end_time,
       backgroundColor: soft.bg,
@@ -148,25 +149,23 @@ export function CalendarioAgenda({
           const compact = mins <= 30
           const indicator = indicators?.get(apt.id)
 
+          const plano = apt.patient?.insurance_plan?.name
+
           return (
-            <div style={{
-              padding: compact ? '3px 7px' : '5px 8px',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: compact ? 'center' : 'flex-start',
-              gap: compact ? 0 : 2,
-              overflow: 'hidden',
-            }}>
-              {/* nome do paciente */}
-              <div className="ev-nome" style={{
-                fontSize: 12.5,
-                fontWeight: 600,
-                lineHeight: 1.25,
+            <div
+              title={[eventInfo.event.title, `${eventInfo.timeText}${plano ? `, ${plano}` : ''}`].join('\n')}
+              style={{
+                padding: compact ? '3px 6px 3px 7px' : '5px 8px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-start',
+                gap: compact ? 0 : 2,
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
+              }}
+            >
+              {/* nome do paciente, em até duas linhas */}
+              <div className="ev-nome" style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.17 }}>
                 {indicator && (
                   <span
                     title={indicator === 'confirmed' ? 'Confirmada pelo WhatsApp' : 'Confirmação enviada'}
@@ -191,8 +190,15 @@ export function CalendarioAgenda({
                 {eventInfo.event.title}
               </div>
 
-              {/* procedimento */}
-              {apt?.procedure && (
+              {/* horário, com a cor da situação; plano só nos blocos maiores */}
+              <div className="ev-hora" style={{ fontSize: 11, lineHeight: 1.25, opacity: 0.85 }}>
+                <span className="ev-ponto" style={{ backgroundColor: APPOINTMENT_STATUS_COLORS[apt.status] }} aria-hidden="true" />
+                {eventInfo.timeText}
+                {!compact && plano ? `, ${plano}` : ''}
+              </div>
+
+              {/* procedimento (só nos blocos maiores; nos de 30 min fica no popup) */}
+              {!compact && apt?.procedure && (
                 <div style={{
                   fontSize: 11.5,
                   opacity: 0.85,
@@ -202,23 +208,6 @@ export function CalendarioAgenda({
                   whiteSpace: 'nowrap',
                 }}>
                   {apt.procedure}
-                </div>
-              )}
-
-              {/* horário + plano (só em eventos mais longos) */}
-              {!compact && (
-                <div style={{
-                  fontSize: 11,
-                  opacity: 0.7,
-                  fontVariantNumeric: 'tabular-nums',
-                  lineHeight: 1.2,
-                  marginTop: 2,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {eventInfo.timeText}
-                  {apt?.patient?.insurance_plan ? `, ${apt.patient.insurance_plan.name}` : ''}
                 </div>
               )}
             </div>

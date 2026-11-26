@@ -169,18 +169,37 @@ body {
 .fc-dental .fc-timegrid-event.ev-in_progress {
   box-shadow: 0 0 0 1px #fff, inset 0 0 0 1.5px #3FA36C;
 }
-/* falta e cancelamento: hachurado e riscado, para não depender só da cor */
-.fc-dental .fc-timegrid-event.ev-no_show,
+/* cancelamento: hachurado e riscado, para não depender só da cor */
 .fc-dental .fc-timegrid-event.ev-cancelled {
-  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(150, 42, 71, 0.07) 6px 12px);
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(161, 29, 29, 0.07) 6px 12px);
 }
-.fc-dental .ev-no_show .ev-nome,
 .fc-dental .ev-cancelled .ev-nome {
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
-.fc-dental .ev-completed {
-  opacity: 0.85;
+/* nome em até duas linhas */
+.fc-dental .ev-nome {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.fc-dental .ev-hora {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.fc-dental .ev-hora .ev-ponto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
 }
 .fc-dental .ev-pulso {
   display: inline-block;
