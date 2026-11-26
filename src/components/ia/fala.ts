@@ -72,3 +72,14 @@ export function problemaGravacao(tamanho: number): 'vazia' | 'grande' | null {
   if (tamanho > MAX_ENVIO_BYTES) return 'grande'
   return null
 }
+
+/**
+ * Botões de voz: com IA conectada, só o Gravar (a transcrição da IA reconhece termos de odontologia;
+ * o Ditar do navegador não). Se o navegador não grava áudio, o Ditar aparece no lugar.
+ * iaConectada null = ainda verificando: nenhum botão, para o Ditar não aparecer e sumir.
+ */
+export function botoesVoz({ podeDitar, podeGravar, iaConectada }: { podeDitar: boolean; podeGravar: boolean; iaConectada: boolean | null }): { ditar: boolean; gravar: boolean } {
+  if (iaConectada === null) return { ditar: false, gravar: false }
+  const gravar = iaConectada && podeGravar
+  return { ditar: podeDitar && !gravar, gravar }
+}
