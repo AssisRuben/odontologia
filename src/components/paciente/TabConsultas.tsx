@@ -4,7 +4,8 @@ import { useId, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarX2, ChevronDown, NotebookPen } from 'lucide-react'
-import { APPOINTMENT_STATUS_COLORS, APPOINTMENT_STATUS_LABELS } from '@/types'
+import { APPOINTMENT_STATUS_COLORS } from '@/types'
+import { rotuloSituacao } from '@/lib/agenda/situacao'
 import type { Appointment } from '@/types'
 import { montarHistorico, type EvolucaoHist, type ResumoConsultas } from '@/lib/pacientes/historicoConsultas'
 
@@ -50,7 +51,10 @@ function Resumo({ resumo }: { resumo: ResumoConsultas }) {
   itens.push(<><b className="font-semibold text-tinta">{resumo.realizadas}</b> {resumo.realizadas === 1 ? 'consulta realizada' : 'consultas realizadas'}</>)
   if (resumo.primeira) itens.push(<>desde <b className="font-semibold text-tinta">{format(parseISO(resumo.primeira), 'MMM/yyyy', { locale: ptBR })}</b></>)
   if (resumo.faltas) itens.push(<span className="text-[#B42318]">{plural(resumo.faltas, 'falta', 'faltas')}</span>)
-  if (resumo.canceladas) itens.push(<>{plural(resumo.canceladas, 'cancelada', 'canceladas')}</>)
+  const semQuem = resumo.canceladas - resumo.canceladasPaciente - resumo.canceladasDentista
+  if (resumo.canceladasPaciente) itens.push(<>{plural(resumo.canceladasPaciente, 'cancelada', 'canceladas')} pelo paciente</>)
+  if (resumo.canceladasDentista) itens.push(<>{plural(resumo.canceladasDentista, 'cancelada', 'canceladas')} pelo dentista</>)
+  if (semQuem) itens.push(<>{plural(semQuem, 'cancelada', 'canceladas')}</>)
   if (resumo.dentistas.length) itens.push(<>com {resumo.dentistas.join(', ')}</>)
 
   return (
@@ -88,7 +92,7 @@ function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: 
 
   const situacao = (
     <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ backgroundColor: cor + '1A', color: cor }}>
-      {APPOINTMENT_STATUS_LABELS[x.status] ?? x.status}
+      {rotuloSituacao(x.status, x.cancelled_by)}
     </span>
   )
 
