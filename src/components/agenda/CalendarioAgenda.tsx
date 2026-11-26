@@ -23,6 +23,10 @@ interface CalendarioAgendaProps {
   onEventClick: (appointment: Appointment, rect: DOMRect) => void
 }
 
+// Fora do componente de propósito: uma lista nova a cada render faz o FullCalendar
+// recalcular a semana e voltar a rolagem para o início (ex.: ao abrir o card da consulta).
+const DIAS_OCULTOS = [0]
+
 export function CalendarioAgenda({
   view,
   currentDate,
@@ -89,7 +93,7 @@ export function CalendarioAgenda({
         selectable={true}
         selectMirror={true}
         slotEventOverlap={false}
-        hiddenDays={[0]}
+        hiddenDays={DIAS_OCULTOS}
         dateClick={(info) => {
           const date = info.date
           const hour = info.dateStr.split('T')[1]?.slice(0, 5) || '09:00'

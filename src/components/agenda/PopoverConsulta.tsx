@@ -7,6 +7,7 @@ import { X, Calendar, User2, Phone, FileText, Edit2, ExternalLink, ClipboardPlus
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatPhone } from '@/lib/utils'
+import { nomeExibicao } from '@/lib/agenda/nome'
 import { APPOINTMENT_STATUS_COLORS } from '@/types'
 import { aplicarSituacao, lerSituacao, opcoesSituacao, valorDaSituacao, type ValorSituacao } from '@/lib/agenda/situacao'
 import type { Appointment, AppointmentStatus } from '@/types'
@@ -87,6 +88,8 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
   }, [anchorRect, status, erroStatus])
 
   const statusColor = APPOINTMENT_STATUS_COLORS[status] || '#5E6E75'
+  // Mesmo nome dos blocos da agenda: completo e sem tudo em maiúsculas.
+  const nome = nomeExibicao(apt.patient?.name || 'Paciente')
 
   return (
     <div
@@ -120,7 +123,7 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
               </label>
             </div>
             {erroStatus && <p role="alert" className="mb-1 text-xs text-red-600">{erroStatus}</p>}
-            <h3 className="text-sm font-bold text-tinta leading-snug truncate">
+            <h3 className="text-sm font-bold text-tinta leading-snug break-words">
               {apt.patient_id ? (
                 <Link
                   href={`/pacientes/${apt.patient_id}`}
@@ -128,9 +131,9 @@ export function PopoverConsulta({ appointment: apt, anchorRect, onClose, onEdit,
                   title="Abrir prontuário"
                   className="rounded-sm hover:text-petroleo hover:underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-petroleo"
                 >
-                  {apt.patient?.name || 'Paciente'}
+                  {nome}
                 </Link>
-              ) : (apt.patient?.name || 'Paciente')}
+              ) : nome}
             </h3>
           </div>
           <button
