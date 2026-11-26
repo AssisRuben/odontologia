@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { X, CheckCircle2 } from 'lucide-react'
+import { X, CheckCircle2, Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ClockPicker } from './ClockPicker'
 import type { Patient, Professional, InsurancePlan } from '@/types'
+import { formatPhone } from '@/lib/utils'
 
 // Builds an ISO string with the browser's local timezone offset
 // e.g. "2026-06-02T13:00:00-03:00" for UTC-3 browsers
@@ -214,8 +215,11 @@ export function ModalNovaConsulta({
               className="w-full h-10 px-3 rounded-lg border border-linha text-sm focus:outline-none focus:ring-2 focus:ring-petroleo"
             />
             {showPatientList && !selectedPatient && filteredPatients.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-linha rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                {filteredPatients.slice(0, 8).map((p) => (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-linha rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                {filteredPatients.slice(0, 8).map((p) => {
+                  // Como na busca rápida do topo: nome e, embaixo, telefone e convênio.
+                  const plano = p.insurance_plan_id ? insurancePlans.find((x) => x.id === p.insurance_plan_id)?.name : undefined
+                  return (
                   <button
                     key={p.id}
                     type="button"
@@ -225,11 +229,18 @@ export function ModalNovaConsulta({
                       setPatientSearch('')
                       setShowPatientList(false)
                     }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-porcelana text-tinta"
+                    className="w-full text-left px-3 py-2 hover:bg-porcelana focus-visible:bg-porcelana focus-visible:outline-none"
                   >
-                    {p.name}
+                    <span className="block text-sm text-tinta truncate">{p.name}</span>
+                    {(p.phone || plano) && (
+                      <span className="flex items-center gap-2 text-xs text-tinta-3 truncate">
+                        {p.phone && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" aria-hidden="true" />{formatPhone(p.phone)}</span>}
+                        {plano && <span>{plano}</span>}
+                      </span>
+                    )}
                   </button>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
