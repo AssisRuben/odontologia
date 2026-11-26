@@ -52,7 +52,7 @@ export function ModalEvolucao({ open, appointment, paciente, profissionalInicial
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [marcadas, setMarcadas] = useState<boolean[]>([])
   const [aiUsed, setAiUsed] = useState(false)
-  const { conectado } = useIaStatus()
+  const { conectado, carregando: carregandoIa } = useIaStatus()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
   const [fila, setFila] = useState<string[]>([])
@@ -346,7 +346,7 @@ export function ModalEvolucao({ open, appointment, paciente, profissionalInicial
             </label>
             <div className="mb-2">
               <BarraVoz
-                gravarDisponivel={conectado}
+                gravarDisponivel={carregandoIa ? null : conectado}
                 onTexto={(t) => setDescription((d) => appendText(d, t))}
                 disabled={loading || organizando}
                 onOcupado={setVozOcupada}

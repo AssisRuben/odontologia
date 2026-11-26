@@ -20,7 +20,8 @@ interface OrganizeArgs<T> {
 }
 
 export interface AiClient {
-  transcribe(audio: File): Promise<string>
+  /** prompt: texto de referência com vocabulário (ex.: termos de odontologia). */
+  transcribe(audio: File, opts?: { prompt?: string }): Promise<string>
   organize<T>(args: OrganizeArgs<T>): Promise<{ data: T; inputTokens: number; outputTokens: number }>
   testKey(): Promise<void>
 }
@@ -43,12 +44,13 @@ export function makeAiClient(apiKey: string, sdk?: OpenAI, opts: AiClientOptions
   const openai = sdk ?? new OpenAI({ apiKey, timeout: opts.timeoutMs ?? AI_TIMEOUT_MS, maxRetries: opts.maxRetries ?? 1 })
 
   return {
-    async transcribe(audio) {
+    async transcribe(audio, opts) {
       try {
         const res = await openai.audio.transcriptions.create({
           model: TRANSCRIBE_MODEL,
           file: audio,
           languages: ['pt'],
+          ...(opts?.prompt ? { prompt: opts.prompt } : {}),
         })
         return res.text
       } catch (e) {

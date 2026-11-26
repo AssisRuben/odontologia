@@ -1,6 +1,6 @@
 ## Para que serve
 
-A Agenda mostra as consultas da semana ou do dia, de segunda a sábado, das 7h30 às 18h. Por ela você marca, confirma e altera consultas, acompanha quem chegou e registra a evolução do atendimento.
+A Agenda mostra as consultas da semana ou do dia, de segunda a sábado, das 7h às 21h (se houver consulta fora desse horário, a agenda se estende para mostrá-la). Por ela você marca, confirma e altera consultas, acompanha quem chegou e registra a evolução do atendimento.
 
 ## Antes de começar
 

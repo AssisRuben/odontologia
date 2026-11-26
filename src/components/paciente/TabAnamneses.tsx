@@ -151,7 +151,7 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [erroSalvar, setErroSalvar] = useState('')
-  const { conectado } = useIaStatus()
+  const { conectado, carregando: carregandoIa } = useIaStatus()
   const [ditado, setDitado] = useState('')
   const [vozOcupada, setVozOcupada] = useState(false)
   const [preenchendo, setPreenchendo] = useState(false)
@@ -256,7 +256,7 @@ function ModalNovaAnamnese({ patientId, clinicId, templates, onClose, onSaved }:
               <label className="block text-sm font-medium text-tinta mb-1">Preencher por voz</label>
               <div className="mb-2">
                 <BarraVoz
-                  gravarDisponivel={conectado}
+                  gravarDisponivel={carregandoIa ? null : conectado}
                   onTexto={(t) => (conectado ? setDitado((d) => appendText(d, t)) : setNotes((n) => appendText(n, t)))}
                   disabled={preenchendo || saving}
                   onOcupado={setVozOcupada}
