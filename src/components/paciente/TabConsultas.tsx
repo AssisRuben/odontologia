@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarX2, ChevronDown, NotebookPen } from 'lucide-react'
@@ -82,6 +82,7 @@ function Secao({ titulo, consultas, evolucoesDa, destaque = false }: {
 
 function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: Evolucao[] }) {
   const [aberta, setAberta] = useState(false)
+  const painelId = useId()
   const inicio = parseISO(x.start_time)
   const cor = APPOINTMENT_STATUS_COLORS[x.status] ?? '#5E6E75'
 
@@ -123,6 +124,8 @@ function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: 
               type="button"
               onClick={() => setAberta((v) => !v)}
               aria-expanded={aberta}
+              aria-controls={painelId}
+              aria-label={`Evolução da consulta de ${format(inicio, "dd/MM/yyyy 'às' HH:mm")}`}
               className="md:justify-self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-petroleo hover:bg-petroleo-50 focus-visible:outline-2 focus-visible:outline-petroleo"
             >
               <NotebookPen className="w-3.5 h-3.5" aria-hidden="true" />
@@ -136,7 +139,7 @@ function Linha({ consulta: x, evolucoes }: { consulta: Appointment; evolucoes?: 
       </div>
 
       {aberta && evolucoes && (
-        <div className="mt-3 space-y-2">
+        <div id={painelId} className="mt-3 space-y-2">
           {evolucoes.map((ev) => (
             <div key={ev.id} className="rounded-lg bg-porcelana-2 border border-linha px-3 py-2.5">
               <p className="text-sm text-tinta leading-relaxed whitespace-pre-line">{ev.description}</p>
